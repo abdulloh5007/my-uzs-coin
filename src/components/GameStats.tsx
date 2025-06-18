@@ -34,7 +34,7 @@ const GameStats: React.FC<GameStatsProps> = ({ score, currentEnergy, maxEnergy, 
             <Progress value={energyPercentage} aria-label={`Energy level: ${Math.floor(energyPercentage)}%`} className="h-2 w-full mt-1 bg-primary/30" />
           </StatItem>
           <StatItem icon={Target} label="Сила клика" value={`+${clickPower}`} />
-          <StatItem icon={History} label="Восстановление" value={`+${energyRegenRate}/сек`} />
+          <StatItem icon={History} label="Восстановление" value={`+${energyRegenRate.toFixed(0)}/сек`} />
         </div>
       </div>
     </div>
