@@ -88,10 +88,16 @@ export default {
             height: '0',
           },
         },
+        'coin-click-effect': { /* Added for completeness, but defined in globals.css for utility class */
+          '0%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(0.92)' },
+          '100%': { transform: 'scale(1)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'coin-click': 'coin-click-effect 0.2s ease-out', /* Added for completeness */
       },
     },
   },
