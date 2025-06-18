@@ -1,5 +1,5 @@
 
-import type React from 'react';
+import React from 'react'; // Changed from 'import type React'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import type { League } from '@/lib/leagues';
@@ -86,4 +86,3 @@ const OriginalProgress = Progress;
 
 
 export default LeagueInfoCard;
-
