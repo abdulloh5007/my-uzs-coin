@@ -6,12 +6,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  // DialogClose, // Removed
 } from '@/components/ui/dialog';
-// import { Button } from '@/components/ui/button'; // Button for explicit close removed
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trophy } from 'lucide-react'; // User, XIcon removed
+import { Trophy } from 'lucide-react';
 
 interface Player {
   rank: number;
@@ -24,27 +22,16 @@ interface LeaderboardModalProps {
   onOpenChange: (isOpen: boolean) => void;
   leagueName: string;
   topPlayers?: Player[];
-  currentPlayer?: Player | null; 
+  currentPlayer?: Player | null;
 }
-
-const generateMockPlayers = (leagueName: string, count: number = 100): Player[] => {
-  return Array.from({ length: count }, (_, i) => ({
-    rank: i + 1,
-    name: `Игрок ${leagueName} #${i + 1}`,
-    score: Math.floor(Math.random() * (50000000 - 1000 + 1)) + 1000,
-  })).sort((a,b) => b.score - a.score).map((p, idx) => ({...p, rank: idx + 1}));
-};
-
 
 const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   isOpen,
   onOpenChange,
   leagueName,
-  topPlayers: initialTopPlayers,
+  topPlayers = [], // Default to an empty array if not provided
   currentPlayer,
 }) => {
-
-  const topPlayers = initialTopPlayers || generateMockPlayers(leagueName, 100);
   const isCurrentPlayerInTop = currentPlayer && topPlayers.some(p => p.name === currentPlayer.name && p.score === currentPlayer.score);
 
   return (
@@ -56,38 +43,41 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
               <Trophy className="w-6 h-6 text-primary" />
               <DialogTitle className="text-xl font-semibold text-foreground">Топ Игроков: {leagueName}</DialogTitle>
             </div>
-            {/* Removed explicit DialogClose button */}
           </div>
            <DialogDescription className="text-sm text-muted-foreground pt-1">
             Рейтинг лучших игроков в лиге {leagueName}.
           </DialogDescription>
         </DialogHeader>
         
-        <ScrollArea className="flex-1 min-h-0"> {/* Occupies available space and scrolls */}
-          <div className="p-6 pt-2"> {/* Padding for scrollable content */}
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">#</TableHead>
-                  <TableHead>Игрок</TableHead>
-                  <TableHead className="text-right">Счет</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {topPlayers.map((player) => (
-                  <TableRow key={player.rank} className={currentPlayer?.name === player.name ? "bg-primary/10" : ""}>
-                    <TableCell className="font-medium">{player.rank}</TableCell>
-                    <TableCell>{player.name}</TableCell>
-                    <TableCell className="text-right">{player.score.toLocaleString()}</TableCell>
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-6 pt-2">
+            {topPlayers.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]">#</TableHead>
+                    <TableHead>Игрок</TableHead>
+                    <TableHead className="text-right">Счет</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {topPlayers.map((player) => (
+                    <TableRow key={player.rank} className={currentPlayer?.name === player.name && currentPlayer?.score === player.score ? "bg-primary/10" : ""}>
+                      <TableCell className="font-medium">{player.rank}</TableCell>
+                      <TableCell>{player.name}</TableCell>
+                      <TableCell className="text-right">{player.score.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">В этой лиге пока нет игроков.</p>
+            )}
           </div>
         </ScrollArea>
 
         {currentPlayer && !isCurrentPlayerInTop && (
-            <div className="p-6 pt-4 border-t border-border/50"> {/* Player section, outside ScrollArea */}
+            <div className="p-6 pt-4 border-t border-border/50">
             <h4 className="text-md font-semibold mb-2 text-foreground">Ваша позиция</h4>
             <Table>
                 <TableBody>
