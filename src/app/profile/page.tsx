@@ -7,7 +7,6 @@ import { User, Coins, Star, Clock4 } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
-// import TasksSection from '@/components/profile/TasksSection'; // Removed
 import LeaderboardModal from '@/components/profile/LeaderboardModal';
 import type { League } from '@/lib/leagues';
 import { getLeagueInfo } from '@/lib/leagues';
@@ -90,7 +89,7 @@ export default function ProfilePage() {
           <LeagueInfoCard
             currentLeague={currentLeague}
             nextLeague={nextLeague}
-            currentScore={userScore} // Pass the raw number for logic
+            currentScore={userScore} 
             progressPercentage={progressPercentage}
             onOpenLeaderboard={handleOpenLeaderboard}
           />
@@ -99,8 +98,6 @@ export default function ProfilePage() {
           <StatCard icon={Star} label="Всего кликов" value={clientTotalClicksDisplay} />
           <StatCard icon={Clock4} label="Время игры" value={gameTimePlayed} />
         </div>
-
-        {/* <TasksSection currentLeagueName={currentLeague.name} /> Removed */}
 
       </div>
       
@@ -111,7 +108,7 @@ export default function ProfilePage() {
           isOpen={isLeaderboardOpen}
           onOpenChange={setIsLeaderboardOpen}
           leagueName={selectedLeagueForLeaderboard.name}
-          currentPlayer={{ name: "Вы (Это вы)", score: userScore, rank: 101 }} 
+          currentPlayer={{ name: "Вы (Это вы)", score: userScore, rank: 1 }} 
         />
       )}
     </div>
