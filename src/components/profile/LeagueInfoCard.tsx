@@ -86,3 +86,4 @@ const OriginalProgress = Progress;
 
 
 export default LeagueInfoCard;
+
