@@ -73,6 +73,37 @@ export default function ProfilePage() {
     router.push(path);
   };
 
+  // Mock data for top players - in a real app, this would come from a backend
+  const mockTopPlayers: Array<{ name: string; score: number; rank: number }> = []; 
+  // const mockTopPlayers: Array<{ name: string; score: number; rank: number }> = [
+  //   { name: "Player One", score: userScore + 10000, rank: 1 },
+  //   { name: "Player Two", score: userScore + 5000, rank: 2 },
+  // ];
+
+
+  const currentPlayerLeaderboardEntry = { name: "Вы (Это вы)", score: userScore, rank: 1 };
+  
+  let leaderboardPlayersToShow = mockTopPlayers;
+  let playerRankInList = 1; // Default to 1 if no other players
+
+  if (mockTopPlayers.length === 0) {
+    leaderboardPlayersToShow = [currentPlayerLeaderboardEntry];
+  } else {
+    // In a real scenario, you'd fetch the top players and the current player's rank
+    // For now, if mockTopPlayers has data, we assume the current player might not be in it
+    // and their rank would be determined by the backend or further logic.
+    // For this example, if mockTopPlayers is not empty, we'll assume rank is based on that list or 101 if not in top.
+    const playerInMockTop = mockTopPlayers.find(p => p.name === currentPlayerLeaderboardEntry.name);
+    if (playerInMockTop) {
+      playerRankInList = playerInMockTop.rank;
+    } else if (mockTopPlayers.length > 0) {
+      playerRankInList = mockTopPlayers.length + 1; // Example: just after the last player in the list
+    }
+  }
+  // Update rank for the currentPlayer object that gets passed to the modal
+  const currentPlayerForModal = { ...currentPlayerLeaderboardEntry, rank: playerRankInList };
+
+
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
       <div className="flex-grow container mx-auto px-4 py-8 pt-10 md:pt-16 text-center">
@@ -108,7 +139,8 @@ export default function ProfilePage() {
           isOpen={isLeaderboardOpen}
           onOpenChange={setIsLeaderboardOpen}
           leagueName={selectedLeagueForLeaderboard.name}
-          currentPlayer={{ name: "Вы (Это вы)", score: userScore, rank: 1 }} 
+          topPlayers={leaderboardPlayersToShow} // Pass the constructed list
+          currentPlayer={currentPlayerForModal} // Pass current player with potentially updated rank
         />
       )}
     </div>
