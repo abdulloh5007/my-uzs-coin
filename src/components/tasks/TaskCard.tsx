@@ -4,15 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Progress } from '@/components/ui/progress';
 import type { Task } from '@/types/tasks';
 import TaskTierItem from './TaskTierItem';
-import StarDisplay from './StarDisplay'; // Assuming this component exists
+import StarDisplay from './StarDisplay';
 
 interface TaskCardProps {
   task: Task;
-  userProgress: Record<string, number>; // Map of tier.id to user's current progress for that tier's metric
+  userProgress: Record<string, number>;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
-  const { icon: Icon, title, subtitle, stars, tiers } = task;
+  const { icon: Icon, title, subtitle, stars, tiers, type } = task;
 
   let completedTiers = 0;
   tiers.forEach(tier => {
@@ -21,7 +21,13 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
     }
   });
 
-  const overallProgressPercentage = (completedTiers / tiers.length) * 100;
+  const overallProgressPercentage = tiers.length > 0 ? (completedTiers / tiers.length) * 100 : 0;
+
+  const starDisplayCount = type === 'league' ? 1 : 3;
+  // For league tasks, if task.stars is 0, filledCount will be 0, showing an empty/gray star.
+  // For other tasks, it uses task.stars (1-3).
+  const starDisplayFilledCount = type === 'league' ? 0 : stars;
+
 
   return (
     <Card className="bg-card/80 border-border/50 shadow-lg w-full">
@@ -38,7 +44,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
               </CardDescription>
             </div>
           </div>
-          <StarDisplay count={3} filledCount={stars} />
+          <StarDisplay count={starDisplayCount} filledCount={starDisplayFilledCount} />
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -51,13 +57,19 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
             />
           ))}
         </ul>
-        <Progress value={overallProgressPercentage} className="h-2 bg-primary/30 mb-1" indicatorClassName="bg-primary" />
-        <p className="text-xs text-muted-foreground text-right">
-          {completedTiers}/{tiers.length} завершено
-        </p>
+        {tiers.length > 1 && ( // Only show overall progress if more than one tier
+          <>
+            <Progress value={overallProgressPercentage} className="h-2 bg-primary/30 mb-1" indicatorClassName="bg-primary" />
+            <p className="text-xs text-muted-foreground text-right">
+              {completedTiers}/{tiers.length} завершено
+            </p>
+          </>
+        )}
       </CardContent>
     </Card>
   );
 };
 
 export default TaskCard;
+
+    
