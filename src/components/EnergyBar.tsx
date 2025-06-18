@@ -7,12 +7,15 @@ interface EnergyBarProps {
   maxEnergy: number;
 }
 
+// This component might be largely superseded by GameStats.tsx,
+// but keeping it in case it's used elsewhere or for direct use.
+// The GameStats component will replicate similar UI for energy.
 const EnergyBar: React.FC<EnergyBarProps> = ({ currentEnergy, maxEnergy }) => {
   const energyPercentage = maxEnergy > 0 ? (currentEnergy / maxEnergy) * 100 : 0;
 
   return (
     <div className="w-full max-w-md mx-auto my-4 md:my-6 px-4">
-      <div className="flex justify-between items-center mb-1 text-sm font-medium text-primary-foreground">
+      <div className="flex justify-between items-center mb-1 text-sm font-medium text-foreground"> {/* text-primary-foreground to text-foreground */}
         <div className="flex items-center">
           <Zap className="w-4 h-4 mr-1.5 text-primary" />
           <span>Energy</span>

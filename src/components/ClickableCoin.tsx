@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Coins } from 'lucide-react'; // Using Lucide's Coins icon
+import { Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,7 @@ const ClickableCoin: React.FC<ClickableCoinProps> = ({ onClick, isAnimating, dis
       disabled={disabled || isAnimating}
       aria-label="Click coin"
       className={cn(
-        "rounded-full w-48 h-48 md:w-64 md:h-64 p-0 bg-accent hover:bg-accent/90 focus:ring-4 focus:ring-accent/50 shadow-xl active:shadow-inner",
+        "rounded-full w-48 h-48 md:w-64 md:h-64 p-0 bg-primary hover:bg-primary/90 focus:ring-4 focus:ring-ring shadow-xl active:shadow-inner",
         "flex items-center justify-center",
         isAnimating ? 'animate-coin-click' : '',
         disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
@@ -24,7 +24,7 @@ const ClickableCoin: React.FC<ClickableCoinProps> = ({ onClick, isAnimating, dis
     >
       <Coins
         className={cn(
-          "w-3/4 h-3/4 text-accent-foreground transition-transform duration-150 ease-in-out",
+          "w-3/4 h-3/4 text-primary-foreground transition-transform duration-150 ease-in-out",
         )}
       />
     </Button>

@@ -1,22 +1,28 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import ScoreDisplay from '@/components/ScoreDisplay';
 import ClickableCoin from '@/components/ClickableCoin';
-import EnergyBar from '@/components/EnergyBar';
-import { Card, CardContent } from '@/components/ui/card';
+import TopBar from '@/components/TopBar';
+import BottomNavBar from '@/components/BottomNavBar';
+import GameStats from '@/components/GameStats';
 
 const MAX_ENERGY = 1000;
-const ENERGY_PER_CLICK = 100;
-const SCORE_PER_CLICK = 1;
-const ENERGY_REGEN_POINTS = 2; // Amount of energy regenerated per interval
-const ENERGY_REGEN_INTERVAL = 50; // Milliseconds (2 energy / 50ms = 40 energy per second)
+const ENERGY_PER_CLICK = 100; // Default: 100
+const SCORE_PER_CLICK = 1;    // Default: 1. Image suggests +6 "Сила клика"
+const ENERGY_REGEN_POINTS = 2; // Default: 2.
+const ENERGY_REGEN_INTERVAL = 50; // Milliseconds. (2 / 0.050s = 40 energy/sec). Image suggests +3/sec.
+
 const CLICK_ANIMATION_DURATION = 200; // Milliseconds
 
 export default function HomePage() {
   const [score, setScore] = useState(0);
   const [energy, setEnergy] = useState(MAX_ENERGY);
   const [isAnimatingClick, setIsAnimatingClick] = useState(false);
+  // const [activeTab, setActiveTab] = useState('кликер'); // For BottomNavBar, if needed
+
+  const clickPower = SCORE_PER_CLICK;
+  const energyRegenRate = (ENERGY_REGEN_POINTS / (ENERGY_REGEN_INTERVAL / 1000));
+
 
   const handleCoinClick = useCallback(() => {
     if (energy >= ENERGY_PER_CLICK && !isAnimatingClick) {
@@ -38,36 +44,33 @@ export default function HomePage() {
       clearInterval(regenTimer);
     };
   }, []);
-  
-  // Preload images if any (not critical for this icon-based app but good practice)
-  // useEffect(() => {
-  //  const img = new Image();
-  //  img.src = '/path/to/coin-image.png'; // Example if using images
-  // }, []);
 
+  // const handleNavigation = (item: string) => {
+  //   setActiveTab(item);
+  //   // Add navigation logic here if different pages/views are implemented
+  //   console.log("Navigating to:", item);
+  // };
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-4 font-body antialiased bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
-      <div className="fixed top-0 left-0 right-0 z-10 pt-4 bg-background/80 backdrop-blur-sm">
-        <ScoreDisplay score={score} />
-      </div>
+    <div className="flex flex-col min-h-screen bg-background text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
+      <TopBar />
+      <GameStats
+        score={score}
+        currentEnergy={energy}
+        maxEnergy={MAX_ENERGY}
+        clickPower={clickPower}
+        energyRegenRate={energyRegenRate}
+      />
       
-      <div className="flex flex-col items-center justify-center flex-grow mt-[100px] mb-[120px] md:mt-[120px] md:mb-[150px]"> {/* Added margins to avoid overlap with fixed elements */}
+      <main className="flex flex-col items-center justify-center flex-grow pt-32 pb-20 md:pt-36 md:pb-24 px-4"> {/* Adjusted padding for fixed bars */}
         <ClickableCoin
           onClick={handleCoinClick}
           isAnimating={isAnimatingClick}
           disabled={energy < ENERGY_PER_CLICK}
         />
-      </div>
+      </main>
       
-      <div className="fixed bottom-0 left-0 right-0 z-10 pb-4 bg-background/80 backdrop-blur-sm">
-        <EnergyBar currentEnergy={energy} maxEnergy={MAX_ENERGY} />
-      </div>
-
-      <div className="absolute bottom-4 right-4 text-xs text-muted-foreground opacity-70">
-        <p>Click the coin!</p>
-        <p>Energy regenerates over time.</p>
-      </div>
-    </main>
+      <BottomNavBar activeItem="кликер" /* onNavigate={handleNavigation} */ />
+    </div>
   );
 }
