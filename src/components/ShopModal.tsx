@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   Dialog,
@@ -5,11 +6,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogClose,
+  // DialogClose, // Removed
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Coins, Zap, Target, History, XIcon, Lightbulb } from 'lucide-react';
+import { Coins, Zap, Target, History, Lightbulb } from 'lucide-react'; // XIcon removed
 import { cn } from '@/lib/utils';
 
 export type UpgradeId = 'maxEnergyUpgrade' | 'clickPowerUpgrade' | 'energyRegenRateUpgrade';
@@ -127,11 +128,7 @@ const ShopModal: React.FC<ShopModalProps> = ({
               <Coins className="w-6 h-6 text-primary" />
               <DialogTitle className="text-xl font-semibold text-foreground">Магазин бустов</DialogTitle>
             </div>
-            <DialogClose asChild>
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                <XIcon className="w-5 h-5" />
-              </Button>
-            </DialogClose>
+            {/* Removed explicit DialogClose button */}
           </div>
         </DialogHeader>
         

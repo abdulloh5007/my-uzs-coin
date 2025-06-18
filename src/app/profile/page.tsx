@@ -7,7 +7,7 @@ import { User, Coins, Star, Clock4 } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
-import TasksSection from '@/components/profile/TasksSection';
+// import TasksSection from '@/components/profile/TasksSection'; // Removed
 import LeaderboardModal from '@/components/profile/LeaderboardModal';
 import type { League } from '@/lib/leagues';
 import { getLeagueInfo } from '@/lib/leagues';
@@ -100,7 +100,7 @@ export default function ProfilePage() {
           <StatCard icon={Clock4} label="Время игры" value={gameTimePlayed} />
         </div>
 
-        <TasksSection currentLeagueName={currentLeague.name} />
+        {/* <TasksSection currentLeagueName={currentLeague.name} /> Removed */}
 
       </div>
       

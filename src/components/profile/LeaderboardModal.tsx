@@ -6,12 +6,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogClose,
+  // DialogClose, // Removed
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+// import { Button } from '@/components/ui/button'; // Button for explicit close removed
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trophy, User, XIcon } from 'lucide-react';
+import { Trophy } from 'lucide-react'; // User, XIcon removed
 
 interface Player {
   rank: number;
@@ -23,7 +23,6 @@ interface LeaderboardModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   leagueName: string;
-  // Placeholder data - in a real app, this would come from a backend
   topPlayers?: Player[];
   currentPlayer?: Player | null; 
 }
@@ -46,29 +45,26 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 }) => {
 
   const topPlayers = initialTopPlayers || generateMockPlayers(leagueName, 100);
+  const isCurrentPlayerInTop = currentPlayer && topPlayers.some(p => p.name === currentPlayer.name && p.score === currentPlayer.score);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-background border-border p-0 shadow-2xl">
+      <DialogContent className="sm:max-w-lg bg-background border-border p-0 shadow-2xl flex flex-col max-h-[85vh] md:max-h-[80vh]">
         <DialogHeader className="p-6 pb-4 border-b border-border/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Trophy className="w-6 h-6 text-primary" />
               <DialogTitle className="text-xl font-semibold text-foreground">Топ Игроков: {leagueName}</DialogTitle>
             </div>
-            <DialogClose asChild>
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                <XIcon className="w-5 h-5" />
-              </Button>
-            </DialogClose>
+            {/* Removed explicit DialogClose button */}
           </div>
            <DialogDescription className="text-sm text-muted-foreground pt-1">
             Рейтинг лучших игроков в лиге {leagueName}.
           </DialogDescription>
         </DialogHeader>
         
-        <ScrollArea className="h-[60vh] p-1">
-          <div className="p-5 pt-2">
+        <ScrollArea className="flex-1 min-h-0"> {/* Occupies available space and scrolls */}
+          <div className="p-6 pt-2"> {/* Padding for scrollable content */}
             <Table>
               <TableHeader>
                 <TableRow>
@@ -87,22 +83,23 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                 ))}
               </TableBody>
             </Table>
-            {currentPlayer && !topPlayers.find(p => p.name === currentPlayer.name) && (
-                 <div className="mt-6 pt-4 border-t border-border/50">
-                    <h4 className="text-md font-semibold mb-2 text-foreground">Ваша позиция</h4>
-                    <Table>
-                        <TableBody>
-                            <TableRow className="bg-primary/20">
-                                <TableCell className="font-medium">{currentPlayer.rank}</TableCell>
-                                <TableCell>{currentPlayer.name}</TableCell>
-                                <TableCell className="text-right">{currentPlayer.score.toLocaleString()}</TableCell>
-                            </TableRow>
-                        </TableBody>
-                    </Table>
-                 </div>
-            )}
           </div>
         </ScrollArea>
+
+        {currentPlayer && !isCurrentPlayerInTop && (
+            <div className="p-6 pt-4 border-t border-border/50"> {/* Player section, outside ScrollArea */}
+            <h4 className="text-md font-semibold mb-2 text-foreground">Ваша позиция</h4>
+            <Table>
+                <TableBody>
+                    <TableRow className="bg-primary/20">
+                        <TableCell className="font-medium">{currentPlayer.rank}</TableCell>
+                        <TableCell>{currentPlayer.name}</TableCell>
+                        <TableCell className="text-right">{currentPlayer.score.toLocaleString()}</TableCell>
+                    </TableRow>
+                </TableBody>
+            </Table>
+            </div>
+        )}
       </DialogContent>
     </Dialog>
   );
