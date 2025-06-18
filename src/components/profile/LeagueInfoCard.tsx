@@ -1,9 +1,8 @@
 
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import type { League } from '@/lib/leagues';
-import { Button } from '@/components/ui/button';
 
 interface LeagueInfoCardProps {
   currentLeague: League;
@@ -20,6 +19,12 @@ const LeagueInfoCard: React.FC<LeagueInfoCardProps> = ({
   progressPercentage,
   onOpenLeaderboard
 }) => {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const IconComponent = currentLeague.icon;
 
   return (
@@ -41,8 +46,8 @@ const LeagueInfoCard: React.FC<LeagueInfoCardProps> = ({
             </div>
             <Progress value={progressPercentage} className={`h-2 ${currentLeague.color.replace('text-','bg-').replace('-400','/30')}`} indicatorClassName={`${currentLeague.color.replace('text-','bg-')}`} />
             <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
-              <span>{currentScore.toLocaleString()} монет</span>
-              <span>{nextLeague.threshold.toLocaleString()} монет</span>
+              <span>{isClient ? currentScore.toLocaleString() : currentScore} монет</span>
+              <span>{isClient && nextLeague ? nextLeague.threshold.toLocaleString() : nextLeague?.threshold} монет</span>
             </div>
           </>
         ) : (

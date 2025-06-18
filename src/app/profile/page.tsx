@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Coins, Star, Clock4, ListChecks } from 'lucide-react';
+import { User, Coins, Star, Clock4 } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
@@ -23,25 +23,41 @@ export default function ProfilePage() {
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [selectedLeagueForLeaderboard, setSelectedLeagueForLeaderboard] = useState<League | null>(null);
 
+  const [clientUserScoreDisplay, setClientUserScoreDisplay] = useState<string | number>(0);
+  const [clientTotalClicksDisplay, setClientTotalClicksDisplay] = useState<string | number>(0);
+
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    // Retrieve data from localStorage (example of passing data between pages)
     const storedScore = localStorage.getItem('userScore');
     const storedClicks = localStorage.getItem('totalClicks');
     const storedStartTime = localStorage.getItem('gameStartTime');
 
-    if (storedScore) setUserScore(parseInt(storedScore, 10));
-    if (storedClicks) setTotalClicks(parseInt(storedClicks, 10));
+    let currentScoreVal = 0;
+    let currentClicksVal = 0;
+
+    if (storedScore) {
+      currentScoreVal = parseInt(storedScore, 10);
+    }
+    if (storedClicks) {
+      currentClicksVal = parseInt(storedClicks, 10);
+    }
+
+    setUserScore(currentScoreVal);
+    setTotalClicks(currentClicksVal);
+
+    setClientUserScoreDisplay(currentScoreVal.toLocaleString());
+    setClientTotalClicksDisplay(currentClicksVal.toLocaleString());
+
     if (storedStartTime) {
       const startTime = new Date(storedStartTime);
       const updateTime = () => {
          setGameTimePlayed(formatDistanceStrict(new Date(), startTime, {roundingMethod: 'floor'}));
       };
-      updateTime(); // Initial update
-      const timerId = setInterval(updateTime, 1000); // Update every second
-      return () => clearInterval(timerId); // Cleanup on unmount
+      updateTime(); 
+      const timerId = setInterval(updateTime, 1000); 
+      return () => clearInterval(timerId); 
     } else {
       setGameTimePlayed("N/A");
     }
@@ -74,13 +90,13 @@ export default function ProfilePage() {
           <LeagueInfoCard
             currentLeague={currentLeague}
             nextLeague={nextLeague}
-            currentScore={userScore}
+            currentScore={userScore} // Pass the raw number for logic
             progressPercentage={progressPercentage}
             onOpenLeaderboard={handleOpenLeaderboard}
           />
           
-          <StatCard icon={Coins} label="Всего монет" value={userScore.toLocaleString()} />
-          <StatCard icon={Star} label="Всего кликов" value={totalClicks.toLocaleString()} />
+          <StatCard icon={Coins} label="Всего монет" value={clientUserScoreDisplay} />
+          <StatCard icon={Star} label="Всего кликов" value={clientTotalClicksDisplay} />
           <StatCard icon={Clock4} label="Время игры" value={gameTimePlayed} />
         </div>
 
