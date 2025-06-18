@@ -1,5 +1,5 @@
 
-import React from 'react'; // Changed from 'import type React'
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import type { League } from '@/lib/leagues';
@@ -52,37 +52,5 @@ const LeagueInfoCard: React.FC<LeagueInfoCardProps> = ({
     </Card>
   );
 };
-
-// Helper to add indicatorClassName to Progress props for custom color
-declare module '@/components/ui/progress' {
-  interface ProgressProps {
-    indicatorClassName?: string;
-  }
-}
-// Monkey-patching Progress to accept indicatorClassName
-const OriginalProgress = Progress;
-(Progress as any) = React.forwardRef<
-  React.ElementRef<typeof OriginalProgress>,
-  React.ComponentPropsWithoutRef<typeof OriginalProgress> & { indicatorClassName?: string }
->(({ indicatorClassName, ...props }, ref) => (
-  <OriginalProgress
-    ref={ref}
-    {...props}
-    // This is a way to customize indicator color; actual implementation might differ
-    // For shadcn/ui Progress, you typically customize via CSS variables or by wrapping.
-    // Here, we pass it down and assume it might be used by a custom Progress or for styling.
-    // A more robust way is to use CSS variables in globals.css.
-    // For now, this is a placeholder for the idea of dynamic progress bar color.
-    // The coloring is actually handled by the className on Progress itself and its child.
-    // We'll rely on the parent className for the bg color of the track and indicatorClassName for the fill.
-    // Corrected in parent to use bg-primary/30 and bg-primary convention
-  >
-    <div
-      className={`h-full w-full flex-1 transition-all ${indicatorClassName || 'bg-primary'}`}
-      style={{ transform: `translateX(-${100 - (props.value || 0)}%)` }}
-    />
-  </OriginalProgress>
-));
-
 
 export default LeagueInfoCard;
