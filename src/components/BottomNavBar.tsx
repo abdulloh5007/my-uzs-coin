@@ -1,11 +1,14 @@
+
 import type React from 'react';
 import { User, MousePointerClick, ListChecks, Gift, Sparkles, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { usePathname, useRouter } from 'next/navigation'; // Import useRouter and usePathname
 
 interface NavItemProps {
   icon: React.ElementType;
   label: string;
+  path: string; // Added path for navigation
   isActive?: boolean;
   onClick?: () => void;
 }
@@ -28,19 +31,35 @@ const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, isActive, onClick 
 };
 
 interface BottomNavBarProps {
-  activeItem?: string;
-  onNavigate?: (item: string) => void;
+  // activeItem prop is removed, will be derived from pathname
+  onNavigate?: (path: string) => void; // Changed to path
 }
 
-const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeItem = 'clicker', onNavigate }) => {
+const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate }) => {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const navItems: Omit<NavItemProps, 'isActive' | 'onClick'>[] = [
-    { icon: User, label: 'Профиль' },
-    { icon: MousePointerClick, label: 'Кликер' },
-    { icon: ListChecks, label: 'Задания' },
-    { icon: Gift, label: 'Награды' },
-    { icon: Sparkles, label: 'Mint' }, // Using Sparkles for Mint as an example
-    { icon: Palette, label: 'Скины' },   // Using Palette for Skins
+    { icon: User, label: 'Профиль', path: '/profile' },
+    { icon: MousePointerClick, label: 'Кликер', path: '/' }, // Assuming home is clicker
+    { icon: ListChecks, label: 'Задания', path: '/tasks' }, // Example paths
+    { icon: Gift, label: 'Награды', path: '/rewards' },
+    { icon: Sparkles, label: 'Mint', path: '/mint' },
+    { icon: Palette, label: 'Скины', path: '/skins' },
   ];
+
+  const handleItemClick = (path: string) => {
+    if (onNavigate) {
+      onNavigate(path);
+    } else {
+      // Fallback or direct navigation if onNavigate is not provided from a specific page like HomePage
+      // This part might need adjustment based on how you want ProfilePage to handle nav bar clicks
+      if (path.startsWith('/')) { // Basic check for internal paths
+        router.push(path);
+      }
+    }
+  };
+
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-20 bg-card shadow-up h-16 md:h-20">
@@ -50,8 +69,9 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeItem = 'clicker', onN
             key={item.label}
             icon={item.icon}
             label={item.label}
-            isActive={activeItem === item.label.toLowerCase()}
-            onClick={() => onNavigate?.(item.label.toLowerCase())}
+            path={item.path}
+            isActive={pathname === item.path || (item.path === '/' && pathname.startsWith('/?'))} // Handle base path and query params for home
+            onClick={() => handleItemClick(item.path)}
           />
         ))}
       </div>
