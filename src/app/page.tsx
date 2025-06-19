@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ClickableCoin from '@/components/ClickableCoin';
 import TopBar from '@/components/TopBar';
 import BottomNavBar from '@/components/BottomNavBar';
@@ -11,8 +11,9 @@ import type { UpgradeId } from '@/components/ShopModal';
 import { useRouter } from 'next/navigation';
 import { formatDistanceStrict } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import type { Task, TaskTier } from '@/types/tasks';
-import { initialDailyTasks } from '@/data/tasks'; // Updated import
+import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/data/tasks';
+import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
+
 
 const INITIAL_MAX_ENERGY = 100;
 const INITIAL_CLICK_POWER = 1;
@@ -54,7 +55,22 @@ export default function HomePage() {
   const [dailyTimePlayedSeconds, setDailyTimePlayedSeconds] = useState(0);
   const [lastResetDate, setLastResetDate] = useState(getCurrentDateString());
 
-  const [hasShownNewRewardsToast, setHasShownNewRewardsToast] = useState(false);
+  const allTasksForNotification = useMemo(() => [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks], []);
+
+  const getFullProgressForCheck = useCallback(() => {
+    const ownedSkinsRaw = localStorage.getItem('ownedSkins');
+    const ownedSkinsArray: string[] = ownedSkinsRaw ? JSON.parse(ownedSkinsRaw) : ['classic'];
+    
+    return {
+      daily_clicks: dailyClicks,
+      daily_coinsCollected: dailyCoinsCollected,
+      daily_timePlayedSeconds: dailyTimePlayedSeconds,
+      userScore: score,
+      ownedSkin_emerald: ownedSkinsArray.includes('emerald') ? 1 : 0,
+      ownedSkin_rainbow: ownedSkinsArray.includes('rainbow') ? 1 : 0,
+      ownedSkins_length: ownedSkinsArray.length,
+    };
+  }, [dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, score]);
 
 
   useEffect(() => {
@@ -95,7 +111,6 @@ export default function HomePage() {
       const claimed = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
       const newClaimed = claimed.filter(id => !dailyTierIds.has(id));
       localStorage.setItem('claimedTaskTierIds', JSON.stringify(newClaimed));
-      setHasShownNewRewardsToast(false); 
     }
 
     const unclaimedRewards = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
@@ -108,7 +123,7 @@ export default function HomePage() {
       sessionStorage.setItem('newRewardsToastShownThisSession', 'true');
     }
 
-  }, []); 
+  }, [toast]); // toast added to dependency array to satisfy linter
 
   useEffect(() => {
     localStorage.setItem('userScore', score.toString());
@@ -116,14 +131,18 @@ export default function HomePage() {
     if (gameStartTime) {
       localStorage.setItem('gameStartTime', gameStartTime.toISOString());
     }
-  }, [score, totalClicks, gameStartTime]);
+    // Check for task completion after score updates
+    checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
+  }, [score, totalClicks, gameStartTime, getFullProgressForCheck, allTasksForNotification, toast]);
 
   useEffect(() => {
     localStorage.setItem('daily_lastResetDate', lastResetDate);
     localStorage.setItem('daily_clicks', dailyClicks.toString());
     localStorage.setItem('daily_coinsCollected', dailyCoinsCollected.toString());
     localStorage.setItem('daily_timePlayedSeconds', dailyTimePlayedSeconds.toString());
-  }, [lastResetDate, dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds]);
+     // Check for task completion after daily stats updates
+    checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
+  }, [lastResetDate, dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, getFullProgressForCheck, allTasksForNotification, toast]);
 
 
   const energyRegenAmountPerInterval = energyRegenRatePerSecond * (ENERGY_REGEN_INTERVAL / 1000);
@@ -131,6 +150,7 @@ export default function HomePage() {
   const handleCoinClick = useCallback(() => {
     if (energy >= ENERGY_PER_CLICK) {
       const scoreIncrease = clickPower;
+      
       setScore((prevScore) => prevScore + scoreIncrease);
       setEnergy((prevEnergy) => Math.max(0, prevEnergy - ENERGY_PER_CLICK));
       setTotalClicks((prevClicks) => prevClicks + 1);
@@ -144,8 +164,9 @@ export default function HomePage() {
           setIsAnimatingClick(false);
         }, CLICK_ANIMATION_DURATION);
       }
+      checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
     }
-  }, [energy, clickPower, isAnimatingClick]);
+  }, [energy, clickPower, isAnimatingClick, getFullProgressForCheck, allTasksForNotification, toast]);
 
   useEffect(() => {
     const regenTimer = setInterval(() => {
@@ -165,10 +186,17 @@ export default function HomePage() {
 
   useEffect(() => {
     const dailyTimeUpdateTimer = setInterval(() => {
-      setDailyTimePlayedSeconds(prev => prev + (DAILY_STATS_UPDATE_INTERVAL / 1000));
+      setDailyTimePlayedSeconds(prev => {
+        const newTime = prev + (DAILY_STATS_UPDATE_INTERVAL / 1000);
+        // Check for task completion right after updating time
+        const currentProgress = getFullProgressForCheck();
+        const updatedProgress = { ...currentProgress, daily_timePlayedSeconds: newTime };
+        checkAndNotifyTaskCompletion(updatedProgress, allTasksForNotification, toast);
+        return newTime;
+      });
     }, DAILY_STATS_UPDATE_INTERVAL);
     return () => clearInterval(dailyTimeUpdateTimer);
-  }, []);
+  }, [getFullProgressForCheck, allTasksForNotification, toast]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -196,7 +224,7 @@ export default function HomePage() {
 
   const handlePurchase = (upgradeId: UpgradeId, cost: number) => {
     if (score >= cost) {
-      setScore(prevScore => prevScore - cost);
+      setScore(prevScore => prevScore - cost); // This will trigger the useEffect for score
       switch (upgradeId) {
         case 'maxEnergyUpgrade':
           setMaxEnergy(prev => prev + 50);
@@ -244,9 +272,10 @@ export default function HomePage() {
         score={score}
         currentMaxEnergy={maxEnergy}
         currentClickPower={clickPower}
-        currentEnergyRegenRate={energyRegenRatePerSecond}
+        currentEnergyRegenRate={currentEnergyRegenRatePerSecond}
         onPurchase={handlePurchase}
       />
     </div>
   );
 }
+

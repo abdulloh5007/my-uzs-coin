@@ -1,15 +1,15 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TaskCard from '@/components/tasks/TaskCard';
-import type { Task, TaskTier } from '@/types/tasks';
+import type { Task } from '@/types/tasks';
 import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast'; 
 import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/data/tasks';
-import { CheckCircle2 } from 'lucide-react';
+import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
 
 const getCurrentDateString = () => {
   const today = new Date();
@@ -31,9 +31,9 @@ export default function TasksPage() {
   }, []);
 
 
-  useEffect(() => {
-    setIsClient(true);
-    
+  const loadAndCheckTasks = useCallback(() => {
+    if (!isClient) return;
+
     const currentDateStr = getCurrentDateString();
     const storedLastResetDate = localStorage.getItem('daily_lastResetDate');
 
@@ -67,56 +67,33 @@ export default function TasksPage() {
     const ownedSkinsRaw = localStorage.getItem('ownedSkins');
     const ownedSkinsArray: string[] = ownedSkinsRaw ? JSON.parse(ownedSkinsRaw) : ['classic'];
     
-    const newProgress: Record<string, number> = {};
-    newProgress['daily_clicks'] = dailyClicks;
-    newProgress['daily_coinsCollected'] = dailyCoinsCollected;
-    newProgress['daily_timePlayedSeconds'] = dailyTimePlayedSeconds;
-    newProgress['ownedSkin_emerald'] = ownedSkinsArray.includes('emerald') ? 1 : 0;
-    newProgress['ownedSkin_rainbow'] = ownedSkinsArray.includes('rainbow') ? 1 : 0;
-    newProgress['ownedSkins_length'] = ownedSkinsArray.length;
-    newProgress['userScore'] = currentScore;
-
+    const newProgress: Record<string, number> = {
+      daily_clicks: dailyClicks,
+      daily_coinsCollected: dailyCoinsCollected,
+      daily_timePlayedSeconds: dailyTimePlayedSeconds,
+      ownedSkin_emerald: ownedSkinsArray.includes('emerald') ? 1 : 0,
+      ownedSkin_rainbow: ownedSkinsArray.includes('rainbow') ? 1 : 0,
+      ownedSkins_length: ownedSkinsArray.length,
+      userScore: currentScore,
+    };
     setUserProgress(newProgress);
 
-    let newRewardsWereAddedInThisCheck = false;
-    const completedUnclaimed = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
-    const claimed = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
+    // Call the utility function to check for completions and show toasts if necessary
+    checkAndNotifyTaskCompletion(newProgress, allTasks, toast);
 
-    allTasks.forEach(task => {
-      task.tiers.forEach(tier => {
-        const progressVal = newProgress[tier.progressKey || ''] || 0;
-        if (progressVal >= tier.target) { 
-          if (!completedUnclaimed.includes(tier.id) && !claimed.includes(tier.id)) {
-            completedUnclaimed.push(tier.id);
-            newRewardsWereAddedInThisCheck = true;
+  }, [isClient, allTasks, toast]);
 
-            // Trigger "Task Completed" toast
-            toast({
-              title: (
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-400" />
-                  <span className="font-semibold text-foreground">Задание выполнено!</span>
-                </div>
-              ),
-              description: (
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-medium text-primary">{task.title}</span>: {tier.description}
-                </p>
-              ),
-              duration: 5000,
-            });
-          }
-        }
-      });
-    });
 
-    if (newRewardsWereAddedInThisCheck) {
-      localStorage.setItem('completedUnclaimedTaskTierIds', JSON.stringify(completedUnclaimed));
-      // This ensures the generic "New rewards available" toast on HomePage can be re-triggered
-      sessionStorage.removeItem('newRewardsToastShownThisSession'); 
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (isClient) {
+      loadAndCheckTasks();
     }
+  }, [isClient, activeTab, loadAndCheckTasks]); // Re-check on activeTab change or when client is ready
 
-  }, [activeTab, allTasks, toast]); // Added toast to dependency array
 
   const handleNavigation = (path: string) => {
     router.push(path);
@@ -174,3 +151,4 @@ export default function TasksPage() {
     </div>
   );
 }
+
