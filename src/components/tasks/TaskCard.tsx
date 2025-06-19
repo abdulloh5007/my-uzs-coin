@@ -23,10 +23,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
 
   const overallProgressPercentage = tiers.length > 0 ? (completedTiers / tiers.length) * 100 : 0;
 
-  const starDisplayCount = type === 'league' ? 1 : 3;
-  // For league tasks, if task.stars is 0, filledCount will be 0, showing an empty/gray star.
-  // For other tasks, it uses task.stars (1-3).
-  const starDisplayFilledCount = type === 'league' ? 0 : stars;
+  // task.stars defines the total number of stars to display for the task.
+  const starDisplayCount = stars;
+  // Daily tasks show filled stars based on their rating.
+  // Main and League tasks show outline/empty stars.
+  const starDisplayFilledCount = type === 'daily' ? stars : 0;
 
 
   return (
@@ -44,7 +45,8 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
               </CardDescription>
             </div>
           </div>
-          <StarDisplay count={starDisplayCount} filledCount={starDisplayFilledCount} />
+          {/* Ensure starDisplayCount is at least 1 if stars can be 0 for some tasks, or ensure stars is always >= 1 */}
+          <StarDisplay count={starDisplayCount > 0 ? starDisplayCount : 1} filledCount={starDisplayFilledCount} />
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -57,7 +59,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
             />
           ))}
         </ul>
-        {tiers.length > 1 && ( // Only show overall progress if more than one tier
+        {tiers.length > 1 && ( 
           <>
             <Progress value={overallProgressPercentage} className="h-2 bg-primary/30 mb-1" indicatorClassName="bg-primary" />
             <p className="text-xs text-muted-foreground text-right">
@@ -71,5 +73,3 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
 };
 
 export default TaskCard;
-
-    

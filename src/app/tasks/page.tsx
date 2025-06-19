@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TaskCard from '@/components/tasks/TaskCard';
 import type { Task } from '@/types/tasks';
 import BottomNavBar from '@/components/BottomNavBar';
-import { Coins, MousePointerClick, Clock, ShieldCheck, Trophy, Star, Gem } from 'lucide-react';
+import { Coins, MousePointerClick, Clock, ShieldCheck, Trophy, Star, Gem, Palette, Wand2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const mockDailyTasks: Task[] = [
@@ -59,29 +59,44 @@ const mockDailyTasks: Task[] = [
 
 const mockMainTasks: Task[] = [
   {
-    id: 'main-reach-silver',
-    title: 'Достичь Серебряной лиги',
-    icon: ShieldCheck,
-    iconColorClass: 'text-slate-400',
-    iconBgClass: 'bg-slate-500/20',
-    subtitle: 'Основное задание • Повышайте свой ранг',
-    stars: 2,
-    type: 'main',
-    tiers: [
-      { id: 'm-silver-1', description: 'Накопить 100,000 монет', target: 100000, reward: 1000 },
-    ],
-  },
-   {
-    id: 'main-first-upgrade',
-    title: 'Первое улучшение',
-    icon: MousePointerClick, 
+    id: 'main-emerald-collector',
+    title: 'Изумрудный коллекционер',
+    icon: Palette,
     iconColorClass: 'text-green-400',
     iconBgClass: 'bg-green-500/20',
-    subtitle: 'Основное задание • Улучшите свои параметры',
-    stars: 1,
+    subtitle: 'Основное задание • Коллекционируйте скины',
+    stars: 1, // Number of stars to display (will be outlines)
     type: 'main',
     tiers: [
-      { id: 'm-upgrade-1', description: 'Купить любое улучшение в магазине', target: 1, reward: 200 }, // Target is 1 purchase
+      { id: 'm-emerald-1', description: 'Купить изумрудный скин', target: 1, reward: 1000 },
+    ],
+  },
+  {
+    id: 'main-skin-collector',
+    title: 'Коллекционер скинов',
+    icon: Trophy,
+    iconColorClass: 'text-yellow-400',
+    iconBgClass: 'bg-yellow-500/20',
+    subtitle: 'Основное задание • Соберите их все',
+    stars: 3, // Number of stars to display (will be outlines)
+    type: 'main',
+    tiers: [
+      { id: 'm-skins-1', description: 'Иметь 3 скина', target: 3, reward: 10000 },
+      { id: 'm-skins-2', description: 'Иметь 5 скинов', target: 5, reward: 20000 },
+      { id: 'm-skins-3', description: 'Иметь 6 скинов', target: 6, reward: 50000 },
+    ],
+  },
+  {
+    id: 'main-rainbow-skin-purchase',
+    title: 'Покупка радужного скина',
+    icon: Wand2, // Using Wand2 for a "magical/special" skin feel, can be Palette too
+    iconColorClass: 'text-indigo-400',
+    iconBgClass: 'bg-indigo-500/20',
+    subtitle: 'Основное задание • Самый яркий скин',
+    stars: 1, // Number of stars to display (will be outlines)
+    type: 'main',
+    tiers: [
+      { id: 'm-rainbow-1', description: 'Купить радужный скин', target: 1, reward: 30000 },
     ],
   },
 ];
@@ -90,11 +105,11 @@ const mockLeagueTasks: Task[] = [
   {
     id: 'league-silver-milestone',
     title: 'Серебряная лига',
-    icon: Star, // Using Star as per image for Silver
+    icon: Star,
     iconColorClass: 'text-slate-400',
     iconBgClass: 'bg-slate-500/20',
     subtitle: 'Цель: Собрать 100,000 монет',
-    stars: 0, // Will be rendered as one empty star
+    stars: 1,
     type: 'league',
     tiers: [
       { id: 'l-silver-m1', description: 'Собрать 100,000 монет', target: 100000, reward: 10000 },
@@ -103,11 +118,11 @@ const mockLeagueTasks: Task[] = [
   {
     id: 'league-gold-milestone',
     title: 'Золотая лига',
-    icon: Trophy, // Using Trophy as per image for Gold (Crown like)
+    icon: Trophy, 
     iconColorClass: 'text-yellow-400',
     iconBgClass: 'bg-yellow-500/20',
     subtitle: 'Цель: Собрать 500,000 монет',
-    stars: 0, // Will be rendered as one empty star
+    stars: 1,
     type: 'league',
     tiers: [
       { id: 'l-gold-m1', description: 'Собрать 500,000 монет', target: 500000, reward: 50000 },
@@ -116,11 +131,11 @@ const mockLeagueTasks: Task[] = [
   {
     id: 'league-platinum-milestone',
     title: 'Платиновая лига',
-    icon: Gem, // Using Gem as per image for Platinum
+    icon: Gem, 
     iconColorClass: 'text-cyan-400',
     iconBgClass: 'bg-cyan-500/20',
     subtitle: 'Цель: Собрать 2,000,000 монет',
-    stars: 0, // Will be rendered as one empty star
+    stars: 1,
     type: 'league',
     tiers: [
       { id: 'l-platinum-m1', description: 'Собрать 2,000,000 монет', target: 2000000, reward: 200000 },
@@ -129,11 +144,11 @@ const mockLeagueTasks: Task[] = [
   {
     id: 'league-diamond-milestone',
     title: 'Алмазная лига',
-    icon: Gem, // Using Gem as per image for Diamond
-    iconColorClass: 'text-blue-400', // Different color for Diamond's Gem
+    icon: Gem, 
+    iconColorClass: 'text-blue-400', 
     iconBgClass: 'bg-blue-500/20',
     subtitle: 'Цель: Собрать 10,000,000 монет',
-    stars: 0, // Will be rendered as one empty star
+    stars: 1,
     type: 'league',
     tiers: [
       { id: 'l-diamond-m1', description: 'Собрать 10,000,000 монет', target: 10000000, reward: 1000000 },
@@ -151,12 +166,16 @@ const mockUserProgress: Record<string, number> = {
   'd-coin-3': 279,
   'd-active-1': 600,
   'd-active-2': 600,
-  'm-silver-1': 75000,
-  'm-upgrade-1': 0, // User hasn't made an upgrade yet
-  'l-silver-m1': 279, // Using OCR value as example, should be score from game
+  'l-silver-m1': 279, 
   'l-gold-m1': 279,
   'l-platinum-m1': 279,
   'l-diamond-m1': 279,
+  // Progress for new main tasks
+  'm-emerald-1': 0, // Not completed
+  'm-skins-1': 2,   // Owns 2 skins, target 3
+  'm-skins-2': 2,   // Owns 2 skins, target 5
+  'm-skins-3': 2,   // Owns 2 skins, target 6
+  'm-rainbow-1': 0, // Not completed
 };
 
 
@@ -211,5 +230,3 @@ export default function TasksPage() {
     </div>
   );
 }
-
-    
