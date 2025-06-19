@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react'; // Added useMemo
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TaskCard from '@/components/tasks/TaskCard';
 import type { Task, TaskTier } from '@/types/tasks';
@@ -25,7 +25,9 @@ export default function TasksPage() {
   const [userProgress, setUserProgress] = useState<Record<string, number>>({});
   const [isClient, setIsClient] = useState(false);
 
-  const allTasks: Task[] = [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks];
+  const allTasks = useMemo<Task[]>(() => { // Memoized allTasks
+    return [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks];
+  }, []);
 
 
   useEffect(() => {
@@ -154,3 +156,4 @@ export default function TasksPage() {
     </div>
   );
 }
+
