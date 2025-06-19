@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Gift, CheckCircle2, Coins, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Task, TaskTier } from '@/types/tasks';
-import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/data/tasks'; // Updated import
+import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/data/tasks';
 import RewardCard from '@/components/rewards/RewardCard';
 
 const getCurrentDateString = () => {
@@ -36,7 +36,9 @@ export default function RewardsPage() {
   const [claimedRewardsList, setClaimedRewardsList] = useState<DisplayableReward[]>([]);
   const [userScore, setUserScore] = useState(0);
 
-  const allPossibleTasks: Task[] = [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks];
+  const allPossibleTasks = useMemo<Task[]>(() => {
+    return [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks];
+  }, []);
 
   const loadAndProcessRewards = useCallback(() => {
     if (!isClient) return;
@@ -90,7 +92,9 @@ export default function RewardsPage() {
   }, []);
 
   useEffect(() => {
-    loadAndProcessRewards();
+    if (isClient) { // Ensure loadAndProcessRewards is called only when client is ready
+      loadAndProcessRewards();
+    }
   }, [isClient, loadAndProcessRewards]);
 
 
