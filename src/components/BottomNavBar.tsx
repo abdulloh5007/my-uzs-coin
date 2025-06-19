@@ -1,6 +1,6 @@
 
 import type React from 'react';
-import { useState, useEffect } from 'react'; // Added useState and useEffect
+import { useState, useEffect } from 'react'; 
 import { User, MousePointerClick, ListChecks, Gift, Sparkles, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -33,9 +33,10 @@ const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, isActive, onClick 
 
 interface BottomNavBarProps {
   onNavigate?: (path: string) => void;
+  activeItem?: string; // Optional activeItem prop for external control
 }
 
-const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate }) => {
+const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) => {
   const router = useRouter();
   const pathname = usePathname();
   const [isClient, setIsClient] = useState(false);
@@ -49,7 +50,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate }) => {
     { icon: MousePointerClick, label: 'Кликер', path: '/' }, 
     { icon: ListChecks, label: 'Задания', path: '/tasks' }, 
     { icon: Gift, label: 'Награды', path: '/rewards' },
-    { icon: Sparkles, label: 'Mint', path: '/mint' },
+    { icon: Sparkles, label: 'Mint', path: '/mint' }, // Assuming Mint is a future feature
     { icon: Palette, label: 'Скины', path: '/skins' },
   ];
 
@@ -62,12 +63,15 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate }) => {
       }
     }
   };
+  
+  const currentPathForActivity = activeItem !== undefined ? activeItem : pathname;
+
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-20 bg-card shadow-up h-16 md:h-20">
       <div className="container mx-auto flex items-stretch justify-around h-full px-0">
         {navItems.map((item) => {
-          const currentItemIsActive = isClient ? (pathname === item.path || (item.path === '/' && pathname.startsWith('/?'))) : false;
+          const currentItemIsActive = isClient ? (currentPathForActivity === item.path || (item.path === '/' && currentPathForActivity.startsWith('/?'))) : false;
           return (
             <NavItem
               key={item.label}

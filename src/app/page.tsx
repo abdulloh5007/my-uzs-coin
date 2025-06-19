@@ -10,17 +10,20 @@ import ShopModal from '@/components/ShopModal';
 import type { UpgradeId } from '@/components/ShopModal';
 import { useRouter } from 'next/navigation';
 import { formatDistanceStrict } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
+import type { Task, TaskTier } from '@/types/tasks'; // For daily reset
+import { initialDailyTasks } from '@/app/tasks/page'; // For daily reset
 
 const INITIAL_MAX_ENERGY = 100;
 const INITIAL_CLICK_POWER = 1;
 const INITIAL_ENERGY_REGEN_RATE_PER_SECOND = 3;
-const INITIAL_SCORE = 300; // Default if nothing in localStorage
-const INITIAL_TOTAL_CLICKS = 0; // Default if nothing in localStorage
+const INITIAL_SCORE = 300; 
+const INITIAL_TOTAL_CLICKS = 0; 
 
 const ENERGY_PER_CLICK = 1;
 const ENERGY_REGEN_INTERVAL = 50; 
 const CLICK_ANIMATION_DURATION = 200;
-const DAILY_STATS_UPDATE_INTERVAL = 1000; // ms, for daily time played
+const DAILY_STATS_UPDATE_INTERVAL = 1000; 
 
 const getCurrentDateString = () => {
   const today = new Date();
@@ -31,6 +34,7 @@ const getCurrentDateString = () => {
 };
 
 export default function HomePage() {
+  const { toast } = useToast();
   const [score, setScore] = useState(INITIAL_SCORE);
   const [maxEnergy, setMaxEnergy] = useState(INITIAL_MAX_ENERGY);
   const [energy, setEnergy] = useState(INITIAL_MAX_ENERGY);
@@ -51,8 +55,11 @@ export default function HomePage() {
   const [dailyTimePlayedSeconds, setDailyTimePlayedSeconds] = useState(0);
   const [lastResetDate, setLastResetDate] = useState(getCurrentDateString());
 
+  // Notification for new rewards
+  const [hasShownNewRewardsToast, setHasShownNewRewardsToast] = useState(false);
+
+
   useEffect(() => {
-    // Load general game state
     const storedScore = localStorage.getItem('userScore');
     setScore(storedScore ? parseInt(storedScore, 10) : INITIAL_SCORE);
 
@@ -62,7 +69,6 @@ export default function HomePage() {
     const storedGameStartTime = localStorage.getItem('gameStartTime');
     setGameStartTime(storedGameStartTime ? new Date(storedGameStartTime) : new Date());
 
-    // Load or initialize daily stats
     const currentDateStr = getCurrentDateString();
     const storedLastResetDate = localStorage.getItem('daily_lastResetDate');
 
@@ -81,10 +87,34 @@ export default function HomePage() {
       localStorage.setItem('daily_clicks', '0');
       localStorage.setItem('daily_coinsCollected', '0');
       localStorage.setItem('daily_timePlayedSeconds', '0');
-    }
-  }, []);
 
-  // Save general game state to localStorage
+      // Reset daily claimed/unclaimed rewards
+      const dailyTierIds = new Set<string>();
+      initialDailyTasks.forEach(task => task.tiers.forEach(tier => dailyTierIds.add(tier.id)));
+
+      const completedUnclaimed = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
+      const newCompletedUnclaimed = completedUnclaimed.filter(id => !dailyTierIds.has(id));
+      localStorage.setItem('completedUnclaimedTaskTierIds', JSON.stringify(newCompletedUnclaimed));
+      
+      const claimed = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
+      const newClaimed = claimed.filter(id => !dailyTierIds.has(id));
+      localStorage.setItem('claimedTaskTierIds', JSON.stringify(newClaimed));
+      setHasShownNewRewardsToast(false); // Reset toast flag for new day
+    }
+
+    // Check for unclaimed rewards on load
+    const unclaimedRewards = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
+    if (unclaimedRewards.length > 0 && !sessionStorage.getItem('newRewardsToastShownThisSession')) {
+      toast({
+        title: "🎉 Новые награды доступны!",
+        description: "Загляните во вкладку 'Награды', чтобы забрать их.",
+        duration: 5000, 
+      });
+      sessionStorage.setItem('newRewardsToastShownThisSession', 'true');
+    }
+
+  }, []); // Removed hasShownNewRewardsToast from dependencies to avoid loop with toast
+
   useEffect(() => {
     localStorage.setItem('userScore', score.toString());
     localStorage.setItem('totalClicks', totalClicks.toString());
@@ -93,7 +123,6 @@ export default function HomePage() {
     }
   }, [score, totalClicks, gameStartTime]);
 
-  // Save daily stats to localStorage
   useEffect(() => {
     localStorage.setItem('daily_lastResetDate', lastResetDate);
     localStorage.setItem('daily_clicks', dailyClicks.toString());
@@ -111,7 +140,6 @@ export default function HomePage() {
       setEnergy((prevEnergy) => Math.max(0, prevEnergy - ENERGY_PER_CLICK));
       setTotalClicks((prevClicks) => prevClicks + 1);
       
-      // Update daily stats
       setDailyClicks((prev) => prev + 1);
       setDailyCoinsCollected((prev) => prev + scoreIncrease);
       
@@ -132,7 +160,6 @@ export default function HomePage() {
     return () => clearInterval(regenTimer);
   }, [maxEnergy, energyRegenAmountPerInterval]);
 
-  // Overall game time played
   useEffect(() => {
     if (!gameStartTime) return;
     const timePlayedTimer = setInterval(() => {
@@ -141,13 +168,33 @@ export default function HomePage() {
     return () => clearInterval(timePlayedTimer);
   }, [gameStartTime]);
 
-  // Daily time played
   useEffect(() => {
     const dailyTimeUpdateTimer = setInterval(() => {
       setDailyTimePlayedSeconds(prev => prev + (DAILY_STATS_UPDATE_INTERVAL / 1000));
     }, DAILY_STATS_UPDATE_INTERVAL);
     return () => clearInterval(dailyTimeUpdateTimer);
   }, []);
+
+  // Periodically check for new rewards (less aggressive than on every render)
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      const unclaimedRewards = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
+      if (unclaimedRewards.length > 0 && !sessionStorage.getItem('newRewardsToastShownThisSession')) {
+         toast({
+            title: "🎉 Новые награды доступны!",
+            description: "Загляните во вкладку 'Награды', чтобы забрать их.",
+            duration: 5000,
+        });
+        sessionStorage.setItem('newRewardsToastShownThisSession', 'true');
+      }
+      // If unclaimedRewards becomes 0, allow showing toast again next time
+      if (unclaimedRewards.length === 0) {
+        sessionStorage.removeItem('newRewardsToastShownThisSession');
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(intervalId);
+  }, [toast]);
 
 
   const toggleShop = () => {
@@ -157,7 +204,6 @@ export default function HomePage() {
   const handlePurchase = (upgradeId: UpgradeId, cost: number) => {
     if (score >= cost) {
       setScore(prevScore => prevScore - cost);
-      // No change to dailyCoinsCollected for purchases, only for earnings
       switch (upgradeId) {
         case 'maxEnergyUpgrade':
           setMaxEnergy(prev => prev + 50);
@@ -211,4 +257,3 @@ export default function HomePage() {
     </div>
   );
 }
-

@@ -4,12 +4,12 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TaskCard from '@/components/tasks/TaskCard';
-import type { Task } from '@/types/tasks';
+import type { Task, TaskTier } from '@/types/tasks';
 import BottomNavBar from '@/components/BottomNavBar';
 import { Coins, MousePointerClick, Clock, ShieldCheck, Trophy, Star, Gem, Palette, Wand2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast'; // For notifications
 
-// Helper to get current date string in YYYY-MM-DD format
 const getCurrentDateString = () => {
   const today = new Date();
   const year = today.getFullYear();
@@ -18,7 +18,7 @@ const getCurrentDateString = () => {
   return `${year}-${month}-${day}`;
 };
 
-const initialDailyTasks: Task[] = [
+export const initialDailyTasks: Task[] = [
   {
     id: 'daily-click-master',
     title: 'Кликер мастер',
@@ -59,14 +59,14 @@ const initialDailyTasks: Task[] = [
     stars: 3,
     type: 'daily',
     tiers: [
-      { id: 'd-active-1', description: 'Провести в игре 5 минут', target: 300, reward: 20, progressKey: 'daily_timePlayedSeconds' }, // 5 min = 300s
-      { id: 'd-active-2', description: 'Провести в игре 15 минут', target: 900, reward: 60, progressKey: 'daily_timePlayedSeconds' }, // 15 min = 900s
-      { id: 'd-active-3', description: 'Провести в игре 30 минут', target: 1800, reward: 120, progressKey: 'daily_timePlayedSeconds' }, // 30 min = 1800s
+      { id: 'd-active-1', description: 'Провести в игре 5 минут', target: 300, reward: 20, progressKey: 'daily_timePlayedSeconds' }, 
+      { id: 'd-active-2', description: 'Провести в игре 15 минут', target: 900, reward: 60, progressKey: 'daily_timePlayedSeconds' }, 
+      { id: 'd-active-3', description: 'Провести в игре 30 минут', target: 1800, reward: 120, progressKey: 'daily_timePlayedSeconds' }, 
     ],
   },
 ];
 
-const initialMainTasks: Task[] = [
+export const initialMainTasks: Task[] = [
   {
     id: 'main-emerald-collector',
     title: 'Изумрудный коллекционер',
@@ -110,7 +110,7 @@ const initialMainTasks: Task[] = [
   },
 ];
 
-const initialLeagueTasks: Task[] = [
+export const initialLeagueTasks: Task[] = [
   {
     id: 'league-silver-milestone',
     title: 'Серебряная лига',
@@ -169,8 +169,12 @@ const initialLeagueTasks: Task[] = [
 export default function TasksPage() {
   const [activeTab, setActiveTab] = useState<string>("daily");
   const router = useRouter();
+  const { toast } = useToast();
   const [userProgress, setUserProgress] = useState<Record<string, number>>({});
   const [isClient, setIsClient] = useState(false);
+
+  const allTasks: Task[] = [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks];
+
 
   useEffect(() => {
     setIsClient(true);
@@ -187,12 +191,22 @@ export default function TasksPage() {
       dailyCoinsCollected = parseInt(localStorage.getItem('daily_coinsCollected') || '0', 10);
       dailyTimePlayedSeconds = parseInt(localStorage.getItem('daily_timePlayedSeconds') || '0', 10);
     } else {
-      // If dates mismatch, ensure daily stats are reset in localStorage
-      // This primarily acts as a safeguard if HomePage hasn't run yet on a new day
       localStorage.setItem('daily_lastResetDate', currentDateStr);
       localStorage.setItem('daily_clicks', '0');
       localStorage.setItem('daily_coinsCollected', '0');
       localStorage.setItem('daily_timePlayedSeconds', '0');
+      
+      // Reset daily claimed/unclaimed rewards
+      const dailyTierIds = new Set<string>();
+      initialDailyTasks.forEach(task => task.tiers.forEach(tier => dailyTierIds.add(tier.id)));
+
+      let completedUnclaimed = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
+      completedUnclaimed = completedUnclaimed.filter(id => !dailyTierIds.has(id));
+      localStorage.setItem('completedUnclaimedTaskTierIds', JSON.stringify(completedUnclaimed));
+      
+      let claimed = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
+      claimed = claimed.filter(id => !dailyTierIds.has(id));
+      localStorage.setItem('claimedTaskTierIds', JSON.stringify(claimed));
     }
 
     const currentScore = parseInt(localStorage.getItem('userScore') || '0', 10);
@@ -200,33 +214,48 @@ export default function TasksPage() {
     const ownedSkinsArray: string[] = ownedSkinsRaw ? JSON.parse(ownedSkinsRaw) : ['classic'];
     
     const newProgress: Record<string, number> = {};
-
-    // Populate progress for daily tasks
     newProgress['daily_clicks'] = dailyClicks;
     newProgress['daily_coinsCollected'] = dailyCoinsCollected;
     newProgress['daily_timePlayedSeconds'] = dailyTimePlayedSeconds;
-    
-    // Populate progress for main tasks
     newProgress['ownedSkin_emerald'] = ownedSkinsArray.includes('emerald') ? 1 : 0;
     newProgress['ownedSkin_rainbow'] = ownedSkinsArray.includes('rainbow') ? 1 : 0;
     newProgress['ownedSkins_length'] = ownedSkinsArray.length;
-
-    // Populate progress for league tasks
     newProgress['userScore'] = currentScore;
 
     setUserProgress(newProgress);
 
-  }, [activeTab]); // Re-calculate progress if tab changes, or on initial load. Could be refined.
+    // Check for newly completed tasks and add to unclaimed list
+    let newRewardsAdded = false;
+    const completedUnclaimed = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
+    const claimed = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
+
+    allTasks.forEach(task => {
+      task.tiers.forEach(tier => {
+        const progressVal = newProgress[tier.progressKey || ''] || 0;
+        if (progressVal >= tier.target) { // Tier is completed
+          if (!completedUnclaimed.includes(tier.id) && !claimed.includes(tier.id)) {
+            completedUnclaimed.push(tier.id);
+            newRewardsAdded = true;
+          }
+        }
+      });
+    });
+
+    if (newRewardsAdded) {
+      localStorage.setItem('completedUnclaimedTaskTierIds', JSON.stringify(completedUnclaimed));
+      sessionStorage.removeItem('newRewardsToastShownThisSession'); // Allow HomePage to show toast
+    }
+
+  }, [activeTab]); 
 
   const handleNavigation = (path: string) => {
     router.push(path);
   };
   
   if (!isClient) {
-    return null; // Or a loading spinner
+    return null; 
   }
 
-  // Function to get current progress for a specific tier
   const getTierProgress = (progressKey?: string): number => {
     if (!progressKey) return 0;
     return userProgress[progressKey] || 0;
