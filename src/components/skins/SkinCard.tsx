@@ -43,15 +43,13 @@ const SkinCard: React.FC<SkinCardProps> = ({ skin, userBalance, onSelectSkin, on
       </>
     );
     buttonDisabled = true;
-    // For "Выбрано", use accent color as per image.
-    // Our current accent color is pink/purple. The image example has purple card and lighter purple button.
     buttonVariant = "default"; 
     buttonClasses = cn(buttonClasses, "bg-accent hover:bg-accent/90 text-accent-foreground");
   } else if (skin.isOwned) {
     buttonContent = 'Выбрать';
     buttonVariant = "outline";
     buttonClasses = cn(buttonClasses, "border-primary/50 text-primary hover:bg-primary/10 hover:text-primary");
-  } else {
+  } else { // Not owned
     buttonContent = (
       <>
         <Coins className="w-4 h-4 mr-1.5" />
@@ -61,7 +59,7 @@ const SkinCard: React.FC<SkinCardProps> = ({ skin, userBalance, onSelectSkin, on
     if (userBalance < skin.price) {
       buttonDisabled = true;
       buttonClasses = cn(buttonClasses, "bg-muted text-muted-foreground hover:bg-muted");
-      buttonContent = "Мало монет";
+      // No longer setting buttonContent to "Мало монет"
     } else {
         buttonVariant = "default"; // Use primary (gold) for buyable
         buttonClasses = cn(buttonClasses, "bg-primary hover:bg-primary/90 text-primary-foreground");
