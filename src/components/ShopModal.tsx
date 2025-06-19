@@ -56,11 +56,11 @@ const UpgradeItemCard: React.FC<UpgradeItemProps> = ({
             onClick={onPurchase}
             disabled={!canAfford}
             className={cn(
-              canAfford ? "bg-primary hover:bg-primary/90" : "bg-muted text-muted-foreground hover:bg-muted",
+              canAfford ? "bg-primary hover:bg-primary/90 text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted",
               "px-6"
             )}
           >
-            {canAfford ? 'Купить' : 'Мало монет'}
+            Купить
           </Button>
         </div>
       </CardContent>
