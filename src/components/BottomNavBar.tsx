@@ -41,20 +41,20 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate }) => {
 
   const navItems: Omit<NavItemProps, 'isActive' | 'onClick'>[] = [
     { icon: User, label: 'Профиль', path: '/profile' },
-    { icon: MousePointerClick, label: 'Кликер', path: '/' }, // Assuming home is clicker
-    { icon: ListChecks, label: 'Задания', path: '/tasks' }, // Example paths
-    { icon: Gift, label: 'Награды', path: '/rewards' },
-    { icon: Sparkles, label: 'Mint', path: '/mint' },
+    { icon: MousePointerClick, label: 'Кликер', path: '/' }, 
+    { icon: ListChecks, label: 'Задания', path: '/tasks' }, 
+    { icon: Gift, label: 'Награды', path: '/rewards' }, // Placeholder path
+    { icon: Sparkles, label: 'Mint', path: '/mint' }, // Placeholder path
     { icon: Palette, label: 'Скины', path: '/skins' },
   ];
 
   const handleItemClick = (path: string) => {
     if (onNavigate) {
+      // If onNavigate is provided (e.g. from HomePage for smoother transitions or specific logic)
       onNavigate(path);
     } else {
-      // Fallback or direct navigation if onNavigate is not provided from a specific page like HomePage
-      // This part might need adjustment based on how you want ProfilePage to handle nav bar clicks
-      if (path.startsWith('/')) { // Basic check for internal paths
+      // Default navigation behavior if onNavigate is not provided (e.g. from ProfilePage, TasksPage)
+      if (path.startsWith('/')) { 
         router.push(path);
       }
     }
@@ -70,7 +70,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate }) => {
             icon={item.icon}
             label={item.label}
             path={item.path}
-            isActive={pathname === item.path || (item.path === '/' && pathname.startsWith('/?'))} // Handle base path and query params for home
+            isActive={pathname === item.path || (item.path === '/' && pathname.startsWith('/?'))}
             onClick={() => handleItemClick(item.path)}
           />
         ))}
