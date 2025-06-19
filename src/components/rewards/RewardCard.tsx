@@ -12,7 +12,7 @@ interface RewardCardProps {
 }
 
 const TaskTypeBadge: React.FC<{ type: 'daily' | 'main' | 'league' }> = ({ type }) => {
-  letbgColor = 'bg-gray-500/20';
+  let bgColor = 'bg-gray-500/20';
   let textColor = 'text-gray-300';
   let text = 'Задание';
 
