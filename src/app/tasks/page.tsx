@@ -78,7 +78,6 @@ export default function TasksPage() {
     };
     setUserProgress(newProgress);
 
-    // Call the utility function to check for completions and show toasts if necessary
     checkAndNotifyTaskCompletion(newProgress, allTasks, toast);
 
   }, [isClient, allTasks, toast]);
@@ -92,7 +91,7 @@ export default function TasksPage() {
     if (isClient) {
       loadAndCheckTasks();
     }
-  }, [isClient, activeTab, loadAndCheckTasks]); // Re-check on activeTab change or when client is ready
+  }, [isClient, activeTab, loadAndCheckTasks]); 
 
 
   const handleNavigation = (path: string) => {

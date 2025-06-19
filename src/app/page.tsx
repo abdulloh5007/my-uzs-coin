@@ -18,13 +18,13 @@ import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
 const INITIAL_MAX_ENERGY = 100;
 const INITIAL_CLICK_POWER = 1;
 const INITIAL_ENERGY_REGEN_RATE_PER_SECOND = 3;
-const INITIAL_SCORE = 300; 
-const INITIAL_TOTAL_CLICKS = 0; 
+const INITIAL_SCORE = 300;
+const INITIAL_TOTAL_CLICKS = 0;
 
 const ENERGY_PER_CLICK = 1;
-const ENERGY_REGEN_INTERVAL = 50; 
+const ENERGY_REGEN_INTERVAL = 50;
 const CLICK_ANIMATION_DURATION = 200;
-const DAILY_STATS_UPDATE_INTERVAL = 1000; 
+const DAILY_STATS_UPDATE_INTERVAL = 1000;
 
 const getCurrentDateString = () => {
   const today = new Date();
@@ -41,7 +41,7 @@ export default function HomePage() {
   const [energy, setEnergy] = useState(INITIAL_MAX_ENERGY);
   const [clickPower, setClickPower] = useState(INITIAL_CLICK_POWER);
   const [energyRegenRatePerSecond, setEnergyRegenRatePerSecond] = useState(INITIAL_ENERGY_REGEN_RATE_PER_SECOND);
-  
+
   const [totalClicks, setTotalClicks] = useState(INITIAL_TOTAL_CLICKS);
   const [gameStartTime, setGameStartTime] = useState<Date | null>(null);
   const [gameTimePlayed, setGameTimePlayed] = useState("0s");
@@ -60,7 +60,7 @@ export default function HomePage() {
   const getFullProgressForCheck = useCallback(() => {
     const ownedSkinsRaw = localStorage.getItem('ownedSkins');
     const ownedSkinsArray: string[] = ownedSkinsRaw ? JSON.parse(ownedSkinsRaw) : ['classic'];
-    
+
     return {
       daily_clicks: dailyClicks,
       daily_coinsCollected: dailyCoinsCollected,
@@ -79,7 +79,7 @@ export default function HomePage() {
 
     const storedTotalClicks = localStorage.getItem('totalClicks');
     setTotalClicks(storedTotalClicks ? parseInt(storedTotalClicks, 10) : INITIAL_TOTAL_CLICKS);
-    
+
     const storedGameStartTime = localStorage.getItem('gameStartTime');
     setGameStartTime(storedGameStartTime ? new Date(storedGameStartTime) : new Date());
 
@@ -107,7 +107,7 @@ export default function HomePage() {
       const completedUnclaimed = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
       const newCompletedUnclaimed = completedUnclaimed.filter(id => !dailyTierIds.has(id));
       localStorage.setItem('completedUnclaimedTaskTierIds', JSON.stringify(newCompletedUnclaimed));
-      
+
       const claimed = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
       const newClaimed = claimed.filter(id => !dailyTierIds.has(id));
       localStorage.setItem('claimedTaskTierIds', JSON.stringify(newClaimed));
@@ -118,12 +118,12 @@ export default function HomePage() {
       toast({
         title: "🎉 Новые награды доступны!",
         description: "Загляните во вкладку 'Награды', чтобы забрать их.",
-        duration: 5000, 
+        duration: 5000,
       });
       sessionStorage.setItem('newRewardsToastShownThisSession', 'true');
     }
 
-  }, [toast]); // toast added to dependency array to satisfy linter
+  }, [toast]);
 
   useEffect(() => {
     localStorage.setItem('userScore', score.toString());
@@ -131,7 +131,6 @@ export default function HomePage() {
     if (gameStartTime) {
       localStorage.setItem('gameStartTime', gameStartTime.toISOString());
     }
-    // Check for task completion after score updates
     checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
   }, [score, totalClicks, gameStartTime, getFullProgressForCheck, allTasksForNotification, toast]);
 
@@ -140,7 +139,6 @@ export default function HomePage() {
     localStorage.setItem('daily_clicks', dailyClicks.toString());
     localStorage.setItem('daily_coinsCollected', dailyCoinsCollected.toString());
     localStorage.setItem('daily_timePlayedSeconds', dailyTimePlayedSeconds.toString());
-     // Check for task completion after daily stats updates
     checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
   }, [lastResetDate, dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, getFullProgressForCheck, allTasksForNotification, toast]);
 
@@ -150,23 +148,22 @@ export default function HomePage() {
   const handleCoinClick = useCallback(() => {
     if (energy >= ENERGY_PER_CLICK) {
       const scoreIncrease = clickPower;
-      
+
       setScore((prevScore) => prevScore + scoreIncrease);
       setEnergy((prevEnergy) => Math.max(0, prevEnergy - ENERGY_PER_CLICK));
       setTotalClicks((prevClicks) => prevClicks + 1);
-      
+
       setDailyClicks((prev) => prev + 1);
       setDailyCoinsCollected((prev) => prev + scoreIncrease);
-      
+
       if (!isAnimatingClick) {
         setIsAnimatingClick(true);
         setTimeout(() => {
           setIsAnimatingClick(false);
         }, CLICK_ANIMATION_DURATION);
       }
-      checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
     }
-  }, [energy, clickPower, isAnimatingClick, getFullProgressForCheck, allTasksForNotification, toast]);
+  }, [energy, clickPower, isAnimatingClick]);
 
   useEffect(() => {
     const regenTimer = setInterval(() => {
@@ -186,17 +183,10 @@ export default function HomePage() {
 
   useEffect(() => {
     const dailyTimeUpdateTimer = setInterval(() => {
-      setDailyTimePlayedSeconds(prev => {
-        const newTime = prev + (DAILY_STATS_UPDATE_INTERVAL / 1000);
-        // Check for task completion right after updating time
-        const currentProgress = getFullProgressForCheck();
-        const updatedProgress = { ...currentProgress, daily_timePlayedSeconds: newTime };
-        checkAndNotifyTaskCompletion(updatedProgress, allTasksForNotification, toast);
-        return newTime;
-      });
+      setDailyTimePlayedSeconds(prev => prev + (DAILY_STATS_UPDATE_INTERVAL / 1000));
     }, DAILY_STATS_UPDATE_INTERVAL);
     return () => clearInterval(dailyTimeUpdateTimer);
-  }, [getFullProgressForCheck, allTasksForNotification, toast]);
+  }, []);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -212,7 +202,7 @@ export default function HomePage() {
       if (unclaimedRewards.length === 0) {
         sessionStorage.removeItem('newRewardsToastShownThisSession');
       }
-    }, 10000); 
+    }, 10000);
 
     return () => clearInterval(intervalId);
   }, [toast]);
@@ -224,7 +214,7 @@ export default function HomePage() {
 
   const handlePurchase = (upgradeId: UpgradeId, cost: number) => {
     if (score >= cost) {
-      setScore(prevScore => prevScore - cost); // This will trigger the useEffect for score
+      setScore(prevScore => prevScore - cost);
       switch (upgradeId) {
         case 'maxEnergyUpgrade':
           setMaxEnergy(prev => prev + 50);
@@ -236,9 +226,9 @@ export default function HomePage() {
           setEnergyRegenRatePerSecond(prev => prev + 1);
           break;
       }
-      return true; 
+      return true;
     }
-    return false; 
+    return false;
   };
 
   const handleNavigation = (path: string) => {
@@ -253,9 +243,9 @@ export default function HomePage() {
         currentEnergy={energy}
         maxEnergy={maxEnergy}
         clickPower={clickPower}
-        energyRegenRate={energyRegenRatePerSecond} 
+        energyRegenRate={energyRegenRatePerSecond}
       />
-      
+
       <main className="flex flex-col items-center justify-center flex-grow pt-32 pb-20 md:pt-36 md:pb-24 px-4">
         <ClickableCoin
           onClick={handleCoinClick}
@@ -263,7 +253,7 @@ export default function HomePage() {
           disabled={energy < ENERGY_PER_CLICK}
         />
       </main>
-      
+
       <BottomNavBar onNavigate={handleNavigation} />
 
       <ShopModal
@@ -272,10 +262,9 @@ export default function HomePage() {
         score={score}
         currentMaxEnergy={maxEnergy}
         currentClickPower={clickPower}
-        currentEnergyRegenRate={currentEnergyRegenRatePerSecond}
+        currentEnergyRegenRate={energyRegenRatePerSecond}
         onPurchase={handlePurchase}
       />
     </div>
   );
 }
-
