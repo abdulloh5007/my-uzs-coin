@@ -17,7 +17,7 @@ const mockDailyTasks: Task[] = [
     iconColorClass: 'text-blue-400',
     iconBgClass: 'bg-blue-500/20',
     subtitle: 'Ежедневное задание • Сбрасывается каждый день',
-    stars: 3,
+    stars: 3, // Already 3
     type: 'daily',
     tiers: [
       { id: 'd-click-1', description: 'Сделать 50 кликов', target: 50, reward: 30 },
@@ -32,7 +32,7 @@ const mockDailyTasks: Task[] = [
     iconColorClass: 'text-yellow-400',
     iconBgClass: 'bg-yellow-500/20',
     subtitle: 'Ежедневное задание • Сбрасывается каждый день',
-    stars: 2,
+    stars: 3, // Changed from 2 to 3
     type: 'daily',
     tiers: [
       { id: 'd-coin-1', description: 'Собрать 100 монет', target: 100, reward: 50 },
@@ -47,7 +47,7 @@ const mockDailyTasks: Task[] = [
     iconColorClass: 'text-purple-400',
     iconBgClass: 'bg-purple-500/20',
     subtitle: 'Ежедневное задание • Сбрасывается каждый день',
-    stars: 1,
+    stars: 3, // Changed from 1 to 3
     type: 'daily',
     tiers: [
       { id: 'd-active-1', description: 'Провести в игре 5 минут', target: 300, reward: 20 },
@@ -65,7 +65,7 @@ const mockMainTasks: Task[] = [
     iconColorClass: 'text-green-400',
     iconBgClass: 'bg-green-500/20',
     subtitle: 'Основное задание • Коллекционируйте скины',
-    stars: 1, // Number of stars to display (will be outlines)
+    stars: 1,
     type: 'main',
     tiers: [
       { id: 'm-emerald-1', description: 'Купить изумрудный скин', target: 1, reward: 1000 },
@@ -78,7 +78,7 @@ const mockMainTasks: Task[] = [
     iconColorClass: 'text-yellow-400',
     iconBgClass: 'bg-yellow-500/20',
     subtitle: 'Основное задание • Соберите их все',
-    stars: 3, // Number of stars to display (will be outlines)
+    stars: 3, // Already 3
     type: 'main',
     tiers: [
       { id: 'm-skins-1', description: 'Иметь 3 скина', target: 3, reward: 10000 },
@@ -89,11 +89,11 @@ const mockMainTasks: Task[] = [
   {
     id: 'main-rainbow-skin-purchase',
     title: 'Покупка радужного скина',
-    icon: Wand2, // Using Wand2 for a "magical/special" skin feel, can be Palette too
+    icon: Wand2, 
     iconColorClass: 'text-indigo-400',
     iconBgClass: 'bg-indigo-500/20',
     subtitle: 'Основное задание • Самый яркий скин',
-    stars: 1, // Number of stars to display (will be outlines)
+    stars: 1,
     type: 'main',
     tiers: [
       { id: 'm-rainbow-1', description: 'Купить радужный скин', target: 1, reward: 30000 },
@@ -109,7 +109,7 @@ const mockLeagueTasks: Task[] = [
     iconColorClass: 'text-slate-400',
     iconBgClass: 'bg-slate-500/20',
     subtitle: 'Цель: Собрать 100,000 монет',
-    stars: 1,
+    stars: 1, // League tasks typically show 1 outline star by design
     type: 'league',
     tiers: [
       { id: 'l-silver-m1', description: 'Собрать 100,000 монет', target: 100000, reward: 10000 },
@@ -158,24 +158,24 @@ const mockLeagueTasks: Task[] = [
 
 
 const mockUserProgress: Record<string, number> = {
-  'd-click-1': 300,
+  'd-click-1': 300, // Completed tier 1, 2, 3
   'd-click-2': 300,
   'd-click-3': 300,
-  'd-coin-1': 279,
+  'd-coin-1': 279,  // Tier 1 completed (100), Tier 2 (500) & 3 (1000) not
   'd-coin-2': 279,
   'd-coin-3': 279,
-  'd-active-1': 600,
-  'd-active-2': 600,
+  'd-active-1': 600, // Tier 1 completed (300), Tier 2 (900) & 3 (1800) not
+  'd-active-2': 600, 
+  'd-active-3': 600,
   'l-silver-m1': 279, 
   'l-gold-m1': 279,
   'l-platinum-m1': 279,
   'l-diamond-m1': 279,
-  // Progress for new main tasks
-  'm-emerald-1': 0, // Not completed
-  'm-skins-1': 2,   // Owns 2 skins, target 3
-  'm-skins-2': 2,   // Owns 2 skins, target 5
-  'm-skins-3': 2,   // Owns 2 skins, target 6
-  'm-rainbow-1': 0, // Not completed
+  'm-emerald-1': 0, 
+  'm-skins-1': 2,   
+  'm-skins-2': 2,   
+  'm-skins-3': 2,   
+  'm-rainbow-1': 0, 
 };
 
 
@@ -230,3 +230,4 @@ export default function TasksPage() {
     </div>
   );
 }
+
