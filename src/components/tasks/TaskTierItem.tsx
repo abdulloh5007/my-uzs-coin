@@ -1,5 +1,6 @@
 
 import type React from 'react';
+import { useState, useEffect } from 'react'; // Added useState and useEffect
 import { CheckCircle2, CircleDot } from 'lucide-react'; // Using CircleDot for pending
 import type { TaskTier } from '@/types/tasks';
 import { cn } from '@/lib/utils';
@@ -10,6 +11,12 @@ interface TaskTierItemProps {
 }
 
 const TaskTierItem: React.FC<TaskTierItemProps> = ({ tier, currentProgress }) => {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const isCompleted = currentProgress >= tier.target;
 
   return (
@@ -29,11 +36,11 @@ const TaskTierItem: React.FC<TaskTierItemProps> = ({ tier, currentProgress }) =>
           <span className="font-medium text-green-500">✓ Выполнено</span>
         ) : (
           <span className="font-medium text-foreground">
-            {currentProgress.toLocaleString()}/{tier.target.toLocaleString()}
+            {isClient ? currentProgress.toLocaleString() : currentProgress}/{isClient ? tier.target.toLocaleString() : tier.target}
           </span>
         )}
         <div className={cn("text-xs font-semibold", isCompleted ? "text-green-500" : "text-primary")}>
-          +{tier.reward.toLocaleString()} монет
+          +{isClient ? tier.reward.toLocaleString() : tier.reward} монет
         </div>
       </div>
     </li>
@@ -41,3 +48,4 @@ const TaskTierItem: React.FC<TaskTierItemProps> = ({ tier, currentProgress }) =>
 };
 
 export default TaskTierItem;
+
