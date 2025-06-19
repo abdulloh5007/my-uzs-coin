@@ -6,8 +6,8 @@ export interface TaskTier {
   description: string;
   target: number;
   reward: number;
-  currentProgress?: number; // Added for convenience, will be populated from mock
-  isCompleted?: boolean; // Added for convenience, will be populated from mock
+  progressKey?: string; // Key to look up in the userProgress object
+  // currentProgress and isCompleted will be determined dynamically in the component
 }
 
 export interface Task {

@@ -2,30 +2,29 @@
 import type React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import type { Task } from '@/types/tasks';
+import type { Task, TaskTier } from '@/types/tasks';
 import TaskTierItem from './TaskTierItem';
 import StarDisplay from './StarDisplay';
 
 interface TaskCardProps {
   task: Task;
-  userProgress: Record<string, number>;
+  userTierProgressGetter: (progressKey?: string) => number;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ task, userTierProgressGetter }) => {
   const { icon: Icon, title, subtitle, stars, tiers } = task;
 
   let completedTiers = 0;
   tiers.forEach(tier => {
-    if ((userProgress[tier.id] || 0) >= tier.target) {
+    const currentProgress = userTierProgressGetter(tier.progressKey);
+    if (currentProgress >= tier.target) {
       completedTiers++;
     }
   });
 
   const overallProgressPercentage = tiers.length > 0 ? (completedTiers / tiers.length) * 100 : 0;
-
-  // Total stars to display is always task.stars
+  
   const starDisplayCount = stars;
-  // Filled stars are the number of completed tiers, capped by task.stars
   const starDisplayFilledCount = Math.min(completedTiers, stars);
 
 
@@ -44,7 +43,6 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
               </CardDescription>
             </div>
           </div>
-          {/* Ensure starDisplayCount is at least 1 if stars can be 0 for some tasks, or ensure stars is always >= 1 */}
           <StarDisplay count={starDisplayCount > 0 ? starDisplayCount : 1} filledCount={starDisplayFilledCount} />
         </div>
       </CardHeader>
@@ -54,7 +52,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
             <TaskTierItem
               key={tier.id}
               tier={tier}
-              currentProgress={userProgress[tier.id] || 0}
+              currentProgress={userTierProgressGetter(tier.progressKey)}
             />
           ))}
         </ul>
