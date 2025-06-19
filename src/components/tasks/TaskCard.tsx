@@ -12,7 +12,7 @@ interface TaskCardProps {
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
-  const { icon: Icon, title, subtitle, stars, tiers, type } = task;
+  const { icon: Icon, title, subtitle, stars, tiers } = task;
 
   let completedTiers = 0;
   tiers.forEach(tier => {
@@ -23,11 +23,10 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
 
   const overallProgressPercentage = tiers.length > 0 ? (completedTiers / tiers.length) * 100 : 0;
 
-  // task.stars defines the total number of stars to display for the task.
+  // Total stars to display is always task.stars
   const starDisplayCount = stars;
-  // Daily tasks show filled stars based on their rating.
-  // Main and League tasks show outline/empty stars.
-  const starDisplayFilledCount = type === 'daily' ? stars : 0;
+  // Filled stars are the number of completed tiers, capped by task.stars
+  const starDisplayFilledCount = Math.min(completedTiers, stars);
 
 
   return (
@@ -59,7 +58,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userProgress }) => {
             />
           ))}
         </ul>
-        {tiers.length > 1 && ( 
+        {tiers.length > 1 && (
           <>
             <Progress value={overallProgressPercentage} className="h-2 bg-primary/30 mb-1" indicatorClassName="bg-primary" />
             <p className="text-xs text-muted-foreground text-right">
