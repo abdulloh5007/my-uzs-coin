@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react'; // Added useMemo
+import React, { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TaskCard from '@/components/tasks/TaskCard';
 import type { Task, TaskTier } from '@/types/tasks';
@@ -9,6 +9,7 @@ import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast'; 
 import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/data/tasks';
+import { CheckCircle2 } from 'lucide-react';
 
 const getCurrentDateString = () => {
   const today = new Date();
@@ -25,7 +26,7 @@ export default function TasksPage() {
   const [userProgress, setUserProgress] = useState<Record<string, number>>({});
   const [isClient, setIsClient] = useState(false);
 
-  const allTasks = useMemo<Task[]>(() => { // Memoized allTasks
+  const allTasks = useMemo<Task[]>(() => {
     return [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks];
   }, []);
 
@@ -77,7 +78,7 @@ export default function TasksPage() {
 
     setUserProgress(newProgress);
 
-    let newRewardsAdded = false;
+    let newRewardsWereAddedInThisCheck = false;
     const completedUnclaimed = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
     const claimed = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
 
@@ -87,18 +88,35 @@ export default function TasksPage() {
         if (progressVal >= tier.target) { 
           if (!completedUnclaimed.includes(tier.id) && !claimed.includes(tier.id)) {
             completedUnclaimed.push(tier.id);
-            newRewardsAdded = true;
+            newRewardsWereAddedInThisCheck = true;
+
+            // Trigger "Task Completed" toast
+            toast({
+              title: (
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-400" />
+                  <span className="font-semibold text-foreground">Задание выполнено!</span>
+                </div>
+              ),
+              description: (
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium text-primary">{task.title}</span>: {tier.description}
+                </p>
+              ),
+              duration: 5000,
+            });
           }
         }
       });
     });
 
-    if (newRewardsAdded) {
+    if (newRewardsWereAddedInThisCheck) {
       localStorage.setItem('completedUnclaimedTaskTierIds', JSON.stringify(completedUnclaimed));
+      // This ensures the generic "New rewards available" toast on HomePage can be re-triggered
       sessionStorage.removeItem('newRewardsToastShownThisSession'); 
     }
 
-  }, [activeTab, allTasks]); 
+  }, [activeTab, allTasks, toast]); // Added toast to dependency array
 
   const handleNavigation = (path: string) => {
     router.push(path);
@@ -152,8 +170,7 @@ export default function TasksPage() {
           </TabsContent>
         </Tabs>
       </div>
-      <BottomNavBar onNavigate={handleNavigation} />
+      <BottomNavBar onNavigate={handleNavigation} activeItem="/tasks" />
     </div>
   );
 }
-

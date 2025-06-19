@@ -1,5 +1,6 @@
 
 import type React from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import type { Task, TaskTier } from '@/types/tasks';
@@ -13,19 +14,39 @@ interface TaskCardProps {
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, userTierProgressGetter }) => {
   const { icon: Icon, title, subtitle, stars, tiers } = task;
+  const [isClient, setIsClient] = useState(false);
+  const [locallyTrackedCompletedTierIds, setLocallyTrackedCompletedTierIds] = useState<string[]>([]);
 
-  let completedTiers = 0;
-  tiers.forEach(tier => {
-    const currentProgress = userTierProgressGetter(tier.progressKey);
-    if (currentProgress >= tier.target) {
-      completedTiers++;
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (isClient) {
+      const localCompletedUnclaimed = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
+      const localClaimed = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
+      setLocallyTrackedCompletedTierIds([...localCompletedUnclaimed, ...localClaimed]);
     }
-  });
+    // No direct dependency on task.id here, as this effect should primarily react to client-side status.
+    // It will run once on mount after isClient is true.
+    // If localStorage changes from elsewhere, this component won't know without more complex state management or event listeners.
+    // However, TasksPage is the primary writer and this card is usually displayed within it.
+  }, [isClient]);
 
-  const overallProgressPercentage = tiers.length > 0 ? (completedTiers / tiers.length) * 100 : 0;
+
+  let completedTiersForStarsDisplay = 0;
+  if (isClient) {
+    tiers.forEach(tier => {
+      if (locallyTrackedCompletedTierIds.includes(tier.id)) {
+        completedTiersForStarsDisplay++;
+      }
+    });
+  }
+
+  const overallProgressPercentage = tiers.length > 0 ? (completedTiersForStarsDisplay / tiers.length) * 100 : 0;
   
-  const starDisplayCount = stars;
-  const starDisplayFilledCount = Math.min(completedTiers, stars);
+  const starDisplayCount = stars > 0 ? stars : (tiers.length > 0 ? tiers.length : 1);
+  const starDisplayFilledCount = Math.min(completedTiersForStarsDisplay, starDisplayCount);
 
 
   return (
@@ -43,7 +64,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userTierProgressGetter }) => 
               </CardDescription>
             </div>
           </div>
-          <StarDisplay count={starDisplayCount > 0 ? starDisplayCount : 1} filledCount={starDisplayFilledCount} />
+          <StarDisplay count={starDisplayCount} filledCount={starDisplayFilledCount} />
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -56,11 +77,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userTierProgressGetter }) => 
             />
           ))}
         </ul>
-        {tiers.length > 1 && (
+        {tiers.length > 1 && ( // Only show overall progress if more than one tier
           <>
             <Progress value={overallProgressPercentage} className="h-2 bg-primary/30 mb-1" indicatorClassName="bg-primary" />
             <p className="text-xs text-muted-foreground text-right">
-              {completedTiers}/{tiers.length} завершено
+              {completedTiersForStarsDisplay}/{tiers.length} завершено
             </p>
           </>
         )}
