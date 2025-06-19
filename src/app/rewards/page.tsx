@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Gift, CheckCircle2, Coins, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Task, TaskTier } from '@/types/tasks';
-import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/app/tasks/page';
+import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/data/tasks'; // Updated import
 import RewardCard from '@/components/rewards/RewardCard';
 
 const getCurrentDateString = () => {
@@ -51,9 +51,7 @@ export default function RewardsPage() {
     let claimedTierIds = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
 
     if (storedLastResetDate !== currentDateStr) {
-      // This ensures daily rewards are reset if user directly lands here on a new day
       localStorage.setItem('daily_lastResetDate', currentDateStr);
-      // Reset daily stats (clicks, coinsCollected, timePlayedSeconds) as well if not already done
       localStorage.setItem('daily_clicks', '0');
       localStorage.setItem('daily_coinsCollected', '0');
       localStorage.setItem('daily_timePlayedSeconds', '0');
@@ -109,13 +107,13 @@ export default function RewardsPage() {
     claimed.push(tierId);
     localStorage.setItem('claimedTaskTierIds', JSON.stringify(claimed));
     
-    sessionStorage.removeItem('newRewardsToastShownThisSession'); // Allow new toast if other rewards complete
+    sessionStorage.removeItem('newRewardsToastShownThisSession'); 
 
     toast({
       title: "Награда получена!",
       description: `+${rewardAmount} монет добавлено к вашему балансу.`,
     });
-    loadAndProcessRewards(); // Refresh the lists
+    loadAndProcessRewards(); 
   };
 
   const handleNavigation = (path: string) => {
