@@ -29,6 +29,7 @@ interface UpgradeItemProps {
   canAfford: boolean;
   currentLevel?: number; // For display like (current -> next)
   effectAmount?: number; // For display like (current -> next)
+  isOwned?: boolean; // Added for bot
 }
 
 const UpgradeItemCard: React.FC<UpgradeItemProps> = ({
@@ -38,7 +39,19 @@ const UpgradeItemCard: React.FC<UpgradeItemProps> = ({
   cost,
   onPurchase,
   canAfford,
+  isOwned, // Added for bot
 }) => {
+  let buttonText = 'Купить';
+  let buttonDisabled = !canAfford;
+  let buttonClasses = canAfford ? "bg-primary hover:bg-primary/90 text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed";
+
+  if (isOwned) {
+    buttonText = 'Куплено';
+    buttonDisabled = true;
+    buttonClasses = "bg-green-600 hover:bg-green-700 text-white cursor-default";
+  }
+
+
   return (
     <Card className="bg-card/80 border-border/50">
       <CardContent className="p-4 flex items-center justify-between gap-4">
@@ -59,13 +72,10 @@ const UpgradeItemCard: React.FC<UpgradeItemProps> = ({
           <Button
             size="sm"
             onClick={onPurchase}
-            disabled={!canAfford}
-            className={cn(
-              "px-6 w-full",
-              canAfford ? "bg-primary hover:bg-primary/90 text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed"
-            )}
+            disabled={buttonDisabled}
+            className={cn("px-6 w-full", buttonClasses)}
           >
-            Купить
+            {buttonText}
           </Button>
         </div>
       </CardContent>
@@ -78,8 +88,8 @@ interface ShopModalProps {
   onOpenChange: (isOpen: boolean) => void;
   score: number;
   currentMaxEnergy: number;
-  currentClickPower: number; // Current, possibly boosted
-  baseClickPower: number; // Actual base click power for bot description
+  currentClickPower: number; 
+  baseClickPower: number; 
   currentEnergyRegenRate: number;
   onPurchase: (upgradeId: UpgradeId, cost: number) => boolean;
   isBotOwned: boolean;
@@ -97,8 +107,8 @@ const ShopModal: React.FC<ShopModalProps> = ({
   onOpenChange,
   score,
   currentMaxEnergy,
-  currentClickPower, // This is the current effective click power
-  baseClickPower, // This is the base click power to show for bot
+  currentClickPower, 
+  baseClickPower, 
   currentEnergyRegenRate,
   onPurchase,
   isBotOwned,
@@ -117,11 +127,8 @@ const ShopModal: React.FC<ShopModalProps> = ({
       const updateTimer = () => {
         const remaining = Math.max(0, Math.ceil((boostEndTime - Date.now()) / 1000));
         setTimeLeftInBoost(remaining);
-        if (remaining === 0) {
-          // setIsBoostActive(false) handled in HomePage
-        }
       };
-      updateTimer(); // Initial call
+      updateTimer(); 
       const intervalId = setInterval(updateTimer, 1000);
       return () => clearInterval(intervalId);
     } else {
@@ -130,7 +137,7 @@ const ShopModal: React.FC<ShopModalProps> = ({
   }, [isBoostActive, boostEndTime]);
 
 
-  const upgrades: Array<Omit<UpgradeItemProps, 'onPurchase' | 'canAfford'> & { id: UpgradeId }> = [
+  const upgrades: Array<Omit<UpgradeItemProps, 'onPurchase' | 'canAfford' | 'isOwned'> & { id: UpgradeId }> = [
     {
       id: 'maxEnergyUpgrade',
       icon: Zap,
@@ -142,7 +149,6 @@ const ShopModal: React.FC<ShopModalProps> = ({
       id: 'clickPowerUpgrade',
       icon: Target,
       title: 'Усилить клик',
-      // Shows current effective click power. If boosted, baseClickPower is shown as the "from"
       description: `+1 к силе клика (${isBoostActive ? baseClickPower : currentClickPower} \u2192 ${isBoostActive ? baseClickPower +1 : currentClickPower + 1})`,
       cost: 1600,
     },
@@ -195,7 +201,6 @@ const ShopModal: React.FC<ShopModalProps> = ({
                 />
               ))}
               
-              {/* Offline Bot Card */}
               <Card className="bg-card/80 border-border/50 mt-3">
                 <CardContent className="p-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 flex-1">
@@ -205,7 +210,7 @@ const ShopModal: React.FC<ShopModalProps> = ({
                     <div className="flex-1">
                       <div className="flex items-center">
                         <h4 className="font-semibold text-foreground">Оффлайн Бот</h4>
-                        <TooltipProvider>
+                        <TooltipProvider delayDuration={0}>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-5 w-5 ml-1.5 p-0">
@@ -266,7 +271,7 @@ const ShopModal: React.FC<ShopModalProps> = ({
                       onClick={onActivateBoost}
                       disabled={isBoostActive || dailyBoostsAvailable === 0}
                       className={cn(
-                        "px-4 w-full", // Adjusted padding
+                        "px-4 w-full", 
                         isBoostActive ? "bg-blue-600 hover:bg-blue-700 text-white cursor-default" : 
                         (dailyBoostsAvailable > 0 ? "bg-accent hover:bg-accent/90 text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed")
                       )}
@@ -295,3 +300,4 @@ const ShopModal: React.FC<ShopModalProps> = ({
 };
 
 export default ShopModal;
+
