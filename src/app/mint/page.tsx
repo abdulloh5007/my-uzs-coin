@@ -46,7 +46,7 @@ export default function MintPage() {
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
   const [userBalance, setUserBalance] = useState(0);
-  const [ownedNfts, setOwnedNfts] = useState<string[]>([]);
+  const [ownedNfts, setOwnedNfts] = useState<string[]>([]); // Each entry is an ID of a minted NFT
 
   useEffect(() => {
     setIsClient(true);
@@ -66,13 +66,13 @@ export default function MintPage() {
       setUserBalance(newBalance);
       localStorage.setItem('userScore', newBalance.toString());
 
-      const newOwnedNfts = [...ownedNfts, nft.id];
+      const newOwnedNfts = [...ownedNfts, nft.id]; // Add another instance of the NFT ID
       setOwnedNfts(newOwnedNfts);
       localStorage.setItem('ownedNfts', JSON.stringify(newOwnedNfts));
 
       toast({
         title: `🎉 ${nft.name} сминтен!`,
-        description: `Вы успешно приобрели ${nft.name}. Он добавлен в "Мои NFT".`,
+        description: `Вы успешно приобрели еще один ${nft.name}. Он добавлен в "Мои NFT".`,
         duration: 5000,
       });
     } else {
@@ -111,15 +111,14 @@ export default function MintPage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-6 max-w-2xl mx-auto"> {/* Increased max-width */}
-          <div className="flex flex-col md:flex-row md:gap-6 space-y-6 md:space-y-0"> {/* Responsive flex container for NFT items */}
+        <div className="space-y-6 max-w-2xl mx-auto">
+          <div className="flex flex-col md:flex-row md:gap-6 space-y-6 md:space-y-0">
             {nftItems.map((nft) => {
               const canAfford = userBalance >= nft.price;
-              const isOwned = ownedNfts.includes(nft.id);
               const balanceAfterPurchase = userBalance - nft.price;
 
               return (
-                <div key={nft.id} className="flex-1 md:min-w-0"> {/* Wrapper for each NFT card to control flex behavior */}
+                <div key={nft.id} className="flex-1 md:min-w-0">
                   <Card className="bg-card/80 border-border/50 shadow-lg text-left overflow-hidden h-full flex flex-col">
                     <CardHeader className="p-4 pb-3 bg-card/90 border-b border-border/30">
                       <div className="flex items-center gap-3">
@@ -146,25 +145,16 @@ export default function MintPage() {
                         </div>
                       </div>
                       
-                      {isOwned ? (
-                         <Button
-                            className="w-full mt-4 bg-green-600 hover:bg-green-600/90 text-white" // Added mt-4 for spacing
-                            disabled
-                          >
-                            Уже куплен
-                          </Button>
-                      ) : (
-                        <Button
-                          onClick={() => handleMintNft(nft)}
-                          disabled={!canAfford}
-                          className={cn(
-                            "w-full mt-4", // Added mt-4 for spacing
-                            canAfford ? "bg-primary hover:bg-primary/90 text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed"
-                          )}
-                        >
-                          {canAfford ? 'Mint NFT' : 'Недостаточно монет'}
-                        </Button>
-                      )}
+                      <Button
+                        onClick={() => handleMintNft(nft)}
+                        disabled={!canAfford}
+                        className={cn(
+                          "w-full mt-4",
+                          canAfford ? "bg-primary hover:bg-primary/90 text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed"
+                        )}
+                      >
+                        {canAfford ? 'Mint NFT' : 'Недостаточно монет'}
+                      </Button>
                     </CardContent>
                   </Card>
                 </div>
@@ -183,12 +173,17 @@ export default function MintPage() {
             </CardHeader>
             <CardContent className="p-4 pt-2">
               {ownedNfts.length > 0 ? (
-                <div className="space-y-2">
-                  {ownedNfts.map(nftId => {
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {ownedNfts.map((nftId, index) => {
                     const foundNft = nftItems.find(item => item.id === nftId);
+                    if (!foundNft) return null;
+                    const IconComponent = foundNft.icon;
                     return (
-                      <div key={nftId} className="p-2 bg-card/50 rounded-md text-sm text-muted-foreground">
-                        {foundNft ? foundNft.name : `NFT с ID: ${nftId}`}
+                      <div key={`${nftId}-${index}`} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center", foundNft.iconBgClass.replace('/20', '/30'))}>
+                        <div className={cn("p-2 rounded-full mb-2", foundNft.iconBgClass)}>
+                          <IconComponent className={cn("w-6 h-6", foundNft.iconColorClass)} />
+                        </div>
+                        <span className="text-xs font-medium text-foreground truncate w-full">{foundNft.name}</span>
                       </div>
                     );
                   })}
@@ -207,5 +202,3 @@ export default function MintPage() {
     </div>
   );
 }
-
-    
