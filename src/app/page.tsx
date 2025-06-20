@@ -17,6 +17,9 @@ import type { Skin } from '@/types/skins';
 import { initialSkins, defaultSkin } from '@/data/skins';
 import { cn } from '@/lib/utils';
 import { Bot } from 'lucide-react';
+import type { ToastActionElement } from "@/components/ui/toast"; // Import for ToastAction
+import { ToastAction } from "@/components/ui/toast";
+
 
 const INITIAL_MAX_ENERGY = 100;
 const INITIAL_CLICK_POWER = 1;
@@ -177,14 +180,12 @@ export default function HomePage() {
     setCurrentSkin(skinToApply);
 
     const storedIsBotOwned = localStorage.getItem('isBotOwned');
-    if (storedIsBotOwned === 'true') {
-      setIsBotOwned(true);
-    }
-
     const initialClickPowerFromStorage = parseInt(localStorage.getItem('clickPower') || INITIAL_CLICK_POWER.toString(), 10);
     setClickPower(initialClickPowerFromStorage);
 
+
     if (storedIsBotOwned === 'true') {
+      setIsBotOwned(true); // Set state for other components
       const lastSeen = localStorage.getItem('lastSeenTimestamp');
       if (lastSeen) {
         const timeOfflineInSeconds = Math.floor((Date.now() - parseInt(lastSeen, 10)) / 1000);
@@ -195,7 +196,6 @@ export default function HomePage() {
           const actualCoinsEarned = Math.min(coinsEarnedByBot, BOT_MAX_OFFLINE_COINS);
 
           if (actualCoinsEarned > 0) {
-            setScore(prevScore => prevScore + actualCoinsEarned);
             toast({
               title: (
                 <div className="flex items-center gap-2">
@@ -203,8 +203,27 @@ export default function HomePage() {
                   <span className="font-semibold text-foreground">Бот Помог!</span>
                 </div>
               ),
-              description: `Ваш оффлайн бот собрал ${actualCoinsEarned.toLocaleString()} монет, пока вас не было.`,
-              duration: 7000,
+              description: `Ваш оффлайн бот готов передать вам ${actualCoinsEarned.toLocaleString()} монет.`,
+              duration: 20000, // Increased duration for user to click
+              action: (
+                <ToastAction
+                  altText="Забрать"
+                  onClick={() => {
+                    setScore(prevScore => {
+                      const newScore = prevScore + actualCoinsEarned;
+                      localStorage.setItem('userScore', newScore.toString());
+                      return newScore;
+                    });
+                    toast({
+                      title: "💰 Монеты зачислены!",
+                      description: `${actualCoinsEarned.toLocaleString()} монет добавлено на ваш баланс.`,
+                      duration: 3000,
+                    });
+                  }}
+                >
+                  Забрать
+                </ToastAction>
+              ) as ToastActionElement,
             });
           }
         }
@@ -212,7 +231,7 @@ export default function HomePage() {
     }
     localStorage.setItem('lastSeenTimestamp', Date.now().toString());
 
-  }, [toast]);
+  }, [toast, setScore]); // setScore added as a dependency
 
   useEffect(() => {
     localStorage.setItem('userScore', score.toString());
@@ -288,7 +307,7 @@ export default function HomePage() {
         }, CLICK_ANIMATION_DURATION);
       }
     }
-  }, [energy, clickPower, isAnimatingClick]);
+  }, [energy, clickPower, isAnimatingClick, setScore, setEnergy, setTotalClicks, setDailyClicks, setDailyCoinsCollected]); // Added set... to dependencies
 
   useEffect(() => {
     const regenTimer = setInterval(() => {
@@ -296,7 +315,7 @@ export default function HomePage() {
     }, ENERGY_REGEN_INTERVAL);
 
     return () => clearInterval(regenTimer);
-  }, [maxEnergy, energyRegenAmountPerInterval]);
+  }, [maxEnergy, energyRegenAmountPerInterval, setEnergy]); // Added setEnergy
 
   useEffect(() => {
     if (!gameStartTime) return;
@@ -488,3 +507,5 @@ export default function HomePage() {
   );
 }
 
+
+    
