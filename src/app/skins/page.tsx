@@ -9,65 +9,7 @@ import { Coins } from 'lucide-react';
 import type { Skin } from '@/types/skins';
 import SkinCard from '@/components/skins/SkinCard';
 import { useToast } from '@/hooks/use-toast';
-import { Palette as PaletteIcon } from 'lucide-react';
-import RainbowPaletteIcon from '@/components/skins/RainbowPaletteIcon';
-
-const initialSkins: Skin[] = [
-  {
-    id: 'classic',
-    name: 'Классическая',
-    iconComponent: PaletteIcon,
-    iconColorClass: 'text-yellow-400',
-    iconBgClass: 'bg-purple-500/40',
-    cardBgClass: 'bg-purple-600/30 hover:bg-purple-600/40',
-    price: 0,
-  },
-  {
-    id: 'silver',
-    name: 'Серебряная',
-    iconComponent: PaletteIcon,
-    iconColorClass: 'text-slate-300',
-    iconBgClass: 'bg-slate-600/40',
-    cardBgClass: 'bg-slate-700/30 hover:bg-slate-700/40',
-    price: 1000,
-  },
-  {
-    id: 'ruby',
-    name: 'Рубиновая',
-    iconComponent: PaletteIcon,
-    iconColorClass: 'text-red-300',
-    iconBgClass: 'bg-red-600/40',
-    cardBgClass: 'bg-red-700/30 hover:bg-red-700/40',
-    price: 5000,
-  },
-  {
-    id: 'emerald',
-    name: 'Изумрудная',
-    iconComponent: PaletteIcon,
-    iconColorClass: 'text-green-300',
-    iconBgClass: 'bg-green-600/40',
-    cardBgClass: 'bg-green-700/30 hover:bg-green-700/40',
-    price: 10000,
-  },
-  {
-    id: 'diamond',
-    name: 'Алмазная',
-    iconComponent: PaletteIcon,
-    iconColorClass: 'text-blue-300',
-    iconBgClass: 'bg-blue-600/40',
-    cardBgClass: 'bg-blue-700/30 hover:bg-blue-700/40',
-    price: 25000,
-  },
-  {
-    id: 'rainbow',
-    name: 'Радужная',
-    iconComponent: RainbowPaletteIcon,
-    iconColorClass: '', // Not needed for SVG component
-    iconBgClass: 'bg-indigo-600/40',
-    cardBgClass: 'bg-indigo-700/30 hover:bg-indigo-700/40',
-    price: 50000,
-  },
-];
+import { initialSkins } from '@/data/skins'; // Import from new data file
 
 export default function SkinsPage() {
   const router = useRouter();
@@ -181,7 +123,7 @@ export default function SkinsPage() {
           ))}
         </div>
       </div>
-      <BottomNavBar onNavigate={handleNavigation} />
+      <BottomNavBar onNavigate={handleNavigation} activeItem="/skins"/>
     </div>
   );
 }

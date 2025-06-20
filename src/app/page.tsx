@@ -13,12 +13,14 @@ import { formatDistanceStrict } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/data/tasks';
 import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
-
+import type { Skin } from '@/types/skins';
+import { initialSkins, defaultSkin } from '@/data/skins';
+import { cn } from '@/lib/utils';
 
 const INITIAL_MAX_ENERGY = 100;
 const INITIAL_CLICK_POWER = 1;
 const INITIAL_ENERGY_REGEN_RATE_PER_SECOND = 3;
-const INITIAL_SCORE = 1000000000; // Updated to 1 billion
+const INITIAL_SCORE = 1000000000; 
 const INITIAL_TOTAL_CLICKS = 0;
 
 const ENERGY_PER_CLICK = 1;
@@ -54,6 +56,8 @@ export default function HomePage() {
   const [dailyCoinsCollected, setDailyCoinsCollected] = useState(0);
   const [dailyTimePlayedSeconds, setDailyTimePlayedSeconds] = useState(0);
   const [lastResetDate, setLastResetDate] = useState(getCurrentDateString());
+
+  const [currentSkin, setCurrentSkin] = useState<Skin>(defaultSkin);
 
   const allTasksForNotification = useMemo(() => [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks], []);
 
@@ -122,6 +126,10 @@ export default function HomePage() {
       });
       sessionStorage.setItem('newRewardsToastShownThisSession', 'true');
     }
+    
+    const selectedSkinIdFromStorage = localStorage.getItem('selectedSkinId');
+    const skinToApply = initialSkins.find(s => s.id === selectedSkinIdFromStorage) || defaultSkin;
+    setCurrentSkin(skinToApply);
 
   }, [toast]);
 
@@ -207,6 +215,20 @@ export default function HomePage() {
     return () => clearInterval(intervalId);
   }, [toast]);
 
+  // Effect to update skin when selectedSkinId changes in localStorage (e.g., from SkinsPage)
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'selectedSkinId' && event.newValue) {
+        const skinToApply = initialSkins.find(s => s.id === event.newValue) || defaultSkin;
+        setCurrentSkin(skinToApply);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
 
   const toggleShop = () => {
     setIsShopOpen(prev => !prev);
@@ -236,7 +258,11 @@ export default function HomePage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
+    <div className={cn(
+        "flex flex-col min-h-screen text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground",
+        currentSkin.pageGradientFromClass,
+        currentSkin.pageGradientToClass
+      )}>
       <TopBar onShopClick={toggleShop} />
       <GameStats
         score={score}
@@ -251,6 +277,8 @@ export default function HomePage() {
           onClick={handleCoinClick}
           isAnimating={isAnimatingClick}
           disabled={energy < ENERGY_PER_CLICK}
+          coinColorClass={currentSkin.coinColorClass}
+          coinIconColorClass={currentSkin.coinIconColorClass}
         />
       </main>
 
@@ -268,5 +296,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
