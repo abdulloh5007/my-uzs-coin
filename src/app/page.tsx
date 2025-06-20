@@ -179,59 +179,107 @@ export default function HomePage() {
     const skinToApply = initialSkins.find(s => s.id === selectedSkinIdFromStorage) || defaultSkin;
     setCurrentSkin(skinToApply);
 
-    const storedIsBotOwned = localStorage.getItem('isBotOwned');
     const initialClickPowerFromStorage = parseInt(localStorage.getItem('clickPower') || INITIAL_CLICK_POWER.toString(), 10);
     setClickPower(initialClickPowerFromStorage);
 
+    // --- Bot Logic ---
+    const storedIsBotOwned = localStorage.getItem('isBotOwned');
+    setIsBotOwned(storedIsBotOwned === 'true'); // Set state for other components
 
-    if (storedIsBotOwned === 'true') {
-      setIsBotOwned(true); // Set state for other components
-      const lastSeen = localStorage.getItem('lastSeenTimestamp');
-      if (lastSeen) {
-        const timeOfflineInSeconds = Math.floor((Date.now() - parseInt(lastSeen, 10)) / 1000);
-        if (timeOfflineInSeconds > 0) {
-          const botClicksCount = Math.floor(timeOfflineInSeconds / BOT_CLICK_INTERVAL_SECONDS);
-          const clickPowerForBot = parseInt(localStorage.getItem('clickPower') || INITIAL_CLICK_POWER.toString(), 10);
-          const coinsEarnedByBot = botClicksCount * clickPowerForBot;
-          const actualCoinsEarned = Math.min(coinsEarnedByBot, BOT_MAX_OFFLINE_COINS);
+    const previouslyUnclaimedBotCoinsRaw = localStorage.getItem('unclaimedBotCoins');
+    const previouslyUnclaimedBotCoins = previouslyUnclaimedBotCoinsRaw ? parseInt(previouslyUnclaimedBotCoinsRaw, 10) : 0;
 
-          if (actualCoinsEarned > 0) {
-            toast({
-              title: (
+    if (previouslyUnclaimedBotCoins > 0 && storedIsBotOwned === 'true') {
+        // There are coins from a *previous* session waiting to be claimed
+        toast({
+            title: (
                 <div className="flex items-center gap-2">
-                  <Bot className="h-5 w-5 text-primary" />
-                  <span className="font-semibold text-foreground">Бот Помог!</span>
+                    <Bot className="h-5 w-5 text-primary" />
+                    <span className="font-semibold text-foreground">Бот Ожидает!</span>
                 </div>
-              ),
-              description: `Ваш оффлайн бот готов передать вам ${actualCoinsEarned.toLocaleString()} монет.`,
-              duration: 20000, // Increased duration for user to click
-              action: (
+            ),
+            description: `У вас есть ${previouslyUnclaimedBotCoins.toLocaleString()} монет от бота, ожидающих сбора.`,
+            duration: 30000, // Increased duration
+            action: (
                 <ToastAction
-                  altText="Забрать"
-                  onClick={() => {
-                    setScore(prevScore => {
-                      const newScore = prevScore + actualCoinsEarned;
-                      localStorage.setItem('userScore', newScore.toString());
-                      return newScore;
-                    });
-                    toast({
-                      title: "💰 Монеты зачислены!",
-                      description: `${actualCoinsEarned.toLocaleString()} монет добавлено на ваш баланс.`,
-                      duration: 3000,
-                    });
-                  }}
+                    altText="Забрать"
+                    onClick={() => {
+                        setScore(prevScore => {
+                            const newScore = prevScore + previouslyUnclaimedBotCoins;
+                            localStorage.setItem('userScore', newScore.toString());
+                            return newScore;
+                        });
+                        localStorage.removeItem('unclaimedBotCoins'); // Clear after claiming
+                        toast({
+                            title: "💰 Монеты зачислены!",
+                            description: `${previouslyUnclaimedBotCoins.toLocaleString()} монет добавлено на ваш баланс.`,
+                            duration: 3000,
+                        });
+                    }}
                 >
-                  Забрать
+                    Забрать
                 </ToastAction>
-              ) as ToastActionElement,
-            });
-          }
-        }
-      }
-    }
-    localStorage.setItem('lastSeenTimestamp', Date.now().toString());
+            ) as ToastActionElement,
+        });
+        localStorage.setItem('lastSeenTimestamp', Date.now().toString()); // Update lastSeen as these old coins are now handled
+    } else if (storedIsBotOwned === 'true') {
+        // No previously unclaimed coins, or bot was just bought. Proceed to calculate for the current offline period.
+        const lastSeen = localStorage.getItem('lastSeenTimestamp');
+        if (lastSeen) {
+            const timeOfflineInSeconds = Math.floor((Date.now() - parseInt(lastSeen, 10)) / 1000);
+            
+            if (timeOfflineInSeconds > BOT_CLICK_INTERVAL_SECONDS) { // Min time offline to calculate meaningfully
+                const botClicksCount = Math.floor(timeOfflineInSeconds / BOT_CLICK_INTERVAL_SECONDS);
+                const clickPowerForBot = parseInt(localStorage.getItem('clickPower') || INITIAL_CLICK_POWER.toString(), 10);
+                const coinsEarnedByBot = botClicksCount * clickPowerForBot;
+                const actualCoinsEarned = Math.min(coinsEarnedByBot, BOT_MAX_OFFLINE_COINS);
 
-  }, [toast, setScore]); // setScore added as a dependency
+                if (actualCoinsEarned > 0) {
+                    // Store these newly earned coins as unclaimed
+                    localStorage.setItem('unclaimedBotCoins', actualCoinsEarned.toString());
+                    // NOW show the toast to claim these *newly* calculated coins
+                    toast({
+                        title: (
+                            <div className="flex items-center gap-2">
+                                <Bot className="h-5 w-5 text-primary" />
+                                <span className="font-semibold text-foreground">Бот Помог!</span>
+                            </div>
+                        ),
+                        description: `Ваш оффлайн бот готов передать вам ${actualCoinsEarned.toLocaleString()} монет.`,
+                        duration: 30000, // Increased duration
+                        action: (
+                            <ToastAction
+                                altText="Забрать"
+                                onClick={() => {
+                                    setScore(prevScore => {
+                                        const newScore = prevScore + actualCoinsEarned;
+                                        localStorage.setItem('userScore', newScore.toString());
+                                        return newScore;
+                                    });
+                                    localStorage.removeItem('unclaimedBotCoins'); // Clear after claiming
+                                    toast({
+                                        title: "💰 Монеты зачислены!",
+                                        description: `${actualCoinsEarned.toLocaleString()} монет добавлено на ваш баланс.`,
+                                        duration: 3000,
+                                    });
+                                }}
+                            >
+                                Забрать
+                            </ToastAction>
+                        ) as ToastActionElement,
+                    });
+                }
+            }
+        }
+        // Always update lastSeenTimestamp after processing or attempting to process offline earnings for this session
+        localStorage.setItem('lastSeenTimestamp', Date.now().toString());
+    } else {
+        // Bot not owned, or no lastSeen (first ever load) -> still good to set a baseline timestamp
+        localStorage.setItem('lastSeenTimestamp', Date.now().toString());
+    }
+    // --- End of Bot Logic ---
+
+  }, [toast]); // Removed setScore from dependencies as it's managed via its setter
 
   useEffect(() => {
     localStorage.setItem('userScore', score.toString());
@@ -253,10 +301,12 @@ export default function HomePage() {
 
   useEffect(() => {
     localStorage.setItem('daily_clickBoostsAvailable', dailyClickBoostsAvailable.toString());
+    localStorage.setItem('daily_lastClickBoostResetDate', localStorage.getItem('daily_lastClickBoostResetDate') || getCurrentDateString());
   }, [dailyClickBoostsAvailable]);
 
   useEffect(() => {
     localStorage.setItem('daily_fullEnergyBoostsAvailable', dailyFullEnergyBoostsAvailable.toString());
+    localStorage.setItem('daily_lastFullEnergyBoostResetDate', localStorage.getItem('daily_lastFullEnergyBoostResetDate') || getCurrentDateString());
   }, [dailyFullEnergyBoostsAvailable]);
 
 
@@ -284,7 +334,7 @@ export default function HomePage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isBoostActive, boostEndTime, originalClickPower, toast, setClickPower]);
+  }, [isBoostActive, boostEndTime, originalClickPower, toast]); // Removed setClickPower from dependencies
 
 
   const energyRegenAmountPerInterval = energyRegenRatePerSecond * (ENERGY_REGEN_INTERVAL / 1000);
@@ -307,7 +357,7 @@ export default function HomePage() {
         }, CLICK_ANIMATION_DURATION);
       }
     }
-  }, [energy, clickPower, isAnimatingClick, setScore, setEnergy, setTotalClicks, setDailyClicks, setDailyCoinsCollected]); // Added set... to dependencies
+  }, [energy, clickPower, isAnimatingClick]); // Removed set... from dependencies
 
   useEffect(() => {
     const regenTimer = setInterval(() => {
@@ -315,7 +365,7 @@ export default function HomePage() {
     }, ENERGY_REGEN_INTERVAL);
 
     return () => clearInterval(regenTimer);
-  }, [maxEnergy, energyRegenAmountPerInterval, setEnergy]); // Added setEnergy
+  }, [maxEnergy, energyRegenAmountPerInterval]); // Removed setEnergy
 
   useEffect(() => {
     if (!gameStartTime) return;
@@ -366,6 +416,13 @@ export default function HomePage() {
       if (event.key === 'daily_fullEnergyBoostsAvailable' && event.newValue) {
         setDailyFullEnergyBoostsAvailable(parseInt(event.newValue, 10));
       }
+       // Listen for unclaimed bot coins changes potentially from other tabs (though less likely for this specific item)
+      if (event.key === 'unclaimedBotCoins' && event.newValue) {
+        // This might trigger a re-render and re-evaluation in the main useEffect if needed,
+        // but the primary handling is on initial load.
+        // For immediate reflection, a more complex state management or event bus might be needed.
+        // However, for robustness against refresh, this is mainly handled by the load logic.
+      }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => {
@@ -375,6 +432,9 @@ export default function HomePage() {
 
   useEffect(() => {
     const handleBeforeUnload = () => {
+      // Ensure lastSeenTimestamp is set one last time.
+      // If there are coins being offered via toast, they are already in 'unclaimedBotCoins'.
+      // If no coins are offered, this just updates the timestamp for the next session.
       localStorage.setItem('lastSeenTimestamp', Date.now().toString());
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -409,6 +469,8 @@ export default function HomePage() {
         case 'offlineBotPurchase':
           setIsBotOwned(true);
           localStorage.setItem('isBotOwned', 'true');
+          // When bot is purchased, set lastSeenTimestamp immediately so it starts "working" from this point.
+          localStorage.setItem('lastSeenTimestamp', Date.now().toString());
           toast({
             title: "🤖 Оффлайн Бот Активирован!",
             description: "Теперь ваш бот будет собирать монеты, пока вы отдыхаете.",
@@ -435,7 +497,7 @@ export default function HomePage() {
         duration: 4000,
       });
     }
-  }, [dailyClickBoostsAvailable, isBoostActive, clickPower, toast, setClickPower, setOriginalClickPower, setDailyClickBoostsAvailable, setIsBoostActive, setBoostEndTime]);
+  }, [dailyClickBoostsAvailable, isBoostActive, clickPower, toast]); // Removed set... from dependencies
 
   const handleActivateFullEnergyBoost = useCallback(() => {
     if (dailyFullEnergyBoostsAvailable > 0) {
@@ -447,7 +509,7 @@ export default function HomePage() {
         duration: 4000,
       });
     }
-  }, [dailyFullEnergyBoostsAvailable, maxEnergy, toast, setEnergy, setDailyFullEnergyBoostsAvailable]);
+  }, [dailyFullEnergyBoostsAvailable, maxEnergy, toast]); // Removed set... from dependencies
 
 
   const handleNavigation = (path: string) => {
@@ -506,6 +568,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-
-    
