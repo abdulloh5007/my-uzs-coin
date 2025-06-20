@@ -106,7 +106,7 @@ export default function ProfilePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
-      <div className="flex-grow container mx-auto px-4 py-8 pt-10 md:pt-16 text-center">
+      <div className="flex-grow container mx-auto px-4 pt-10 md:pt-16 pb-20 md:pb-24 text-center">
         <h1 className="text-4xl font-bold mb-8">Профиль</h1>
         
         <Avatar className="w-24 h-24 mx-auto mb-8 shadow-lg ring-2 ring-primary/50">
