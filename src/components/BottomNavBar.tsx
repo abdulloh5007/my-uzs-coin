@@ -12,45 +12,71 @@ interface NavItemProps {
   path: string;
   isActive?: boolean;
   onClick?: () => void;
+  hasNotification?: boolean;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, isActive, onClick }) => {
+const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, isActive, onClick, hasNotification }) => {
   return (
     <Button
       variant="ghost"
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center justify-center h-full p-2 flex-1 rounded-none",
+        "relative flex flex-col items-center justify-center h-full p-2 flex-1 rounded-none",
         "text-muted-foreground hover:text-foreground",
         isActive ? "text-primary bg-primary/10" : ""
       )}
     >
       <Icon className={cn("w-6 h-6 mb-0.5", isActive ? "text-primary" : "")} />
       <span className={cn("text-xs", isActive ? "font-semibold text-primary" : "")}>{label}</span>
+      {hasNotification && (
+        <span className="absolute top-1 right-1 md:top-2 md:right-2 flex h-2.5 w-2.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+        </span>
+      )}
     </Button>
   );
 };
 
 interface BottomNavBarProps {
   onNavigate?: (path: string) => void;
-  activeItem?: string; // Optional activeItem prop for external control
+  activeItem?: string; 
 }
 
 const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) => {
   const router = useRouter();
   const pathname = usePathname();
   const [isClient, setIsClient] = useState(false);
+  const [hasUnclaimedRewards, setHasUnclaimedRewards] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const navItems: Omit<NavItemProps, 'isActive' | 'onClick'>[] = [
+  useEffect(() => {
+    if (isClient) {
+      const checkRewards = () => {
+        const unclaimedRewards = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
+        setHasUnclaimedRewards(unclaimedRewards.length > 0);
+      };
+      checkRewards(); // Initial check
+      const intervalId = setInterval(checkRewards, 5000); // Check every 5 seconds
+      window.addEventListener('storage', checkRewards); // Listen for storage changes from other tabs
+
+      return () => {
+        clearInterval(intervalId);
+        window.removeEventListener('storage', checkRewards);
+      };
+    }
+  }, [isClient]);
+
+
+  const navItems: Omit<NavItemProps, 'isActive' | 'onClick' | 'hasNotification'>[] = [
     { icon: User, label: 'Профиль', path: '/profile' },
     { icon: MousePointerClick, label: 'Кликер', path: '/' }, 
     { icon: ListChecks, label: 'Задания', path: '/tasks' }, 
     { icon: Gift, label: 'Награды', path: '/rewards' },
-    { icon: Sparkles, label: 'Mint', path: '/mint' }, // Assuming Mint is a future feature
+    { icon: Sparkles, label: 'Mint', path: '/mint' },
     { icon: Palette, label: 'Скины', path: '/skins' },
   ];
 
@@ -71,7 +97,8 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
     <div className="fixed bottom-0 left-0 right-0 z-20 bg-card shadow-up h-16 md:h-20">
       <div className="container mx-auto flex items-stretch justify-around h-full px-0">
         {navItems.map((item) => {
-          const currentItemIsActive = isClient ? (currentPathForActivity === item.path || (item.path === '/' && currentPathForActivity.startsWith('/?'))) : false;
+          const currentItemIsActive = isClient ? (currentPathForActivity === item.path || (currentPathForActivity === '/' && item.path === '/') || (item.path === '/' && currentPathForActivity.startsWith('/?'))) : false;
+          const itemHasNotification = item.path === '/rewards' && hasUnclaimedRewards;
           return (
             <NavItem
               key={item.label}
@@ -80,6 +107,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
               path={item.path}
               isActive={currentItemIsActive}
               onClick={() => handleItemClick(item.path)}
+              hasNotification={itemHasNotification}
             />
           );
         })}
