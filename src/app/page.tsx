@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { Bot } from 'lucide-react';
 import type { ToastActionElement } from "@/components/ui/toast"; // Import for ToastAction
 import { ToastAction } from "@/components/ui/toast";
-import DailyTip from '@/components/DailyTip';
+// Removed: import DailyTip from '@/components/DailyTip';
 
 
 const INITIAL_MAX_ENERGY = 100;
@@ -280,7 +280,7 @@ export default function HomePage() {
     }
     // --- End of Bot Logic ---
 
-  }, [toast]);
+  }, [toast]); // Removed isBoostActive, originalClickPower from dependencies as they are not directly used for initialization logic of boosts here.
 
   useEffect(() => {
     localStorage.setItem('userScore', score.toString());
@@ -525,7 +525,7 @@ export default function HomePage() {
         isBoostActive={isBoostActive}
         boostEndTime={boostEndTime}
       />
-      <DailyTip />
+      {/* Removed: <DailyTip /> */}
 
       <main className="flex flex-col items-center justify-center flex-grow pt-32 pb-20 md:pt-36 md:pb-24 px-4">
         <ClickableCoin
