@@ -16,10 +16,10 @@ import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
 import type { Skin } from '@/types/skins';
 import { initialSkins, defaultSkin } from '@/data/skins';
 import { cn } from '@/lib/utils';
-import { Bot } from 'lucide-react';
-import type { ToastActionElement } from "@/components/ui/toast"; // Import for ToastAction
+import { Bot, Coins as CoinsIcon, Sparkles } from 'lucide-react'; // Renamed Coins to CoinsIcon
+import type { ToastActionElement } from "@/components/ui/toast";
 import { ToastAction } from "@/components/ui/toast";
-// Removed: import DailyTip from '@/components/DailyTip';
+import { useAuth } from '@/context/AuthContext';
 
 
 const INITIAL_MAX_ENERGY = 100;
@@ -53,6 +53,9 @@ const getCurrentDateString = () => {
 
 export default function HomePage() {
   const { toast } = useToast();
+  const router = useRouter();
+  const { currentUser, loading: authLoading } = useAuth();
+
   const [score, setScore] = useState(INITIAL_SCORE);
   const [maxEnergy, setMaxEnergy] = useState(INITIAL_MAX_ENERGY);
   const [energy, setEnergy] = useState(INITIAL_MAX_ENERGY);
@@ -65,7 +68,6 @@ export default function HomePage() {
 
   const [isAnimatingClick, setIsAnimatingClick] = useState(false);
   const [isShopOpen, setIsShopOpen] = useState(false);
-  const router = useRouter();
 
   const [dailyClicks, setDailyClicks] = useState(0);
   const [dailyCoinsCollected, setDailyCoinsCollected] = useState(0);
@@ -85,6 +87,12 @@ export default function HomePage() {
 
   const allTasksForNotification = useMemo(() => [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks], []);
 
+  useEffect(() => {
+    if (!authLoading && !currentUser) {
+      router.push('/login');
+    }
+  }, [currentUser, authLoading, router]);
+
   const getFullProgressForCheck = useCallback(() => {
     const ownedSkinsRaw = localStorage.getItem('ownedSkins');
     const ownedSkinsArray: string[] = ownedSkinsRaw ? JSON.parse(ownedSkinsRaw) : ['classic'];
@@ -101,6 +109,8 @@ export default function HomePage() {
   }, [dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, score]);
 
   useEffect(() => {
+    if (!currentUser) return; // Don't run if not authenticated
+
     const storedScore = localStorage.getItem('userScore');
     setScore(storedScore ? parseInt(storedScore, 10) : INITIAL_SCORE);
 
@@ -185,13 +195,12 @@ export default function HomePage() {
 
     // --- Bot Logic ---
     const storedIsBotOwned = localStorage.getItem('isBotOwned');
-    setIsBotOwned(storedIsBotOwned === 'true'); // Set state for other components
+    setIsBotOwned(storedIsBotOwned === 'true'); 
 
     const previouslyUnclaimedBotCoinsRaw = localStorage.getItem('unclaimedBotCoins');
     const previouslyUnclaimedBotCoins = previouslyUnclaimedBotCoinsRaw ? parseInt(previouslyUnclaimedBotCoinsRaw, 10) : 0;
 
     if (previouslyUnclaimedBotCoins > 0 && storedIsBotOwned === 'true') {
-        // There are coins from a *previous* session waiting to be claimed
         toast({
             title: (
                 <div className="flex items-center gap-2">
@@ -200,7 +209,7 @@ export default function HomePage() {
                 </div>
             ),
             description: `У вас есть ${previouslyUnclaimedBotCoins.toLocaleString()} монет от бота, ожидающих сбора.`,
-            duration: 30000, // Increased duration
+            duration: 30000, 
             action: (
                 <ToastAction
                     altText="Забрать"
@@ -210,7 +219,7 @@ export default function HomePage() {
                             localStorage.setItem('userScore', newScore.toString());
                             return newScore;
                         });
-                        localStorage.removeItem('unclaimedBotCoins'); // Clear after claiming
+                        localStorage.removeItem('unclaimedBotCoins'); 
                         toast({
                             title: "💰 Монеты зачислены!",
                             description: `${previouslyUnclaimedBotCoins.toLocaleString()} монет добавлено на ваш баланс.`,
@@ -222,23 +231,20 @@ export default function HomePage() {
                 </ToastAction>
             ) as ToastActionElement,
         });
-        localStorage.setItem('lastSeenTimestamp', Date.now().toString()); // Update lastSeen as these old coins are now handled
+        localStorage.setItem('lastSeenTimestamp', Date.now().toString()); 
     } else if (storedIsBotOwned === 'true') {
-        // No previously unclaimed coins, or bot was just bought. Proceed to calculate for the current offline period.
         const lastSeen = localStorage.getItem('lastSeenTimestamp');
         if (lastSeen) {
             const timeOfflineInSeconds = Math.floor((Date.now() - parseInt(lastSeen, 10)) / 1000);
             
-            if (timeOfflineInSeconds > BOT_CLICK_INTERVAL_SECONDS) { // Min time offline to calculate meaningfully
+            if (timeOfflineInSeconds > BOT_CLICK_INTERVAL_SECONDS) { 
                 const botClicksCount = Math.floor(timeOfflineInSeconds / BOT_CLICK_INTERVAL_SECONDS);
                 const clickPowerForBot = parseInt(localStorage.getItem('clickPower') || INITIAL_CLICK_POWER.toString(), 10);
                 const coinsEarnedByBot = botClicksCount * clickPowerForBot;
                 const actualCoinsEarned = Math.min(coinsEarnedByBot, BOT_MAX_OFFLINE_COINS);
 
                 if (actualCoinsEarned > 0) {
-                    // Store these newly earned coins as unclaimed
                     localStorage.setItem('unclaimedBotCoins', actualCoinsEarned.toString());
-                    // NOW show the toast to claim these *newly* calculated coins
                     toast({
                         title: (
                             <div className="flex items-center gap-2">
@@ -247,7 +253,7 @@ export default function HomePage() {
                             </div>
                         ),
                         description: `Ваш оффлайн бот готов передать вам ${actualCoinsEarned.toLocaleString()} монет.`,
-                        duration: 30000, // Increased duration
+                        duration: 30000, 
                         action: (
                             <ToastAction
                                 altText="Забрать"
@@ -257,7 +263,7 @@ export default function HomePage() {
                                         localStorage.setItem('userScore', newScore.toString());
                                         return newScore;
                                     });
-                                    localStorage.removeItem('unclaimedBotCoins'); // Clear after claiming
+                                    localStorage.removeItem('unclaimedBotCoins'); 
                                     toast({
                                         title: "💰 Монеты зачислены!",
                                         description: `${actualCoinsEarned.toLocaleString()} монет добавлено на ваш баланс.`,
@@ -272,17 +278,16 @@ export default function HomePage() {
                 }
             }
         }
-        // Always update lastSeenTimestamp after processing or attempting to process offline earnings for this session
         localStorage.setItem('lastSeenTimestamp', Date.now().toString());
     } else {
-        // Bot not owned, or no lastSeen (first ever load) -> still good to set a baseline timestamp
         localStorage.setItem('lastSeenTimestamp', Date.now().toString());
     }
     // --- End of Bot Logic ---
 
-  }, [toast]); // Removed isBoostActive, originalClickPower from dependencies as they are not directly used for initialization logic of boosts here.
+  }, [toast, currentUser, authLoading, isBoostActive, originalClickPower]); // Added dependencies for boost logic
 
   useEffect(() => {
+    if (!currentUser) return;
     localStorage.setItem('userScore', score.toString());
     localStorage.setItem('totalClicks', totalClicks.toString());
     if (gameStartTime) {
@@ -290,30 +295,33 @@ export default function HomePage() {
     }
     localStorage.setItem('clickPower', clickPower.toString());
     checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
-  }, [score, totalClicks, gameStartTime, clickPower, getFullProgressForCheck, allTasksForNotification, toast]);
+  }, [score, totalClicks, gameStartTime, clickPower, getFullProgressForCheck, allTasksForNotification, toast, currentUser]);
 
   useEffect(() => {
+    if (!currentUser) return;
     localStorage.setItem('daily_lastResetDate', lastResetDate);
     localStorage.setItem('daily_clicks', dailyClicks.toString());
     localStorage.setItem('daily_coinsCollected', dailyCoinsCollected.toString());
     localStorage.setItem('daily_timePlayedSeconds', dailyTimePlayedSeconds.toString());
     checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
-  }, [lastResetDate, dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, getFullProgressForCheck, allTasksForNotification, toast]);
+  }, [lastResetDate, dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, getFullProgressForCheck, allTasksForNotification, toast, currentUser]);
 
   useEffect(() => {
+    if (!currentUser) return;
     localStorage.setItem('daily_clickBoostsAvailable', dailyClickBoostsAvailable.toString());
     localStorage.setItem('daily_lastClickBoostResetDate', localStorage.getItem('daily_lastClickBoostResetDate') || getCurrentDateString());
-  }, [dailyClickBoostsAvailable]);
+  }, [dailyClickBoostsAvailable, currentUser]);
 
   useEffect(() => {
+    if (!currentUser) return;
     localStorage.setItem('daily_fullEnergyBoostsAvailable', dailyFullEnergyBoostsAvailable.toString());
     localStorage.setItem('daily_lastFullEnergyBoostResetDate', localStorage.getItem('daily_lastFullEnergyBoostResetDate') || getCurrentDateString());
-  }, [dailyFullEnergyBoostsAvailable]);
+  }, [dailyFullEnergyBoostsAvailable, currentUser]);
 
 
   // Boost Timer Effect
   useEffect(() => {
-    if (!isBoostActive || boostEndTime === 0) {
+    if (!currentUser || !isBoostActive || boostEndTime === 0) {
       return;
     }
 
@@ -335,12 +343,13 @@ export default function HomePage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isBoostActive, boostEndTime, originalClickPower, toast]);
+  }, [isBoostActive, boostEndTime, originalClickPower, toast, currentUser]);
 
 
   const energyRegenAmountPerInterval = energyRegenRatePerSecond * (ENERGY_REGEN_INTERVAL / 1000);
 
   const handleCoinClick = useCallback(() => {
+    if (!currentUser) return;
     if (energy >= ENERGY_PER_CLICK) {
       const scoreIncrease = clickPower; 
 
@@ -358,32 +367,35 @@ export default function HomePage() {
         }, CLICK_ANIMATION_DURATION);
       }
     }
-  }, [energy, clickPower, isAnimatingClick]);
+  }, [energy, clickPower, isAnimatingClick, currentUser]);
 
   useEffect(() => {
+    if (!currentUser) return;
     const regenTimer = setInterval(() => {
       setEnergy((prevEnergy) => Math.min(maxEnergy, prevEnergy + energyRegenAmountPerInterval));
     }, ENERGY_REGEN_INTERVAL);
 
     return () => clearInterval(regenTimer);
-  }, [maxEnergy, energyRegenAmountPerInterval]);
+  }, [maxEnergy, energyRegenAmountPerInterval, currentUser]);
 
   useEffect(() => {
-    if (!gameStartTime) return;
+    if (!currentUser || !gameStartTime) return;
     const timePlayedTimer = setInterval(() => {
       setGameTimePlayed(formatDistanceStrict(new Date(), gameStartTime, {roundingMethod: 'floor'}));
     }, 1000);
     return () => clearInterval(timePlayedTimer);
-  }, [gameStartTime]);
+  }, [gameStartTime, currentUser]);
 
   useEffect(() => {
+    if (!currentUser) return;
     const dailyTimeUpdateTimer = setInterval(() => {
       setDailyTimePlayedSeconds(prev => prev + (DAILY_STATS_UPDATE_INTERVAL / 1000));
     }, DAILY_STATS_UPDATE_INTERVAL);
     return () => clearInterval(dailyTimeUpdateTimer);
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
+    if (!currentUser) return;
     const intervalId = setInterval(() => {
       const unclaimedRewards = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
       if (unclaimedRewards.length > 0 && !sessionStorage.getItem('newRewardsToastShownThisSession')) {
@@ -400,9 +412,10 @@ export default function HomePage() {
     }, 10000);
 
     return () => clearInterval(intervalId);
-  }, [toast]);
+  }, [toast, currentUser]);
 
   useEffect(() => {
+    if (!currentUser) return;
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'selectedSkinId' && event.newValue) {
         const skinToApply = initialSkins.find(s => s.id === event.newValue) || defaultSkin;
@@ -417,17 +430,15 @@ export default function HomePage() {
       if (event.key === 'daily_fullEnergyBoostsAvailable' && event.newValue) {
         setDailyFullEnergyBoostsAvailable(parseInt(event.newValue, 10));
       }
-      if (event.key === 'unclaimedBotCoins' && event.newValue) {
-        // This might trigger a re-render and re-evaluation in the main useEffect if needed,
-      }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
+    if (!currentUser) return;
     const handleBeforeUnload = () => {
       localStorage.setItem('lastSeenTimestamp', Date.now().toString());
     };
@@ -435,14 +446,16 @@ export default function HomePage() {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, []);
+  }, [currentUser]);
 
 
   const toggleShop = () => {
+    if (!currentUser) return;
     setIsShopOpen(prev => !prev);
   };
 
   const handlePurchase = (upgradeId: UpgradeId, cost: number) => {
+    if (!currentUser) return false;
     if (score >= cost) {
       setScore(prevScore => prevScore - cost);
       switch (upgradeId) {
@@ -477,6 +490,7 @@ export default function HomePage() {
   };
 
   const handleActivateClickBoost = useCallback(() => {
+    if (!currentUser) return;
     if (dailyClickBoostsAvailable > 0 && !isBoostActive) {
       setOriginalClickPower(clickPower);
       setClickPower(prev => prev * 2);
@@ -490,9 +504,10 @@ export default function HomePage() {
         duration: 4000,
       });
     }
-  }, [dailyClickBoostsAvailable, isBoostActive, clickPower, toast]);
+  }, [dailyClickBoostsAvailable, isBoostActive, clickPower, toast, currentUser]);
 
   const handleActivateFullEnergyBoost = useCallback(() => {
+    if (!currentUser) return;
     if (dailyFullEnergyBoostsAvailable > 0) {
       setEnergy(maxEnergy);
       setDailyFullEnergyBoostsAvailable(prev => prev - 1);
@@ -502,12 +517,21 @@ export default function HomePage() {
         duration: 4000,
       });
     }
-  }, [dailyFullEnergyBoostsAvailable, maxEnergy, toast]);
+  }, [dailyFullEnergyBoostsAvailable, maxEnergy, toast, currentUser]);
 
 
   const handleNavigation = (path: string) => {
     router.push(path);
   };
+
+  if (authLoading || (!currentUser && !authLoading)) {
+    return (
+      <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-background to-indigo-900/50">
+        <Sparkles className="w-16 h-16 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-foreground">Загрузка игры...</p>
+      </div>
+    );
+  }
 
   return (
     <div className={cn(
@@ -525,7 +549,6 @@ export default function HomePage() {
         isBoostActive={isBoostActive}
         boostEndTime={boostEndTime}
       />
-      {/* Removed: <DailyTip /> */}
 
       <main className="flex flex-col items-center justify-center flex-grow pt-32 pb-20 md:pt-36 md:pb-24 px-4">
         <ClickableCoin
