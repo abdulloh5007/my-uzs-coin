@@ -16,6 +16,7 @@ import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
 import type { Skin } from '@/types/skins';
 import { initialSkins, defaultSkin } from '@/data/skins';
 import { cn } from '@/lib/utils';
+import { Bot } from 'lucide-react'; // Changed from Robot to Bot
 
 const INITIAL_MAX_ENERGY = 100;
 const INITIAL_CLICK_POWER = 1;
@@ -27,6 +28,8 @@ const ENERGY_PER_CLICK = 1;
 const ENERGY_REGEN_INTERVAL = 50;
 const CLICK_ANIMATION_DURATION = 200;
 const DAILY_STATS_UPDATE_INTERVAL = 1000;
+const BOT_MAX_OFFLINE_COINS = 299000;
+const BOT_CLICK_INTERVAL_SECONDS = 2;
 
 const getCurrentDateString = () => {
   const today = new Date();
@@ -58,6 +61,7 @@ export default function HomePage() {
   const [lastResetDate, setLastResetDate] = useState(getCurrentDateString());
 
   const [currentSkin, setCurrentSkin] = useState<Skin>(defaultSkin);
+  const [isBotOwned, setIsBotOwned] = useState(false);
 
   const allTasksForNotification = useMemo(() => [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks], []);
 
@@ -75,7 +79,6 @@ export default function HomePage() {
       ownedSkins_length: ownedSkinsArray.length,
     };
   }, [dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, score]);
-
 
   useEffect(() => {
     const storedScore = localStorage.getItem('userScore');
@@ -131,6 +134,39 @@ export default function HomePage() {
     const skinToApply = initialSkins.find(s => s.id === selectedSkinIdFromStorage) || defaultSkin;
     setCurrentSkin(skinToApply);
 
+    const storedIsBotOwned = localStorage.getItem('isBotOwned');
+    if (storedIsBotOwned === 'true') {
+      setIsBotOwned(true);
+    }
+
+    if (storedIsBotOwned === 'true') {
+      const lastSeen = localStorage.getItem('lastSeenTimestamp');
+      if (lastSeen) {
+        const timeOfflineInSeconds = Math.floor((Date.now() - parseInt(lastSeen, 10)) / 1000);
+        if (timeOfflineInSeconds > 0) {
+          const botClicksCount = Math.floor(timeOfflineInSeconds / BOT_CLICK_INTERVAL_SECONDS);
+          const currentClickPowerForBot = parseInt(localStorage.getItem('clickPower') || INITIAL_CLICK_POWER.toString(), 10);
+          const coinsEarnedByBot = botClicksCount * currentClickPowerForBot;
+          const actualCoinsEarned = Math.min(coinsEarnedByBot, BOT_MAX_OFFLINE_COINS);
+
+          if (actualCoinsEarned > 0) {
+            setScore(prevScore => prevScore + actualCoinsEarned);
+            toast({
+              title: (
+                <div className="flex items-center gap-2">
+                  <Bot className="h-5 w-5 text-primary" /> {/* Changed from Robot to Bot */}
+                  <span className="font-semibold text-foreground">Бот Помог!</span>
+                </div>
+              ),
+              description: `Ваш оффлайн бот собрал ${actualCoinsEarned.toLocaleString()} монет, пока вас не было.`,
+              duration: 7000,
+            });
+          }
+        }
+      }
+    }
+    localStorage.setItem('lastSeenTimestamp', Date.now().toString());
+
   }, [toast]);
 
   useEffect(() => {
@@ -139,8 +175,9 @@ export default function HomePage() {
     if (gameStartTime) {
       localStorage.setItem('gameStartTime', gameStartTime.toISOString());
     }
+    localStorage.setItem('clickPower', clickPower.toString());
     checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
-  }, [score, totalClicks, gameStartTime, getFullProgressForCheck, allTasksForNotification, toast]);
+  }, [score, totalClicks, gameStartTime, clickPower, getFullProgressForCheck, allTasksForNotification, toast]);
 
   useEffect(() => {
     localStorage.setItem('daily_lastResetDate', lastResetDate);
@@ -215,17 +252,29 @@ export default function HomePage() {
     return () => clearInterval(intervalId);
   }, [toast]);
 
-  // Effect to update skin when selectedSkinId changes in localStorage (e.g., from SkinsPage)
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'selectedSkinId' && event.newValue) {
         const skinToApply = initialSkins.find(s => s.id === event.newValue) || defaultSkin;
         setCurrentSkin(skinToApply);
       }
+      if (event.key === 'isBotOwned' && event.newValue) {
+        setIsBotOwned(event.newValue === 'true');
+      }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      localStorage.setItem('lastSeenTimestamp', Date.now().toString());
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, []);
 
@@ -246,6 +295,15 @@ export default function HomePage() {
           break;
         case 'energyRegenRateUpgrade':
           setEnergyRegenRatePerSecond(prev => prev + 1);
+          break;
+        case 'offlineBotPurchase':
+          setIsBotOwned(true);
+          localStorage.setItem('isBotOwned', 'true');
+          toast({
+            title: "🤖 Оффлайн Бот Активирован!",
+            description: "Теперь ваш бот будет собирать монеты, пока вы отдыхаете.",
+            duration: 5000,
+          });
           break;
       }
       return true;
@@ -279,7 +337,6 @@ export default function HomePage() {
           disabled={energy < ENERGY_PER_CLICK}
           coinColorClass={currentSkin.coinColorClass}
           coinIconColorClass={currentSkin.coinIconColorClass}
-          coinShapeComponent={currentSkin.coinShapeComponent}
         />
       </main>
 
@@ -293,6 +350,7 @@ export default function HomePage() {
         currentClickPower={clickPower}
         currentEnergyRegenRate={energyRegenRatePerSecond}
         onPurchase={handlePurchase}
+        isBotOwned={isBotOwned}
       />
     </div>
   );
