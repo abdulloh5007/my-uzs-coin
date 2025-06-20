@@ -1,4 +1,5 @@
-import type React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Coins, Zap, Target, History } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,12 +25,17 @@ const StatItem: React.FC<{ icon: React.ElementType; label: string; value: string
 
 const GameStats: React.FC<GameStatsProps> = ({ score, currentEnergy, maxEnergy, clickPower, energyRegenRate }) => {
   const energyPercentage = maxEnergy > 0 ? (currentEnergy / maxEnergy) * 100 : 0;
+  const [formattedScore, setFormattedScore] = useState<string>(score.toString());
+
+  useEffect(() => {
+    setFormattedScore(score.toLocaleString());
+  }, [score]);
 
   return (
     <div className="fixed top-16 left-0 right-0 z-10 bg-card shadow-sm py-3">
       <div className="container mx-auto px-2 sm:px-4">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
-          <StatItem icon={Coins} label="Монеты" value={score.toLocaleString()} />
+          <StatItem icon={Coins} label="Монеты" value={formattedScore} />
           <StatItem icon={Zap} label="Энергия" value={`${Math.floor(currentEnergy)}/${maxEnergy}`}>
             <Progress value={energyPercentage} aria-label={`Energy level: ${Math.floor(energyPercentage)}%`} className="h-2 w-full mt-1 bg-primary/30" />
           </StatItem>
@@ -42,3 +48,4 @@ const GameStats: React.FC<GameStatsProps> = ({ score, currentEnergy, maxEnergy, 
 };
 
 export default GameStats;
+
