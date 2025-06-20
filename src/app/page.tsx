@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { Bot } from 'lucide-react';
 import type { ToastActionElement } from "@/components/ui/toast"; // Import for ToastAction
 import { ToastAction } from "@/components/ui/toast";
+import DailyTip from '@/components/DailyTip';
 
 
 const INITIAL_MAX_ENERGY = 100;
@@ -279,7 +280,7 @@ export default function HomePage() {
     }
     // --- End of Bot Logic ---
 
-  }, [toast]); // Removed setScore from dependencies as it's managed via its setter
+  }, [toast]);
 
   useEffect(() => {
     localStorage.setItem('userScore', score.toString());
@@ -334,7 +335,7 @@ export default function HomePage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isBoostActive, boostEndTime, originalClickPower, toast]); // Removed setClickPower from dependencies
+  }, [isBoostActive, boostEndTime, originalClickPower, toast]);
 
 
   const energyRegenAmountPerInterval = energyRegenRatePerSecond * (ENERGY_REGEN_INTERVAL / 1000);
@@ -357,7 +358,7 @@ export default function HomePage() {
         }, CLICK_ANIMATION_DURATION);
       }
     }
-  }, [energy, clickPower, isAnimatingClick]); // Removed set... from dependencies
+  }, [energy, clickPower, isAnimatingClick]);
 
   useEffect(() => {
     const regenTimer = setInterval(() => {
@@ -365,7 +366,7 @@ export default function HomePage() {
     }, ENERGY_REGEN_INTERVAL);
 
     return () => clearInterval(regenTimer);
-  }, [maxEnergy, energyRegenAmountPerInterval]); // Removed setEnergy
+  }, [maxEnergy, energyRegenAmountPerInterval]);
 
   useEffect(() => {
     if (!gameStartTime) return;
@@ -416,12 +417,8 @@ export default function HomePage() {
       if (event.key === 'daily_fullEnergyBoostsAvailable' && event.newValue) {
         setDailyFullEnergyBoostsAvailable(parseInt(event.newValue, 10));
       }
-       // Listen for unclaimed bot coins changes potentially from other tabs (though less likely for this specific item)
       if (event.key === 'unclaimedBotCoins' && event.newValue) {
         // This might trigger a re-render and re-evaluation in the main useEffect if needed,
-        // but the primary handling is on initial load.
-        // For immediate reflection, a more complex state management or event bus might be needed.
-        // However, for robustness against refresh, this is mainly handled by the load logic.
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -432,9 +429,6 @@ export default function HomePage() {
 
   useEffect(() => {
     const handleBeforeUnload = () => {
-      // Ensure lastSeenTimestamp is set one last time.
-      // If there are coins being offered via toast, they are already in 'unclaimedBotCoins'.
-      // If no coins are offered, this just updates the timestamp for the next session.
       localStorage.setItem('lastSeenTimestamp', Date.now().toString());
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -469,7 +463,6 @@ export default function HomePage() {
         case 'offlineBotPurchase':
           setIsBotOwned(true);
           localStorage.setItem('isBotOwned', 'true');
-          // When bot is purchased, set lastSeenTimestamp immediately so it starts "working" from this point.
           localStorage.setItem('lastSeenTimestamp', Date.now().toString());
           toast({
             title: "🤖 Оффлайн Бот Активирован!",
@@ -497,7 +490,7 @@ export default function HomePage() {
         duration: 4000,
       });
     }
-  }, [dailyClickBoostsAvailable, isBoostActive, clickPower, toast]); // Removed set... from dependencies
+  }, [dailyClickBoostsAvailable, isBoostActive, clickPower, toast]);
 
   const handleActivateFullEnergyBoost = useCallback(() => {
     if (dailyFullEnergyBoostsAvailable > 0) {
@@ -509,7 +502,7 @@ export default function HomePage() {
         duration: 4000,
       });
     }
-  }, [dailyFullEnergyBoostsAvailable, maxEnergy, toast]); // Removed set... from dependencies
+  }, [dailyFullEnergyBoostsAvailable, maxEnergy, toast]);
 
 
   const handleNavigation = (path: string) => {
@@ -532,6 +525,7 @@ export default function HomePage() {
         isBoostActive={isBoostActive}
         boostEndTime={boostEndTime}
       />
+      <DailyTip />
 
       <main className="flex flex-col items-center justify-center flex-grow pt-32 pb-20 md:pt-36 md:pb-24 px-4">
         <ClickableCoin
