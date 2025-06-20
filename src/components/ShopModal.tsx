@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Coins, Zap, Target, History, Lightbulb, Bot, Info, BatteryFull } from 'lucide-react'; // Added BatteryFull
+import { Coins, Zap, Target, History, Lightbulb, Bot, Info, BatteryFull } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -20,16 +20,15 @@ import {
 
 export type UpgradeId = 'maxEnergyUpgrade' | 'clickPowerUpgrade' | 'energyRegenRateUpgrade' | 'offlineBotPurchase';
 
-interface UpgradeItemProps {
+interface UpgradeItemCardProps {
   icon: React.ElementType;
   title: string;
   description: string;
-  cost: number;
+  cost?: number; // Optional, as it might be "Max Level"
   onPurchase: () => void;
   canAfford: boolean;
-  currentLevel?: number; 
-  effectAmount?: number; 
-  isOwned?: boolean; 
+  isMaxLevel: boolean;
+  currentLevelInfo?: string; // e.g., "Уровень: 3/10"
 }
 
 const UpgradeItemCard: React.FC<UpgradeItemProps> = ({
@@ -39,18 +38,20 @@ const UpgradeItemCard: React.FC<UpgradeItemProps> = ({
   cost,
   onPurchase,
   canAfford,
-  isOwned, 
+  isMaxLevel,
+  currentLevelInfo,
 }) => {
   let buttonText = 'Купить';
-  let buttonDisabled = !canAfford;
-  let buttonClasses = canAfford ? "bg-primary hover:bg-primary/90 text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed";
+  let buttonDisabled = !canAfford || isMaxLevel;
+  let buttonClasses = "bg-primary hover:bg-primary/90 text-primary-foreground";
 
-  if (isOwned) {
-    buttonText = 'Куплено';
+  if (isMaxLevel) {
+    buttonText = 'Макс. уровень';
     buttonDisabled = true;
     buttonClasses = "bg-green-600 hover:bg-green-700 text-white cursor-default";
+  } else if (!canAfford) {
+    buttonClasses = "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed";
   }
-
 
   return (
     <Card className="bg-card/80 border-border/50">
@@ -62,13 +63,16 @@ const UpgradeItemCard: React.FC<UpgradeItemProps> = ({
           <div className="flex-1">
             <h4 className="font-semibold text-foreground">{title}</h4>
             <p className="text-xs text-muted-foreground">{description}</p>
+            {currentLevelInfo && <p className="text-xs text-muted-foreground mt-0.5">{currentLevelInfo}</p>}
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 min-w-[100px] text-right">
-          <div className="flex items-center text-sm font-medium text-primary mb-1">
-            <Coins className="w-4 h-4 mr-1" />
-            {cost.toLocaleString()}
-          </div>
+          {!isMaxLevel && cost !== undefined && (
+            <div className="flex items-center text-sm font-medium text-primary mb-1">
+              <Coins className="w-4 h-4 mr-1" />
+              {cost.toLocaleString()}
+            </div>
+          )}
           <Button
             size="sm"
             onClick={onPurchase}
@@ -87,31 +91,58 @@ interface ShopModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   score: number;
+
+  maxEnergyLevel: number;
+  clickPowerLevel: number;
+  energyRegenLevel: number;
+
   currentMaxEnergy: number;
-  currentClickPower: number; 
-  baseClickPower: number; 
+  currentClickPower: number; // Effective click power (can be boosted)
+  baseClickPower: number;    // Non-boosted click power
   currentEnergyRegenRate: number;
-  onPurchase: (upgradeId: UpgradeId, cost: number) => boolean;
+
+  onPurchase: (upgradeId: UpgradeId) => boolean; // Returns true if purchase was successful for UI feedback
+
   isBotOwned: boolean;
   botPurchaseCost: number;
   botClickIntervalSeconds: number;
   botMaxOfflineCoins: number;
+
   dailyClickBoostsAvailable: number;
   isBoostActive: boolean;
   onActivateClickBoost: () => void;
   boostEndTime: number;
   dailyFullEnergyBoostsAvailable: number;
   onActivateFullEnergyBoost: () => void;
+
+  // Game balance constants for display and cost calculation
+  initialMaxEnergyBase: number;
+  maxEnergyIncrementPerLevel: number;
+  maxEnergyMaxLevel: number;
+  maxEnergyUpgradeCosts: number[];
+
+  initialClickPowerBase: number;
+  clickPowerIncrementPerLevel: number;
+  clickPowerMaxLevel: number;
+  clickPowerUpgradeCosts: number[];
+
+  initialEnergyRegenRateBase: number;
+  energyRegenIncrementPerLevel: number;
+  energyRegenMaxLevel: number;
+  energyRegenUpgradeCosts: number[];
 }
 
 const ShopModal: React.FC<ShopModalProps> = ({
   isOpen,
   onOpenChange,
   score,
-  currentMaxEnergy,
-  currentClickPower, 
-  baseClickPower, 
-  currentEnergyRegenRate,
+  maxEnergyLevel,
+  clickPowerLevel,
+  energyRegenLevel,
+  currentMaxEnergy, // Derived value, passed for display
+  currentClickPower, // Derived and potentially boosted, for display in stats
+  baseClickPower,    // Derived non-boosted, for bot and some display
+  currentEnergyRegenRate, // Derived value, passed for display
   onPurchase,
   isBotOwned,
   botPurchaseCost,
@@ -123,6 +154,18 @@ const ShopModal: React.FC<ShopModalProps> = ({
   boostEndTime,
   dailyFullEnergyBoostsAvailable,
   onActivateFullEnergyBoost,
+  initialMaxEnergyBase,
+  maxEnergyIncrementPerLevel,
+  maxEnergyMaxLevel,
+  maxEnergyUpgradeCosts,
+  initialClickPowerBase,
+  clickPowerIncrementPerLevel,
+  clickPowerMaxLevel,
+  clickPowerUpgradeCosts,
+  initialEnergyRegenRateBase,
+  energyRegenIncrementPerLevel,
+  energyRegenMaxLevel,
+  energyRegenUpgradeCosts,
 }) => {
   const [timeLeftInBoost, setTimeLeftInBoost] = useState(0);
 
@@ -140,28 +183,42 @@ const ShopModal: React.FC<ShopModalProps> = ({
     }
   }, [isBoostActive, boostEndTime]);
 
-
-  const upgrades: Array<Omit<UpgradeItemProps, 'onPurchase' | 'canAfford' | 'isOwned'> & { id: UpgradeId }> = [
+  const upgradesConfig = [
     {
-      id: 'maxEnergyUpgrade',
+      id: 'maxEnergyUpgrade' as UpgradeId,
       icon: Zap,
       title: 'Увеличить энергию',
-      description: `+50 к макс. энергии (${currentMaxEnergy} \u2192 ${currentMaxEnergy + 50})`,
-      cost: 100,
+      level: maxEnergyLevel,
+      maxLevel: maxEnergyMaxLevel,
+      costs: maxEnergyUpgradeCosts,
+      currentValueDisplay: currentMaxEnergy,
+      increment: maxEnergyIncrementPerLevel,
+      baseValue: initialMaxEnergyBase,
+      unit: '',
     },
     {
-      id: 'clickPowerUpgrade',
+      id: 'clickPowerUpgrade' as UpgradeId,
       icon: Target,
       title: 'Усилить клик',
-      description: `+1 к силе клика (${isBoostActive ? baseClickPower : currentClickPower} \u2192 ${isBoostActive ? baseClickPower +1 : currentClickPower + 1})`,
-      cost: 1600,
+      level: clickPowerLevel,
+      maxLevel: clickPowerMaxLevel,
+      costs: clickPowerUpgradeCosts,
+      currentValueDisplay: baseClickPower, // Show base power for upgrade reference
+      increment: clickPowerIncrementPerLevel,
+      baseValue: initialClickPowerBase,
+      unit: '',
     },
     {
-      id: 'energyRegenRateUpgrade',
+      id: 'energyRegenRateUpgrade' as UpgradeId,
       icon: History,
       title: 'Ускорить восстановление',
-      description: `+1 энергии/сек (${currentEnergyRegenRate.toFixed(0)} \u2192 ${(currentEnergyRegenRate + 1).toFixed(0)})`,
-      cost: 800,
+      level: energyRegenLevel,
+      maxLevel: energyRegenMaxLevel,
+      costs: energyRegenUpgradeCosts,
+      currentValueDisplay: currentEnergyRegenRate,
+      increment: energyRegenIncrementPerLevel,
+      baseValue: initialEnergyRegenRateBase,
+      unit: '/сек',
     },
   ];
 
@@ -193,17 +250,35 @@ const ShopModal: React.FC<ShopModalProps> = ({
             </TabsList>
             
             <TabsContent value="upgrades" className="space-y-3">
-              {upgrades.map((upgrade) => (
-                <UpgradeItemCard
-                  key={upgrade.id}
-                  icon={upgrade.icon}
-                  title={upgrade.title}
-                  description={upgrade.id === 'clickPowerUpgrade' ? `+1 к силе клика (${isBoostActive ? baseClickPower : currentClickPower} \u2192 ${isBoostActive ? baseClickPower + 1 : currentClickPower + 1})` : upgrade.description}
-                  cost={upgrade.cost}
-                  onPurchase={() => onPurchase(upgrade.id, upgrade.cost)}
-                  canAfford={score >= upgrade.cost}
-                />
-              ))}
+              {upgradesConfig.map((upgrade) => {
+                const isMaxLvl = upgrade.level >= upgrade.maxLevel;
+                const costForNextLevel = isMaxLvl ? undefined : upgrade.costs[upgrade.level];
+                const canAffordNext = costForNextLevel !== undefined && score >= costForNextLevel;
+                
+                let description = '';
+                if (isMaxLvl) {
+                  description = `Макс. уровень (${upgrade.currentValueDisplay}${upgrade.unit})`;
+                } else {
+                  const nextValue = upgrade.currentValueDisplay + upgrade.increment;
+                  description = `+${upgrade.increment}${upgrade.unit} (${upgrade.currentValueDisplay}${upgrade.unit} \u2192 ${nextValue}${upgrade.unit})`;
+                }
+                const currentLevelInfo = `Уровень: ${upgrade.level + 1}/${upgrade.maxLevel + 1}`;
+
+
+                return (
+                  <UpgradeItemCard
+                    key={upgrade.id}
+                    icon={upgrade.icon}
+                    title={upgrade.title}
+                    description={description}
+                    cost={costForNextLevel}
+                    onPurchase={() => onPurchase(upgrade.id)}
+                    canAfford={canAffordNext}
+                    isMaxLevel={isMaxLvl}
+                    currentLevelInfo={currentLevelInfo}
+                  />
+                );
+              })}
               
               <Card className="bg-card/80 border-border/50 mt-3">
                 <CardContent className="p-4 flex items-center justify-between gap-4">
@@ -239,7 +314,7 @@ const ShopModal: React.FC<ShopModalProps> = ({
                     )}
                     <Button
                       size="sm"
-                      onClick={() => onPurchase('offlineBotPurchase', botPurchaseCost)}
+                      onClick={() => onPurchase('offlineBotPurchase')}
                       disabled={isBotOwned || score < botPurchaseCost}
                       className={cn(
                         "px-6 w-full",
@@ -354,7 +429,7 @@ const ShopModal: React.FC<ShopModalProps> = ({
           
           <div className="mt-4 p-3 bg-card/50 rounded-md flex items-center text-xs text-muted-foreground">
             <Lightbulb className="w-4 h-4 mr-2 text-primary" />
-            <span>Энергия восстанавливается по {currentEnergyRegenRate.toFixed(0)} ед/сек</span>
+            <span>Энергия восстанавливается по {currentEnergyRegenRate.toFixed(0)}{energyRegenIncrementPerLevel > 0 && currentEnergyRegenRate > initialEnergyRegenRateBase ? `/сек` : `/сек`}</span>
           </div>
         </div>
       </DialogContent>
@@ -364,3 +439,4 @@ const ShopModal: React.FC<ShopModalProps> = ({
 
 export default ShopModal;
 
+    
