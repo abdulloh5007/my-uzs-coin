@@ -16,20 +16,27 @@ import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
 import type { Skin } from '@/types/skins';
 import { initialSkins, defaultSkin } from '@/data/skins';
 import { cn } from '@/lib/utils';
-import { Bot } from 'lucide-react'; // Changed from Robot to Bot
+import { Bot } from 'lucide-react';
 
 const INITIAL_MAX_ENERGY = 100;
 const INITIAL_CLICK_POWER = 1;
 const INITIAL_ENERGY_REGEN_RATE_PER_SECOND = 3;
-const INITIAL_SCORE = 1000000000; // Test balance
+const INITIAL_SCORE = 1000000000;
 const INITIAL_TOTAL_CLICKS = 0;
 
 const ENERGY_PER_CLICK = 1;
-const ENERGY_REGEN_INTERVAL = 50;
-const CLICK_ANIMATION_DURATION = 200;
-const DAILY_STATS_UPDATE_INTERVAL = 1000;
-const BOT_MAX_OFFLINE_COINS = 299000;
+const ENERGY_REGEN_INTERVAL = 50; // ms
+const CLICK_ANIMATION_DURATION = 200; // ms
+const DAILY_STATS_UPDATE_INTERVAL = 1000; // ms
+
+// Bot constants
 const BOT_CLICK_INTERVAL_SECONDS = 2;
+const BOT_MAX_OFFLINE_COINS = 299000;
+const BOT_PURCHASE_COST = 200000;
+
+// Boost constants
+const DAILY_BOOSTS_LIMIT = 3;
+const BOOST_DURATION_MS = 60000; // 1 minute
 
 const getCurrentDateString = () => {
   const today = new Date();
@@ -63,6 +70,13 @@ export default function HomePage() {
   const [currentSkin, setCurrentSkin] = useState<Skin>(defaultSkin);
   const [isBotOwned, setIsBotOwned] = useState(false);
 
+  // Boost states
+  const [dailyBoostsAvailable, setDailyBoostsAvailable] = useState(DAILY_BOOSTS_LIMIT);
+  const [isBoostActive, setIsBoostActive] = useState(false);
+  const [boostEndTime, setBoostEndTime] = useState(0);
+  const [originalClickPower, setOriginalClickPower] = useState(0);
+
+
   const allTasksForNotification = useMemo(() => [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks], []);
 
   const getFullProgressForCheck = useCallback(() => {
@@ -92,17 +106,17 @@ export default function HomePage() {
 
     const currentDateStr = getCurrentDateString();
     const storedLastResetDate = localStorage.getItem('daily_lastResetDate');
+    const storedLastBoostResetDate = localStorage.getItem('daily_lastBoostResetDate');
+    const storedDailyBoostsAvailable = localStorage.getItem('daily_boostsAvailable');
 
     if (storedLastResetDate === currentDateStr) {
       setDailyClicks(parseInt(localStorage.getItem('daily_clicks') || '0', 10));
       setDailyCoinsCollected(parseInt(localStorage.getItem('daily_coinsCollected') || '0', 10));
       setDailyTimePlayedSeconds(parseInt(localStorage.getItem('daily_timePlayedSeconds') || '0', 10));
-      setLastResetDate(currentDateStr);
     } else {
       setDailyClicks(0);
       setDailyCoinsCollected(0);
       setDailyTimePlayedSeconds(0);
-      setLastResetDate(currentDateStr);
       localStorage.setItem('daily_lastResetDate', currentDateStr);
       localStorage.setItem('daily_clicks', '0');
       localStorage.setItem('daily_coinsCollected', '0');
@@ -119,6 +133,22 @@ export default function HomePage() {
       const newClaimed = claimed.filter(id => !dailyTierIds.has(id));
       localStorage.setItem('claimedTaskTierIds', JSON.stringify(newClaimed));
     }
+    setLastResetDate(currentDateStr);
+
+
+    if (storedLastBoostResetDate === currentDateStr) {
+        setDailyBoostsAvailable(storedDailyBoostsAvailable ? parseInt(storedDailyBoostsAvailable, 10) : DAILY_BOOSTS_LIMIT);
+    } else {
+        setDailyBoostsAvailable(DAILY_BOOSTS_LIMIT);
+        localStorage.setItem('daily_lastBoostResetDate', currentDateStr);
+        // If a boost was active and the day rolled over, deactivate it silently
+        if (isBoostActive && originalClickPower > 0) { // Check originalClickPower to avoid issues if it was never set
+            setClickPower(originalClickPower); 
+        }
+        setIsBoostActive(false);
+        setBoostEndTime(0);
+    }
+
 
     const unclaimedRewards = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
     if (unclaimedRewards.length > 0 && !sessionStorage.getItem('newRewardsToastShownThisSession')) {
@@ -139,14 +169,18 @@ export default function HomePage() {
       setIsBotOwned(true);
     }
 
+    const initialClickPowerFromStorage = parseInt(localStorage.getItem('clickPower') || INITIAL_CLICK_POWER.toString(), 10);
+    setClickPower(initialClickPowerFromStorage); // Set initial clickPower from storage
+
     if (storedIsBotOwned === 'true') {
       const lastSeen = localStorage.getItem('lastSeenTimestamp');
       if (lastSeen) {
         const timeOfflineInSeconds = Math.floor((Date.now() - parseInt(lastSeen, 10)) / 1000);
         if (timeOfflineInSeconds > 0) {
           const botClicksCount = Math.floor(timeOfflineInSeconds / BOT_CLICK_INTERVAL_SECONDS);
-          const currentClickPowerForBot = parseInt(localStorage.getItem('clickPower') || INITIAL_CLICK_POWER.toString(), 10);
-          const coinsEarnedByBot = botClicksCount * currentClickPowerForBot;
+          // Use the click power that was active when user left, from localStorage
+          const clickPowerForBot = parseInt(localStorage.getItem('clickPower') || INITIAL_CLICK_POWER.toString(), 10);
+          const coinsEarnedByBot = botClicksCount * clickPowerForBot;
           const actualCoinsEarned = Math.min(coinsEarnedByBot, BOT_MAX_OFFLINE_COINS);
 
           if (actualCoinsEarned > 0) {
@@ -154,7 +188,7 @@ export default function HomePage() {
             toast({
               title: (
                 <div className="flex items-center gap-2">
-                  <Bot className="h-5 w-5 text-primary" /> {/* Changed from Robot to Bot */}
+                  <Bot className="h-5 w-5 text-primary" />
                   <span className="font-semibold text-foreground">Бот Помог!</span>
                 </div>
               ),
@@ -167,7 +201,7 @@ export default function HomePage() {
     }
     localStorage.setItem('lastSeenTimestamp', Date.now().toString());
 
-  }, [toast]);
+  }, [toast]); // isBoostActive, originalClickPower removed from deps to avoid issues on initial load day change
 
   useEffect(() => {
     localStorage.setItem('userScore', score.toString());
@@ -187,12 +221,49 @@ export default function HomePage() {
     checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
   }, [lastResetDate, dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, getFullProgressForCheck, allTasksForNotification, toast]);
 
+  useEffect(() => {
+    localStorage.setItem('daily_boostsAvailable', dailyBoostsAvailable.toString());
+  }, [dailyBoostsAvailable]);
+
+  // Boost Timer Effect
+  useEffect(() => {
+    if (!isBoostActive || boostEndTime === 0) {
+      // Ensure originalClickPower is not 0 if we are trying to reset from an active boost that somehow loaded without original
+      // This scenario is less likely with current non-persistent boost logic.
+      if (isBoostActive && originalClickPower === 0 && clickPower !== INITIAL_CLICK_POWER) {
+         //This might indicate an issue, perhaps log or reset to a base value
+         //For now, if boost was active but original wasn't set, it might have been a new session issue
+         //Let's assume if originalClickPower is 0, we might not need to revert or revert to initial
+      }
+      return;
+    }
+
+    const timer = setInterval(() => {
+      if (Date.now() >= boostEndTime) {
+        if (originalClickPower > 0) { // Only revert if originalClickPower was properly set
+          setClickPower(originalClickPower);
+        }
+        setIsBoostActive(false);
+        setBoostEndTime(0);
+        setOriginalClickPower(0); // Reset original click power
+        toast({
+          title: "⚙️ Буст Завершён",
+          description: "Действие буста x2 силы клика закончилось.",
+          duration: 4000,
+        });
+        clearInterval(timer);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isBoostActive, boostEndTime, originalClickPower, toast, setClickPower]);
+
 
   const energyRegenAmountPerInterval = energyRegenRatePerSecond * (ENERGY_REGEN_INTERVAL / 1000);
 
   const handleCoinClick = useCallback(() => {
     if (energy >= ENERGY_PER_CLICK) {
-      const scoreIncrease = clickPower;
+      const scoreIncrease = clickPower; // clickPower is already doubled if boost is active
 
       setScore((prevScore) => prevScore + scoreIncrease);
       setEnergy((prevEnergy) => Math.max(0, prevEnergy - ENERGY_PER_CLICK));
@@ -261,6 +332,9 @@ export default function HomePage() {
       if (event.key === 'isBotOwned' && event.newValue) {
         setIsBotOwned(event.newValue === 'true');
       }
+      if (event.key === 'daily_boostsAvailable' && event.newValue) {
+        setDailyBoostsAvailable(parseInt(event.newValue, 10));
+      }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => {
@@ -291,7 +365,15 @@ export default function HomePage() {
           setMaxEnergy(prev => prev + 50);
           break;
         case 'clickPowerUpgrade':
-          setClickPower(prev => prev + 1);
+          // If boost is active, new base click power should be half of current, then doubled.
+          // Or, more simply, increase originalClickPower if boost is active, else clickPower.
+          // For simplicity now: this upgrades the base click power. If boost is active, its effect is multiplicative on new base.
+          if (isBoostActive) {
+            setOriginalClickPower(prev => prev +1); // Upgrade base power
+            setClickPower(prev => (prev / 2) + 1 * 2); // Recalculate boosted
+          } else {
+            setClickPower(prev => prev + 1);
+          }
           break;
         case 'energyRegenRateUpgrade':
           setEnergyRegenRatePerSecond(prev => prev + 1);
@@ -311,6 +393,23 @@ export default function HomePage() {
     return false;
   };
 
+  const handleActivateBoost = useCallback(() => {
+    if (dailyBoostsAvailable > 0 && !isBoostActive) {
+      setOriginalClickPower(clickPower);
+      setClickPower(prev => prev * 2);
+      setDailyBoostsAvailable(prev => prev - 1);
+      setIsBoostActive(true);
+      setBoostEndTime(Date.now() + BOOST_DURATION_MS);
+
+      toast({
+        title: "🚀 Буст Активирован!",
+        description: "x2 сила клика на 1 минуту.",
+        duration: 4000,
+      });
+    }
+  }, [dailyBoostsAvailable, isBoostActive, clickPower, toast, setClickPower, setOriginalClickPower, setDailyBoostsAvailable, setIsBoostActive, setBoostEndTime]);
+
+
   const handleNavigation = (path: string) => {
     router.push(path);
   };
@@ -326,8 +425,10 @@ export default function HomePage() {
         score={score}
         currentEnergy={energy}
         maxEnergy={maxEnergy}
-        clickPower={clickPower}
+        clickPower={clickPower} // This will show boosted power if active
         energyRegenRate={energyRegenRatePerSecond}
+        isBoostActive={isBoostActive}
+        boostEndTime={boostEndTime}
       />
 
       <main className="flex flex-col items-center justify-center flex-grow pt-32 pb-20 md:pt-36 md:pb-24 px-4">
@@ -347,11 +448,20 @@ export default function HomePage() {
         onOpenChange={setIsShopOpen}
         score={score}
         currentMaxEnergy={maxEnergy}
-        currentClickPower={clickPower}
+        currentClickPower={clickPower} // Pass current (potentially boosted) click power
+        baseClickPower={isBoostActive ? originalClickPower : clickPower} // Pass base for bot description
         currentEnergyRegenRate={energyRegenRatePerSecond}
         onPurchase={handlePurchase}
         isBotOwned={isBotOwned}
+        botPurchaseCost={BOT_PURCHASE_COST}
+        botClickIntervalSeconds={BOT_CLICK_INTERVAL_SECONDS}
+        botMaxOfflineCoins={BOT_MAX_OFFLINE_COINS}
+        dailyBoostsAvailable={dailyBoostsAvailable}
+        isBoostActive={isBoostActive}
+        onActivateBoost={handleActivateBoost}
+        boostEndTime={boostEndTime}
       />
     </div>
   );
 }
+
