@@ -15,9 +15,9 @@ export interface Skin {
   isSelected?: boolean;
 
   // New properties for HomePage styling
-  coinColorClass: string;         // e.g., 'bg-yellow-500' or 'fill-emerald-500' for SVGs
+  coinColorClass: string;         // e.g., 'bg-yellow-500'
   coinIconColorClass: string;     // e.g., 'text-white' for the Coins icon
   pageGradientFromClass: string;  // e.g., 'from-purple-800'
   pageGradientToClass: string;    // e.g., 'to-indigo-900'
-  coinShapeComponent?: React.FC<{ shapeFillClass?: string; iconClass?: string; className?: string; }>; // For custom SVG coin shapes
+  // coinShapeComponent?: React.FC<{ shapeFillClass?: string; iconClass?: string; className?: string; }>; // Removed
 }
