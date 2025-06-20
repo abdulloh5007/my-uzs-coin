@@ -18,7 +18,7 @@ import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
 const INITIAL_MAX_ENERGY = 100;
 const INITIAL_CLICK_POWER = 1;
 const INITIAL_ENERGY_REGEN_RATE_PER_SECOND = 3;
-const INITIAL_SCORE = 300;
+const INITIAL_SCORE = 1000000000; // Updated to 1 billion
 const INITIAL_TOTAL_CLICKS = 0;
 
 const ENERGY_PER_CLICK = 1;
@@ -268,3 +268,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    

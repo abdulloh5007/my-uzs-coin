@@ -111,60 +111,66 @@ export default function MintPage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-6 max-w-md mx-auto">
-          {nftItems.map((nft) => {
-            const canAfford = userBalance >= nft.price;
-            const isOwned = ownedNfts.includes(nft.id);
-            const balanceAfterPurchase = userBalance - nft.price;
+        <div className="space-y-6 max-w-2xl mx-auto"> {/* Increased max-width */}
+          <div className="flex flex-col md:flex-row md:gap-6 space-y-6 md:space-y-0"> {/* Responsive flex container for NFT items */}
+            {nftItems.map((nft) => {
+              const canAfford = userBalance >= nft.price;
+              const isOwned = ownedNfts.includes(nft.id);
+              const balanceAfterPurchase = userBalance - nft.price;
 
-            return (
-              <Card key={nft.id} className="bg-card/80 border-border/50 shadow-lg text-left overflow-hidden">
-                <CardHeader className="p-4 pb-3 bg-card/90 border-b border-border/30">
-                  <div className="flex items-center gap-3">
-                    <div className={cn("p-2.5 rounded-lg", nft.iconBgClass)}>
-                      <nft.icon className={cn("w-7 h-7", nft.iconColorClass)} />
-                    </div>
-                    <div>
-                      <CardTitle className="text-xl font-semibold text-foreground">{nft.name}</CardTitle>
-                      <CardDescription className="text-xs text-muted-foreground mt-0.5">{nft.description}</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Стоимость:</span>
-                    <span className="font-semibold text-primary">{nft.price.toLocaleString()} монет</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">После покупки:</span>
-                    <span className={cn("font-semibold", balanceAfterPurchase >= 0 ? "text-green-400" : "text-red-400")}>
-                      {balanceAfterPurchase.toLocaleString()} монет
-                    </span>
-                  </div>
-                  
-                  {isOwned ? (
-                     <Button
-                        className="w-full mt-2 bg-green-600 hover:bg-green-600/90 text-white"
-                        disabled
-                      >
-                        Уже куплен
-                      </Button>
-                  ) : (
-                    <Button
-                      onClick={() => handleMintNft(nft)}
-                      disabled={!canAfford}
-                      className={cn(
-                        "w-full mt-2",
-                        canAfford ? "bg-primary hover:bg-primary/90 text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed"
+              return (
+                <div key={nft.id} className="flex-1 md:min-w-0"> {/* Wrapper for each NFT card to control flex behavior */}
+                  <Card className="bg-card/80 border-border/50 shadow-lg text-left overflow-hidden h-full flex flex-col">
+                    <CardHeader className="p-4 pb-3 bg-card/90 border-b border-border/30">
+                      <div className="flex items-center gap-3">
+                        <div className={cn("p-2.5 rounded-lg", nft.iconBgClass)}>
+                          <nft.icon className={cn("w-7 h-7", nft.iconColorClass)} />
+                        </div>
+                        <div>
+                          <CardTitle className="text-xl font-semibold text-foreground">{nft.name}</CardTitle>
+                          <CardDescription className="text-xs text-muted-foreground mt-0.5">{nft.description}</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 space-y-3 flex-grow flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Стоимость:</span>
+                          <span className="font-semibold text-primary">{nft.price.toLocaleString()} монет</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">После покупки:</span>
+                          <span className={cn("font-semibold", balanceAfterPurchase >= 0 ? "text-green-400" : "text-red-400")}>
+                            {balanceAfterPurchase.toLocaleString()} монет
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {isOwned ? (
+                         <Button
+                            className="w-full mt-4 bg-green-600 hover:bg-green-600/90 text-white" // Added mt-4 for spacing
+                            disabled
+                          >
+                            Уже куплен
+                          </Button>
+                      ) : (
+                        <Button
+                          onClick={() => handleMintNft(nft)}
+                          disabled={!canAfford}
+                          className={cn(
+                            "w-full mt-4", // Added mt-4 for spacing
+                            canAfford ? "bg-primary hover:bg-primary/90 text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed"
+                          )}
+                        >
+                          {canAfford ? 'Mint NFT' : 'Недостаточно монет'}
+                        </Button>
                       )}
-                    >
-                      {canAfford ? 'Mint NFT' : 'Недостаточно монет'}
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })}
+          </div>
 
           <Card className="bg-card/80 border-border/50 shadow-lg text-left">
             <CardHeader className="p-4 pb-3">
@@ -201,3 +207,5 @@ export default function MintPage() {
     </div>
   );
 }
+
+    
