@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import ClickableCoin from '@/components/ClickableCoin';
 import TopBar from '@/components/TopBar';
 import BottomNavBar from '@/components/BottomNavBar';
@@ -20,73 +20,128 @@ import { Bot, Coins as CoinsIcon, Sparkles } from 'lucide-react';
 import type { ToastActionElement } from "@/components/ui/toast";
 import { ToastAction } from "@/components/ui/toast";
 import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 
 // --- Game Balance Constants ---
-// Initial Values
 const INITIAL_MAX_ENERGY_BASE = 500;
 const INITIAL_CLICK_POWER_BASE = 1;
-const INITIAL_ENERGY_REGEN_RATE_BASE = 1; // per second
+const INITIAL_ENERGY_REGEN_RATE_BASE = 1;
 
-// Upgrade Levels
-const MAX_ENERGY_MAX_LEVEL = 9; // 0-9 (10 total states: 500, 1000 ... 5000)
-const CLICK_POWER_MAX_LEVEL = 9; // 0-9 (10 total states: +1, +2 ... +10)
-const ENERGY_REGEN_MAX_LEVEL = 4; // 0-4 (5 total states: +1/s, +2/s ... +5/s)
+const MAX_ENERGY_MAX_LEVEL = 9;
+const CLICK_POWER_MAX_LEVEL = 9;
+const ENERGY_REGEN_MAX_LEVEL = 4;
 
-// Upgrade Increments
 const MAX_ENERGY_INCREMENT_PER_LEVEL = 500;
 const CLICK_POWER_INCREMENT_PER_LEVEL = 1;
 const ENERGY_REGEN_INCREMENT_PER_LEVEL = 1;
 
-// Upgrade Costs (cost to upgrade FROM this level TO next level)
-// e.g., maxEnergyUpgradeCosts[0] is cost to go from level 0 to level 1
 export const maxEnergyUpgradeCosts = [250, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000];
 export const clickPowerUpgradeCosts = [1600, 2880, 5184, 9331, 16796, 30233, 54419, 97955, 176319];
 export const energyRegenUpgradeCosts = [800, 2400, 7200, 21600];
 
-// Other Constants
-const INITIAL_SCORE = 0; // Start with 0 score, or a small amount if preferred
+const INITIAL_SCORE = 0;
 const INITIAL_TOTAL_CLICKS = 0;
 const ENERGY_PER_CLICK = 1;
-const ENERGY_REGEN_INTERVAL = 50; // ms
-const CLICK_ANIMATION_DURATION = 200; // ms
-const DAILY_STATS_UPDATE_INTERVAL = 1000; // ms
+const ENERGY_REGEN_INTERVAL = 50;
+const CLICK_ANIMATION_DURATION = 200;
+const DAILY_STATS_UPDATE_INTERVAL = 1000;
 
-// Bot constants
 const BOT_CLICK_INTERVAL_SECONDS = 2;
 const BOT_MAX_OFFLINE_COINS = 299000;
 const BOT_PURCHASE_COST = 200000;
 
-// Boost constants
 const DAILY_CLICK_BOOST_LIMIT = 3;
 const DAILY_FULL_ENERGY_BOOST_LIMIT = 3;
-const BOOST_DURATION_MS = 60000; // 1 minute
+const BOOST_DURATION_MS = 60000;
+
+// --- Firestore Game State Interface ---
+interface UserGameState {
+  score: number;
+  maxEnergyLevel: number;
+  clickPowerLevel: number;
+  energyRegenLevel: number;
+  totalClicks: number;
+  gameStartTime?: string; // ISO string
+
+  daily_clicks: number;
+  daily_coinsCollected: number;
+  daily_timePlayedSeconds: number;
+  daily_lastResetDate: string; // YYYY-MM-DD
+
+  daily_clickBoostsAvailable: number;
+  daily_lastClickBoostResetDate: string; // YYYY-MM-DD
+  daily_fullEnergyBoostsAvailable: number;
+  daily_lastFullEnergyBoostResetDate: string; // YYYY-MM-DD
+
+  isBotOwned: boolean;
+  lastSeenTimestamp?: string; // ISO string or number
+  unclaimedBotCoins: number;
+
+  ownedSkins: string[];
+  selectedSkinId: string;
+
+  completedUnclaimedTaskTierIds: string[];
+  claimedTaskTierIds: string[];
+  
+  ownedNfts: string[]; // For mint page
+
+  lastUpdated?: any; // Firestore ServerTimestamp
+}
 
 const getCurrentDateString = () => {
   const today = new Date();
-  const year = today.getFullYear();
-  const month = (today.getMonth() + 1).toString().padStart(2, '0');
-  const day = today.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return today.toISOString().split('T')[0]; // YYYY-MM-DD
 };
+
+const initialGameState: UserGameState = {
+  score: INITIAL_SCORE,
+  maxEnergyLevel: 0,
+  clickPowerLevel: 0,
+  energyRegenLevel: 0,
+  totalClicks: INITIAL_TOTAL_CLICKS,
+  gameStartTime: new Date().toISOString(),
+
+  daily_clicks: 0,
+  daily_coinsCollected: 0,
+  daily_timePlayedSeconds: 0,
+  daily_lastResetDate: getCurrentDateString(),
+
+  daily_clickBoostsAvailable: DAILY_CLICK_BOOST_LIMIT,
+  daily_lastClickBoostResetDate: getCurrentDateString(),
+  daily_fullEnergyBoostsAvailable: DAILY_FULL_ENERGY_BOOST_LIMIT,
+  daily_lastFullEnergyBoostResetDate: getCurrentDateString(),
+
+  isBotOwned: false,
+  lastSeenTimestamp: new Date().toISOString(),
+  unclaimedBotCoins: 0,
+
+  ownedSkins: ['classic'],
+  selectedSkinId: 'classic',
+
+  completedUnclaimedTaskTierIds: [],
+  claimedTaskTierIds: [],
+  ownedNfts: [],
+};
+
 
 export default function HomePage() {
   const { toast } = useToast();
   const router = useRouter();
   const { currentUser, loading: authLoading } = useAuth();
+  const [isGameDataLoading, setIsGameDataLoading] = useState(true);
+  const gameDataLoadedRef = useRef(false);
 
+  // --- React State Variables ---
   const [score, setScore] = useState(INITIAL_SCORE);
+  const [maxEnergyLevel, setMaxEnergyLevel] = useState(0);
+  const [clickPowerLevel, setClickPowerLevel] = useState(0);
+  const [energyRegenLevel, setEnergyRegenLevel] = useState(0);
 
-  // Upgrade Levels State
-  const [maxEnergyLevel, setMaxEnergyLevel] = useState(0); // 0 to MAX_ENERGY_MAX_LEVEL
-  const [clickPowerLevel, setClickPowerLevel] = useState(0); // 0 to CLICK_POWER_MAX_LEVEL
-  const [energyRegenLevel, setEnergyRegenLevel] = useState(0); // 0 to ENERGY_REGEN_MAX_LEVEL
-
-  // Derived Game Values State (based on levels)
   const [maxEnergy, setMaxEnergy] = useState(INITIAL_MAX_ENERGY_BASE);
   const [clickPower, setClickPower] = useState(INITIAL_CLICK_POWER_BASE);
   const [energyRegenRatePerSecond, setEnergyRegenRatePerSecond] = useState(INITIAL_ENERGY_REGEN_RATE_BASE);
-
-  const [energy, setEnergy] = useState(INITIAL_MAX_ENERGY_BASE); // Initial energy should match initial maxEnergy
+  const [energy, setEnergy] = useState(INITIAL_MAX_ENERGY_BASE);
 
   const [totalClicks, setTotalClicks] = useState(INITIAL_TOTAL_CLICKS);
   const [gameStartTime, setGameStartTime] = useState<Date | null>(null);
@@ -95,441 +150,446 @@ export default function HomePage() {
   const [isAnimatingClick, setIsAnimatingClick] = useState(false);
   const [isShopOpen, setIsShopOpen] = useState(false);
 
+  // Daily Stats
   const [dailyClicks, setDailyClicks] = useState(0);
   const [dailyCoinsCollected, setDailyCoinsCollected] = useState(0);
   const [dailyTimePlayedSeconds, setDailyTimePlayedSeconds] = useState(0);
   const [lastResetDate, setLastResetDate] = useState(getCurrentDateString());
 
+  // Skins
   const [currentSkin, setCurrentSkin] = useState<Skin>(defaultSkin);
-  const [isBotOwned, setIsBotOwned] = useState(false);
+  const [ownedSkins, setOwnedSkins] = useState<string[]>(['classic']); // Firestore will be source of truth
 
-  // Boost states
+  // Bot
+  const [isBotOwned, setIsBotOwned] = useState(false);
+  const [lastSeenTimestamp, setLastSeenTimestamp] = useState<string>(new Date().toISOString());
+  const [unclaimedBotCoins, setUnclaimedBotCoins] = useState(0);
+
+  // Boosts
   const [dailyClickBoostsAvailable, setDailyClickBoostsAvailable] = useState(DAILY_CLICK_BOOST_LIMIT);
   const [dailyFullEnergyBoostsAvailable, setDailyFullEnergyBoostsAvailable] = useState(DAILY_FULL_ENERGY_BOOST_LIMIT);
+  const [lastClickBoostResetDate, setLastClickBoostResetDate] = useState(getCurrentDateString());
+  const [lastFullEnergyBoostResetDate, setLastFullEnergyBoostResetDate] = useState(getCurrentDateString());
+
   const [isBoostActive, setIsBoostActive] = useState(false);
   const [boostEndTime, setBoostEndTime] = useState(0);
   const [originalClickPowerBeforeBoost, setOriginalClickPowerBeforeBoost] = useState(INITIAL_CLICK_POWER_BASE);
 
+  // Tasks (read from localStorage for now, will be part of UserGameState)
+  const [completedUnclaimedTaskTierIds, setCompletedUnclaimedTaskTierIds] = useState<string[]>([]);
+  const [claimedTaskTierIds, setClaimedTaskTierIds] = useState<string[]>([]);
+  
+  // NFTs (read from localStorage for now)
+  const [ownedNfts, setOwnedNfts] = useState<string[]>([]);
+
 
   const allTasksForNotification = useMemo(() => [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks], []);
+
+  // --- Firestore Functions ---
+  const saveGameState = useCallback(async (userId: string) => {
+    if (!userId) return;
+    const gameStateToSave: UserGameState = {
+      score, maxEnergyLevel, clickPowerLevel, energyRegenLevel, totalClicks,
+      gameStartTime: gameStartTime ? gameStartTime.toISOString() : new Date().toISOString(),
+      daily_clicks: dailyClicks, daily_coinsCollected, daily_timePlayedSeconds, daily_lastResetDate: lastResetDate,
+      daily_clickBoostsAvailable, daily_lastClickBoostResetDate: lastClickBoostResetDate,
+      daily_fullEnergyBoostsAvailable, daily_lastFullEnergyBoostResetDate: lastFullEnergyBoostResetDate,
+      isBotOwned, lastSeenTimestamp, unclaimedBotCoins,
+      ownedSkins, selectedSkinId: currentSkin.id, // Save currentSkin.id as selectedSkinId
+      completedUnclaimedTaskTierIds, claimedTaskTierIds,
+      ownedNfts,
+      lastUpdated: serverTimestamp(),
+    };
+    try {
+      const userDocRef = doc(db, 'users', userId);
+      await setDoc(userDocRef, gameStateToSave, { merge: true });
+    } catch (error) {
+      console.error("Error saving game state:", error);
+      toast({ variant: "destructive", title: "Ошибка сохранения", description: "Не удалось сохранить прогресс игры." });
+    }
+  }, [
+    score, maxEnergyLevel, clickPowerLevel, energyRegenLevel, totalClicks, gameStartTime,
+    dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, lastResetDate,
+    dailyClickBoostsAvailable, lastClickBoostResetDate,
+    dailyFullEnergyBoostsAvailable, lastFullEnergyBoostResetDate,
+    isBotOwned, lastSeenTimestamp, unclaimedBotCoins,
+    ownedSkins, currentSkin.id, // Ensure currentSkin.id is used for selectedSkinId
+    completedUnclaimedTaskTierIds, claimedTaskTierIds, ownedNfts, toast
+  ]);
+
+  const loadGameState = useCallback(async (userId: string) => {
+    setIsGameDataLoading(true);
+    gameDataLoadedRef.current = false;
+    try {
+      const userDocRef = doc(db, 'users', userId);
+      const docSnap = await getDoc(userDocRef);
+      const currentDateStr = getCurrentDateString();
+      let stateToSet = { ...initialGameState }; // Start with defaults
+
+      if (docSnap.exists()) {
+        stateToSet = { ...initialGameState, ...docSnap.data() as UserGameState };
+
+        // Handle date string to Date object conversion for gameStartTime
+        if (stateToSet.gameStartTime && typeof stateToSet.gameStartTime === 'string') {
+          setGameStartTime(new Date(stateToSet.gameStartTime));
+        } else if (!stateToSet.gameStartTime) {
+          stateToSet.gameStartTime = new Date().toISOString(); // Ensure new users get a gameStartTime
+          setGameStartTime(new Date());
+        } else {
+           // If it's already a Timestamp or some other object, handle appropriately or log
+           // For now, if it's not a string, we'll default. This might happen if Firestore auto-converts.
+           console.warn("gameStartTime from Firestore was not a string:", stateToSet.gameStartTime);
+           setGameStartTime(new Date( (stateToSet.gameStartTime as any)?.toDate?.() || Date.now()));
+        }
+        
+        setScore(stateToSet.score);
+        setMaxEnergyLevel(stateToSet.maxEnergyLevel);
+        setClickPowerLevel(stateToSet.clickPowerLevel);
+        setEnergyRegenLevel(stateToSet.energyRegenLevel);
+        setTotalClicks(stateToSet.totalClicks);
+
+        // Daily Stats Reset Logic
+        if (stateToSet.daily_lastResetDate !== currentDateStr) {
+          stateToSet.daily_clicks = 0;
+          stateToSet.daily_coinsCollected = 0;
+          stateToSet.daily_timePlayedSeconds = 0;
+          stateToSet.daily_lastResetDate = currentDateStr;
+          // Reset daily task progress in Firestore if necessary by updating task-related arrays
+          const dailyTierIds = new Set<string>();
+          initialDailyTasks.forEach(task => task.tiers.forEach(tier => dailyTierIds.add(tier.id)));
+          stateToSet.completedUnclaimedTaskTierIds = stateToSet.completedUnclaimedTaskTierIds.filter(id => !dailyTierIds.has(id));
+          stateToSet.claimedTaskTierIds = stateToSet.claimedTaskTierIds.filter(id => !dailyTierIds.has(id));
+        }
+        setDailyClicks(stateToSet.daily_clicks);
+        setDailyCoinsCollected(stateToSet.daily_coinsCollected);
+        setDailyTimePlayedSeconds(stateToSet.daily_timePlayedSeconds);
+        setLastResetDate(stateToSet.daily_lastResetDate);
+        
+        // Boost Reset Logic
+        if (stateToSet.daily_lastClickBoostResetDate !== currentDateStr) {
+          stateToSet.daily_clickBoostsAvailable = DAILY_CLICK_BOOST_LIMIT;
+          stateToSet.daily_lastClickBoostResetDate = currentDateStr;
+        }
+        setDailyClickBoostsAvailable(stateToSet.daily_clickBoostsAvailable);
+        setLastClickBoostResetDate(stateToSet.daily_lastClickBoostResetDate);
+
+        if (stateToSet.daily_lastFullEnergyBoostResetDate !== currentDateStr) {
+          stateToSet.daily_fullEnergyBoostsAvailable = DAILY_FULL_ENERGY_BOOST_LIMIT;
+          stateToSet.daily_lastFullEnergyBoostResetDate = currentDateStr;
+        }
+        setDailyFullEnergyBoostsAvailable(stateToSet.daily_fullEnergyBoostsAvailable);
+        setLastFullEnergyBoostResetDate(stateToSet.daily_lastFullEnergyBoostResetDate);
+
+        setIsBotOwned(stateToSet.isBotOwned);
+        setLastSeenTimestamp(stateToSet.lastSeenTimestamp || new Date().toISOString());
+        setUnclaimedBotCoins(stateToSet.unclaimedBotCoins || 0);
+
+        setOwnedSkins(stateToSet.ownedSkins);
+        const skinToApply = initialSkins.find(s => s.id === stateToSet.selectedSkinId) || defaultSkin;
+        setCurrentSkin(skinToApply);
+
+        setCompletedUnclaimedTaskTierIds(stateToSet.completedUnclaimedTaskTierIds);
+        setClaimedTaskTierIds(stateToSet.claimedTaskTierIds);
+        setOwnedNfts(stateToSet.ownedNfts || []);
+
+
+        // If any reset happened, save the updated state back
+        if (stateToSet.daily_lastResetDate === currentDateStr &&
+            stateToSet.daily_lastClickBoostResetDate === currentDateStr &&
+            stateToSet.daily_lastFullEnergyBoostResetDate === currentDateStr &&
+            docSnap.data().daily_lastResetDate !== currentDateStr // Check if original was different
+           ) {
+             // This save is if date fields were updated due to reset
+             await setDoc(userDocRef, stateToSet, { merge: true });
+        }
+
+      } else {
+        // New user: save initial state
+        setGameStartTime(new Date(initialGameState.gameStartTime!)); // Set from initial explicitly
+        setScore(initialGameState.score);
+        setMaxEnergyLevel(initialGameState.maxEnergyLevel);
+        // ... set all other states from initialGameState
+        setClickPowerLevel(initialGameState.clickPowerLevel);
+        setEnergyRegenLevel(initialGameState.energyRegenLevel);
+        setTotalClicks(initialGameState.totalClicks);
+        setDailyClicks(initialGameState.daily_clicks);
+        setDailyCoinsCollected(initialGameState.daily_coinsCollected);
+        setDailyTimePlayedSeconds(initialGameState.daily_timePlayedSeconds);
+        setLastResetDate(initialGameState.daily_lastResetDate);
+        setDailyClickBoostsAvailable(initialGameState.daily_clickBoostsAvailable);
+        setLastClickBoostResetDate(initialGameState.daily_lastClickBoostResetDate);
+        setDailyFullEnergyBoostsAvailable(initialGameState.daily_fullEnergyBoostsAvailable);
+        setLastFullEnergyBoostResetDate(initialGameState.daily_lastFullEnergyBoostResetDate);
+        setIsBotOwned(initialGameState.isBotOwned);
+        setLastSeenTimestamp(initialGameState.lastSeenTimestamp!);
+        setUnclaimedBotCoins(initialGameState.unclaimedBotCoins);
+        setOwnedSkins(initialGameState.ownedSkins);
+        setCurrentSkin(initialSkins.find(s => s.id === initialGameState.selectedSkinId) || defaultSkin);
+        setCompletedUnclaimedTaskTierIds(initialGameState.completedUnclaimedTaskTierIds);
+        setClaimedTaskTierIds(initialGameState.claimedTaskTierIds);
+        setOwnedNfts(initialGameState.ownedNfts);
+        
+        await setDoc(userDocRef, { ...initialGameState, gameStartTime: initialGameState.gameStartTime, lastUpdated: serverTimestamp() });
+      }
+
+      // Bot offline earning calculation after loading state
+      if (stateToSet.isBotOwned) {
+        let currentUnclaimed = stateToSet.unclaimedBotCoins || 0;
+        let newLastSeen = stateToSet.lastSeenTimestamp || new Date().toISOString();
+
+        if (currentUnclaimed > 0) {
+            // Already has unclaimed coins from previous session
+            toast({
+                title: <div className="flex items-center gap-2"><Bot className="h-5 w-5 text-primary" /><span className="font-semibold text-foreground">Бот Ожидает!</span></div>,
+                description: `У вас есть ${currentUnclaimed.toLocaleString()} монет от бота, ожидающих сбора.`,
+                duration: 30000,
+                action: ( <ToastAction altText="Забрать" onClick={() => handleClaimBotCoins(currentUnclaimed)}>Забрать</ToastAction> ) as ToastActionElement,
+            });
+            // Do not update lastSeenTimestamp here, it was from the previous session.
+            // It will be updated when coins are claimed or next time game is saved.
+        } else {
+            // Calculate earnings for the current offline period
+            const timeOfflineInSeconds = Math.floor((Date.now() - new Date(newLastSeen).getTime()) / 1000);
+            if (timeOfflineInSeconds > BOT_CLICK_INTERVAL_SECONDS) {
+                const botBaseClickPower = INITIAL_CLICK_POWER_BASE + (stateToSet.clickPowerLevel * CLICK_POWER_INCREMENT_PER_LEVEL);
+                const botClicksCount = Math.floor(timeOfflineInSeconds / BOT_CLICK_INTERVAL_SECONDS);
+                const coinsEarnedByBot = botClicksCount * botBaseClickPower;
+                const actualCoinsEarned = Math.min(coinsEarnedByBot, BOT_MAX_OFFLINE_COINS);
+
+                if (actualCoinsEarned > 0) {
+                    setUnclaimedBotCoins(actualCoinsEarned); // Update local state first
+                    newLastSeen = new Date().toISOString(); // Bot has "worked" up to now
+                    setLastSeenTimestamp(newLastSeen);
+                    
+                    await setDoc(userDocRef, { unclaimedBotCoins: actualCoinsEarned, lastSeenTimestamp: newLastSeen, lastUpdated: serverTimestamp() }, { merge: true });
+                    
+                    toast({
+                        title: <div className="flex items-center gap-2"><Bot className="h-5 w-5 text-primary" /><span className="font-semibold text-foreground">Бот Помог!</span></div>,
+                        description: `Ваш оффлайн бот готов передать вам ${actualCoinsEarned.toLocaleString()} монет.`,
+                        duration: 30000,
+                        action: ( <ToastAction altText="Забрать" onClick={() => handleClaimBotCoins(actualCoinsEarned)}>Забрать</ToastAction> ) as ToastActionElement,
+                    });
+                } else {
+                    // No new coins earned, just update last seen
+                    newLastSeen = new Date().toISOString();
+                    setLastSeenTimestamp(newLastSeen);
+                    await setDoc(userDocRef, { lastSeenTimestamp: newLastSeen, lastUpdated: serverTimestamp() }, { merge: true });
+                }
+            } else {
+                 // Not offline long enough, just update last seen
+                newLastSeen = new Date().toISOString();
+                setLastSeenTimestamp(newLastSeen);
+                await setDoc(userDocRef, { lastSeenTimestamp: newLastSeen, lastUpdated: serverTimestamp() }, { merge: true });
+            }
+        }
+      } else {
+          // Bot not owned, just update last seen if user exists
+          const newSeen = new Date().toISOString();
+          setLastSeenTimestamp(newSeen);
+          if (docSnap.exists()) { // Only save if doc existed, otherwise initial save handles it
+            await setDoc(userDocRef, { lastSeenTimestamp: newSeen, lastUpdated: serverTimestamp() }, { merge: true });
+          }
+      }
+
+
+      // Unclaimed rewards toast
+      if (stateToSet.completedUnclaimedTaskTierIds.length > 0 && !sessionStorage.getItem('newRewardsToastShownThisSession')) {
+        toast({ title: "🎉 Новые награды доступны!", description: "Загляните во вкладку 'Награды', чтобы забрать их.", duration: 5000 });
+        sessionStorage.setItem('newRewardsToastShownThisSession', 'true');
+      }
+
+    } catch (error) {
+      console.error("Error loading game state:", error);
+      toast({ variant: "destructive", title: "Ошибка загрузки", description: "Не удалось загрузить прогресс игры." });
+      // Fallback to local initial state if Firestore fails critically
+        setGameStartTime(new Date(initialGameState.gameStartTime!));
+        setScore(initialGameState.score);
+        setMaxEnergyLevel(initialGameState.maxEnergyLevel);
+        // ... set all other states from initialGameState
+    } finally {
+      setIsGameDataLoading(false);
+      gameDataLoadedRef.current = true;
+    }
+  }, [toast]); // Removed saveGameState from dependencies to avoid loops
+
 
   useEffect(() => {
     if (!authLoading && !currentUser) {
       router.push('/login');
+      gameDataLoadedRef.current = false; // Reset loading flag on logout
+    } else if (currentUser && !gameDataLoadedRef.current && !authLoading) {
+      loadGameState(currentUser.uid);
     }
-  }, [currentUser, authLoading, router]);
-
+  }, [currentUser, authLoading, router, loadGameState]);
 
   // Calculate derived game values based on levels
   useEffect(() => {
     setMaxEnergy(INITIAL_MAX_ENERGY_BASE + (maxEnergyLevel * MAX_ENERGY_INCREMENT_PER_LEVEL));
-    
     const basePower = INITIAL_CLICK_POWER_BASE + (clickPowerLevel * CLICK_POWER_INCREMENT_PER_LEVEL);
-    setOriginalClickPowerBeforeBoost(basePower); // Store the non-boosted power
-    if (isBoostActive) {
-      setClickPower(basePower * 2);
-    } else {
-      setClickPower(basePower);
-    }
-
+    setOriginalClickPowerBeforeBoost(basePower);
+    setClickPower(isBoostActive ? basePower * 2 : basePower);
     setEnergyRegenRatePerSecond(INITIAL_ENERGY_REGEN_RATE_BASE + (energyRegenLevel * ENERGY_REGEN_INCREMENT_PER_LEVEL));
   }, [maxEnergyLevel, clickPowerLevel, energyRegenLevel, isBoostActive]);
 
-  // Initialize energy to maxEnergy when maxEnergy changes (e.g., after upgrade or initial load)
   useEffect(() => {
-    setEnergy(prevEnergy => Math.min(prevEnergy, maxEnergy)); // Keep current energy if it's less than new max
+    setEnergy(prevEnergy => Math.min(prevEnergy, maxEnergy));
   }, [maxEnergy]);
 
 
   const getFullProgressForCheck = useCallback(() => {
-    const ownedSkinsRaw = localStorage.getItem('ownedSkins');
-    const ownedSkinsArray: string[] = ownedSkinsRaw ? JSON.parse(ownedSkinsRaw) : ['classic'];
-
     return {
       daily_clicks: dailyClicks,
       daily_coinsCollected: dailyCoinsCollected,
       daily_timePlayedSeconds: dailyTimePlayedSeconds,
       userScore: score,
-      ownedSkin_emerald: ownedSkinsArray.includes('emerald') ? 1 : 0,
-      ownedSkin_rainbow: ownedSkinsArray.includes('rainbow') ? 1 : 0,
-      ownedSkins_length: ownedSkinsArray.length,
+      ownedSkin_emerald: ownedSkins.includes('emerald') ? 1 : 0,
+      ownedSkin_rainbow: ownedSkins.includes('rainbow') ? 1 : 0,
+      ownedSkins_length: ownedSkins.length,
     };
-  }, [dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, score]);
+  }, [dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, score, ownedSkins]);
 
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const storedScore = localStorage.getItem('userScore');
-    setScore(storedScore ? parseInt(storedScore, 10) : INITIAL_SCORE);
-
-    // Load Upgrade Levels
-    setMaxEnergyLevel(parseInt(localStorage.getItem('maxEnergyLevel') || '0', 10));
-    setClickPowerLevel(parseInt(localStorage.getItem('clickPowerLevel') || '0', 10));
-    setEnergyRegenLevel(parseInt(localStorage.getItem('energyRegenLevel') || '0', 10));
-    
-    // Energy is initialized in its own useEffect based on maxEnergy
-
-    const storedTotalClicks = localStorage.getItem('totalClicks');
-    setTotalClicks(storedTotalClicks ? parseInt(storedTotalClicks, 10) : INITIAL_TOTAL_CLICKS);
-
-    const storedGameStartTime = localStorage.getItem('gameStartTime');
-    setGameStartTime(storedGameStartTime ? new Date(storedGameStartTime) : new Date());
-
-    const currentDateStr = getCurrentDateString();
-    const storedLastResetDate = localStorage.getItem('daily_lastResetDate');
-    const storedLastClickBoostResetDate = localStorage.getItem('daily_lastClickBoostResetDate');
-    const storedDailyClickBoostsAvailable = localStorage.getItem('daily_clickBoostsAvailable');
-    const storedLastFullEnergyBoostResetDate = localStorage.getItem('daily_lastFullEnergyBoostResetDate');
-    const storedDailyFullEnergyBoostsAvailable = localStorage.getItem('daily_fullEnergyBoostsAvailable');
-
-
-    if (storedLastResetDate === currentDateStr) {
-      setDailyClicks(parseInt(localStorage.getItem('daily_clicks') || '0', 10));
-      setDailyCoinsCollected(parseInt(localStorage.getItem('daily_coinsCollected') || '0', 10));
-      setDailyTimePlayedSeconds(parseInt(localStorage.getItem('daily_timePlayedSeconds') || '0', 10));
-    } else {
-      setDailyClicks(0);
-      setDailyCoinsCollected(0);
-      setDailyTimePlayedSeconds(0);
-      localStorage.setItem('daily_lastResetDate', currentDateStr);
-      localStorage.setItem('daily_clicks', '0');
-      localStorage.setItem('daily_coinsCollected', '0');
-      localStorage.setItem('daily_timePlayedSeconds', '0');
-
-      const dailyTierIds = new Set<string>();
-      initialDailyTasks.forEach(task => task.tiers.forEach(tier => dailyTierIds.add(tier.id)));
-
-      const completedUnclaimed = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
-      const newCompletedUnclaimed = completedUnclaimed.filter(id => !dailyTierIds.has(id));
-      localStorage.setItem('completedUnclaimedTaskTierIds', JSON.stringify(newCompletedUnclaimed));
-
-      const claimed = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
-      const newClaimed = claimed.filter(id => !dailyTierIds.has(id));
-      localStorage.setItem('claimedTaskTierIds', JSON.stringify(newClaimed));
-    }
-    setLastResetDate(currentDateStr);
-
-    // Click Boost Reset
-    if (storedLastClickBoostResetDate === currentDateStr) {
-        setDailyClickBoostsAvailable(storedDailyClickBoostsAvailable ? parseInt(storedDailyClickBoostsAvailable, 10) : DAILY_CLICK_BOOST_LIMIT);
-    } else {
-        setDailyClickBoostsAvailable(DAILY_CLICK_BOOST_LIMIT);
-        localStorage.setItem('daily_lastClickBoostResetDate', currentDateStr);
-        // If boost was active and day changed, reset click power to non-boosted
-        const currentPowerLevel = parseInt(localStorage.getItem('clickPowerLevel') || '0', 10);
-        const basePower = INITIAL_CLICK_POWER_BASE + (currentPowerLevel * CLICK_POWER_INCREMENT_PER_LEVEL);
-        if (isBoostActive) { 
-            setClickPower(basePower); 
+  // Check for task completion when relevant states change
+   useEffect(() => {
+    if (currentUser && !isGameDataLoading) {
+        const { newCompletedUnclaimedTierIds, newRewardsWereAdded } = checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
+        if (newRewardsWereAdded) {
+            setCompletedUnclaimedTaskTierIds(newCompletedUnclaimedTierIds); // Update local state for UI
+            // The saveGameState will be triggered by other actions or a dedicated save mechanism
+            // For now, let's ensure this critical task state is saved.
+            saveGameState(currentUser.uid); 
         }
-        setIsBoostActive(false);
-        setBoostEndTime(0);
     }
-
-    // Full Energy Boost Reset
-    if (storedLastFullEnergyBoostResetDate === currentDateStr) {
-        setDailyFullEnergyBoostsAvailable(storedDailyFullEnergyBoostsAvailable ? parseInt(storedDailyFullEnergyBoostsAvailable, 10) : DAILY_FULL_ENERGY_BOOST_LIMIT);
-    } else {
-        setDailyFullEnergyBoostsAvailable(DAILY_FULL_ENERGY_BOOST_LIMIT);
-        localStorage.setItem('daily_lastFullEnergyBoostResetDate', currentDateStr);
-    }
-
-
-    const unclaimedRewards = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
-    if (unclaimedRewards.length > 0 && !sessionStorage.getItem('newRewardsToastShownThisSession')) {
-      toast({
-        title: "🎉 Новые награды доступны!",
-        description: "Загляните во вкладку 'Награды', чтобы забрать их.",
-        duration: 5000,
-      });
-      sessionStorage.setItem('newRewardsToastShownThisSession', 'true');
-    }
-    
-    const selectedSkinIdFromStorage = localStorage.getItem('selectedSkinId');
-    const skinToApply = initialSkins.find(s => s.id === selectedSkinIdFromStorage) || defaultSkin;
-    setCurrentSkin(skinToApply);
-
-    // --- Bot Logic ---
-    const storedIsBotOwned = localStorage.getItem('isBotOwned');
-    setIsBotOwned(storedIsBotOwned === 'true'); 
-
-    const previouslyUnclaimedBotCoinsRaw = localStorage.getItem('unclaimedBotCoins');
-    const previouslyUnclaimedBotCoins = previouslyUnclaimedBotCoinsRaw ? parseInt(previouslyUnclaimedBotCoinsRaw, 10) : 0;
-
-    if (previouslyUnclaimedBotCoins > 0 && storedIsBotOwned === 'true') {
-        toast({
-            title: (
-                <div className="flex items-center gap-2">
-                    <Bot className="h-5 w-5 text-primary" />
-                    <span className="font-semibold text-foreground">Бот Ожидает!</span>
-                </div>
-            ),
-            description: `У вас есть ${previouslyUnclaimedBotCoins.toLocaleString()} монет от бота, ожидающих сбора.`,
-            duration: 30000, 
-            action: (
-                <ToastAction
-                    altText="Забрать"
-                    onClick={() => {
-                        setScore(prevScore => {
-                            const newScore = prevScore + previouslyUnclaimedBotCoins;
-                            localStorage.setItem('userScore', newScore.toString());
-                            return newScore;
-                        });
-                        localStorage.removeItem('unclaimedBotCoins'); 
-                        toast({
-                            title: "💰 Монеты зачислены!",
-                            description: `${previouslyUnclaimedBotCoins.toLocaleString()} монет добавлено на ваш баланс.`,
-                            duration: 3000,
-                        });
-                    }}
-                >
-                    Забрать
-                </ToastAction>
-            ) as ToastActionElement,
-        });
-        localStorage.setItem('lastSeenTimestamp', Date.now().toString()); 
-    } else if (storedIsBotOwned === 'true') {
-        const lastSeen = localStorage.getItem('lastSeenTimestamp');
-        if (lastSeen) {
-            const timeOfflineInSeconds = Math.floor((Date.now() - parseInt(lastSeen, 10)) / 1000);
-            
-            if (timeOfflineInSeconds > BOT_CLICK_INTERVAL_SECONDS) { 
-                const botClicksCount = Math.floor(timeOfflineInSeconds / BOT_CLICK_INTERVAL_SECONDS);
-                // Bot uses the current base click power (originalClickPowerBeforeBoost)
-                const coinsEarnedByBot = botClicksCount * originalClickPowerBeforeBoost;
-                const actualCoinsEarned = Math.min(coinsEarnedByBot, BOT_MAX_OFFLINE_COINS);
-
-                if (actualCoinsEarned > 0) {
-                    localStorage.setItem('unclaimedBotCoins', actualCoinsEarned.toString());
-                    toast({
-                        title: (
-                            <div className="flex items-center gap-2">
-                                <Bot className="h-5 w-5 text-primary" />
-                                <span className="font-semibold text-foreground">Бот Помог!</span>
-                            </div>
-                        ),
-                        description: `Ваш оффлайн бот готов передать вам ${actualCoinsEarned.toLocaleString()} монет.`,
-                        duration: 30000, 
-                        action: (
-                            <ToastAction
-                                altText="Забрать"
-                                onClick={() => {
-                                    setScore(prevScore => {
-                                        const newScore = prevScore + actualCoinsEarned;
-                                        localStorage.setItem('userScore', newScore.toString());
-                                        return newScore;
-                                    });
-                                    localStorage.removeItem('unclaimedBotCoins'); 
-                                    toast({
-                                        title: "💰 Монеты зачислены!",
-                                        description: `${actualCoinsEarned.toLocaleString()} монет добавлено на ваш баланс.`,
-                                        duration: 3000,
-                                    });
-                                }}
-                            >
-                                Забрать
-                            </ToastAction>
-                        ) as ToastActionElement,
-                    });
-                }
-            }
-        }
-        localStorage.setItem('lastSeenTimestamp', Date.now().toString());
-    } else {
-        localStorage.setItem('lastSeenTimestamp', Date.now().toString());
-    }
-    // --- End of Bot Logic ---
-
-  }, [toast, currentUser, authLoading, isBoostActive, originalClickPowerBeforeBoost]); 
-
-  useEffect(() => {
-    if (!currentUser) return;
-    localStorage.setItem('userScore', score.toString());
-    localStorage.setItem('totalClicks', totalClicks.toString());
-    if (gameStartTime) {
-      localStorage.setItem('gameStartTime', gameStartTime.toISOString());
-    }
-    // Save levels to localStorage
-    localStorage.setItem('maxEnergyLevel', maxEnergyLevel.toString());
-    localStorage.setItem('clickPowerLevel', clickPowerLevel.toString());
-    localStorage.setItem('energyRegenLevel', energyRegenLevel.toString());
-
-    checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
-  }, [score, totalClicks, gameStartTime, maxEnergyLevel, clickPowerLevel, energyRegenLevel, getFullProgressForCheck, allTasksForNotification, toast, currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    localStorage.setItem('daily_lastResetDate', lastResetDate);
-    localStorage.setItem('daily_clicks', dailyClicks.toString());
-    localStorage.setItem('daily_coinsCollected', dailyCoinsCollected.toString());
-    localStorage.setItem('daily_timePlayedSeconds', dailyTimePlayedSeconds.toString());
-    checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
-  }, [lastResetDate, dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, getFullProgressForCheck, allTasksForNotification, toast, currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    localStorage.setItem('daily_clickBoostsAvailable', dailyClickBoostsAvailable.toString());
-    localStorage.setItem('daily_lastClickBoostResetDate', localStorage.getItem('daily_lastClickBoostResetDate') || getCurrentDateString());
-  }, [dailyClickBoostsAvailable, currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    localStorage.setItem('daily_fullEnergyBoostsAvailable', dailyFullEnergyBoostsAvailable.toString());
-    localStorage.setItem('daily_lastFullEnergyBoostResetDate', localStorage.getItem('daily_lastFullEnergyBoostResetDate') || getCurrentDateString());
-  }, [dailyFullEnergyBoostsAvailable, currentUser]);
+  }, [score, dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, ownedSkins, currentUser, isGameDataLoading, getFullProgressForCheck, allTasksForNotification, toast, saveGameState]);
 
 
   // Boost Timer Effect
   useEffect(() => {
-    if (!currentUser || !isBoostActive || boostEndTime === 0) {
-      return;
-    }
-
+    if (!currentUser || !isBoostActive || boostEndTime === 0) return;
     const timer = setInterval(() => {
       if (Date.now() >= boostEndTime) {
-        // No need to directly setClickPower here, it's handled by the main useEffect 
-        // reacting to isBoostActive changing.
         setIsBoostActive(false);
         setBoostEndTime(0);
-        // originalClickPowerBeforeBoost is already set and correct
-        toast({
-          title: "⚙️ Буст Завершён",
-          description: "Действие буста x2 силы клика закончилось.",
-          duration: 4000,
-        });
-        clearInterval(timer);
+        toast({ title: "⚙️ Буст Завершён", description: "Действие буста x2 силы клика закончилось.", duration: 4000 });
+        // Save state after boost ends
+        if (currentUser) saveGameState(currentUser.uid);
       }
     }, 1000);
-
     return () => clearInterval(timer);
-  }, [isBoostActive, boostEndTime, toast, currentUser]);
-
+  }, [isBoostActive, boostEndTime, toast, currentUser, saveGameState]);
 
   const energyRegenAmountPerInterval = energyRegenRatePerSecond * (ENERGY_REGEN_INTERVAL / 1000);
 
   const handleCoinClick = useCallback(() => {
-    if (!currentUser) return;
+    if (!currentUser || isGameDataLoading) return;
     if (energy >= ENERGY_PER_CLICK) {
-      const scoreIncrease = clickPower; 
-
-      setScore((prevScore) => prevScore + scoreIncrease);
-      setEnergy((prevEnergy) => Math.max(0, prevEnergy - ENERGY_PER_CLICK));
-      setTotalClicks((prevClicks) => prevClicks + 1);
-
-      setDailyClicks((prev) => prev + 1);
-      setDailyCoinsCollected((prev) => prev + scoreIncrease);
+      const scoreIncrease = clickPower;
+      setScore(prevScore => prevScore + scoreIncrease);
+      setEnergy(prevEnergy => Math.max(0, prevEnergy - ENERGY_PER_CLICK));
+      setTotalClicks(prevClicks => prevClicks + 1);
+      setDailyClicks(prev => prev + 1);
+      setDailyCoinsCollected(prev => prev + scoreIncrease);
 
       if (!isAnimatingClick) {
         setIsAnimatingClick(true);
-        setTimeout(() => {
-          setIsAnimatingClick(false);
-        }, CLICK_ANIMATION_DURATION);
+        setTimeout(() => setIsAnimatingClick(false), CLICK_ANIMATION_DURATION);
       }
     }
-  }, [energy, clickPower, isAnimatingClick, currentUser]);
+  }, [currentUser, isGameDataLoading, energy, clickPower, isAnimatingClick]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || isGameDataLoading) return;
     const regenTimer = setInterval(() => {
-      setEnergy((prevEnergy) => Math.min(maxEnergy, prevEnergy + energyRegenAmountPerInterval));
+      setEnergy(prevEnergy => Math.min(maxEnergy, prevEnergy + energyRegenAmountPerInterval));
     }, ENERGY_REGEN_INTERVAL);
-
     return () => clearInterval(regenTimer);
-  }, [maxEnergy, energyRegenAmountPerInterval, currentUser]);
+  }, [currentUser, isGameDataLoading, maxEnergy, energyRegenAmountPerInterval]);
 
   useEffect(() => {
-    if (!currentUser || !gameStartTime) return;
+    if (!currentUser || !gameStartTime || isGameDataLoading) return;
     const timePlayedTimer = setInterval(() => {
-      setGameTimePlayed(formatDistanceStrict(new Date(), gameStartTime, {roundingMethod: 'floor'}));
+      setGameTimePlayed(formatDistanceStrict(new Date(), gameStartTime, { roundingMethod: 'floor' }));
     }, 1000);
     return () => clearInterval(timePlayedTimer);
-  }, [gameStartTime, currentUser]);
+  }, [gameStartTime, currentUser, isGameDataLoading]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || isGameDataLoading) return;
     const dailyTimeUpdateTimer = setInterval(() => {
       setDailyTimePlayedSeconds(prev => prev + (DAILY_STATS_UPDATE_INTERVAL / 1000));
     }, DAILY_STATS_UPDATE_INTERVAL);
     return () => clearInterval(dailyTimeUpdateTimer);
-  }, [currentUser]);
-
+  }, [currentUser, isGameDataLoading]);
+  
+  // Listener for skin changes from SkinsPage (which will eventually write to Firestore)
+  // For now, this keeps HomePage skin consistent if localStorage is changed by SkinsPage.
+  // This will be removed/refactored when SkinsPage uses Firestore.
   useEffect(() => {
-    if (!currentUser) return;
-    const intervalId = setInterval(() => {
-      const unclaimedRewards = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
-      if (unclaimedRewards.length > 0 && !sessionStorage.getItem('newRewardsToastShownThisSession')) {
-         toast({
-            title: "🎉 Новые награды доступны!",
-            description: "Загляните во вкладку 'Награды', чтобы забрать их.",
-            duration: 5000,
-        });
-        sessionStorage.setItem('newRewardsToastShownThisSession', 'true');
-      }
-      if (unclaimedRewards.length === 0) {
-        sessionStorage.removeItem('newRewardsToastShownThisSession');
-      }
-    }, 10000);
-
-    return () => clearInterval(intervalId);
-  }, [toast, currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || isGameDataLoading) return;
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'selectedSkinId' && event.newValue) {
         const skinToApply = initialSkins.find(s => s.id === event.newValue) || defaultSkin;
         setCurrentSkin(skinToApply);
+        // If HomePage is authoritative for currentSkin, it should save this change.
+        // saveGameState(currentUser.uid); // This might be too aggressive for just skin change via localStorage.
       }
-      if (event.key === 'isBotOwned' && event.newValue) {
-        setIsBotOwned(event.newValue === 'true');
-      }
-      if (event.key === 'daily_clickBoostsAvailable' && event.newValue) {
-        setDailyClickBoostsAvailable(parseInt(event.newValue, 10));
-      }
-      if (event.key === 'daily_fullEnergyBoostsAvailable' && event.newValue) {
-        setDailyFullEnergyBoostsAvailable(parseInt(event.newValue, 10));
-      }
-      // Listen for level changes from other tabs (less likely but good practice)
-      if (event.key === 'maxEnergyLevel' && event.newValue) setMaxEnergyLevel(parseInt(event.newValue, 10));
-      if (event.key === 'clickPowerLevel' && event.newValue) setClickPowerLevel(parseInt(event.newValue, 10));
-      if (event.key === 'energyRegenLevel' && event.newValue) setEnergyRegenLevel(parseInt(event.newValue, 10));
+      // Similar listeners for other localStorage items if needed during transition.
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [currentUser, isGameDataLoading, saveGameState]); // saveGameState if it needs to react to this.
+
+  const handleClaimBotCoins = useCallback(async (coinsToClaim: number) => {
+    if (!currentUser || coinsToClaim <= 0) return;
+
+    setScore(prevScore => prevScore + coinsToClaim);
+    setUnclaimedBotCoins(0);
+    const newSeen = new Date().toISOString();
+    setLastSeenTimestamp(newSeen); // Update last seen now that coins are claimed
+
+    // Directly save after claiming
+    // Construct the partial state to save specifically for bot claim
+    const gameStateUpdate = {
+      score: score + coinsToClaim, // Use the updated score
+      unclaimedBotCoins: 0,
+      lastSeenTimestamp: newSeen,
+      lastUpdated: serverTimestamp(),
     };
-  }, [currentUser]);
+    try {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      await setDoc(userDocRef, gameStateUpdate, { merge: true });
+      toast({
+          title: "💰 Монеты зачислены!",
+          description: `${coinsToClaim.toLocaleString()} монет добавлено на ваш баланс.`,
+          duration: 3000,
+      });
+    } catch (error) {
+        console.error("Error saving after claiming bot coins:", error);
+        // Revert optimistic updates if save fails? Or retry? For now, log and toast.
+        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось сохранить сбор монет." });
+    }
+  }, [currentUser, score, toast]);
 
-  useEffect(() => {
-    if (!currentUser) return;
-    const handleBeforeUnload = () => {
-      localStorage.setItem('lastSeenTimestamp', Date.now().toString());
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [currentUser]);
 
+  const toggleShop = () => setIsShopOpen(prev => !prev);
 
-  const toggleShop = () => {
-    if (!currentUser) return;
-    setIsShopOpen(prev => !prev);
-  };
-
-  const handlePurchase = (upgradeId: UpgradeId) => {
-    if (!currentUser) return false;
+  const handlePurchase = async (upgradeId: UpgradeId) => {
+    if (!currentUser || isGameDataLoading) return false;
     let cost = 0;
     let canPurchase = false;
+    let newMaxEnergyLevel = maxEnergyLevel;
+    let newClickPowerLevel = clickPowerLevel;
+    let newEnergyRegenLevel = energyRegenLevel;
+    let newScore = score;
+    let newIsBotOwned = isBotOwned;
 
     switch (upgradeId) {
       case 'maxEnergyUpgrade':
         if (maxEnergyLevel < MAX_ENERGY_MAX_LEVEL) {
           cost = maxEnergyUpgradeCosts[maxEnergyLevel];
           if (score >= cost) {
-            setScore(prevScore => prevScore - cost);
-            setMaxEnergyLevel(prev => prev + 1);
-            // maxEnergy will update via useEffect
-            setEnergy(prevEnergy => prevEnergy + MAX_ENERGY_INCREMENT_PER_LEVEL); // Also add the increment to current energy
+            newScore -= cost;
+            newMaxEnergyLevel++;
+            setEnergy(prevEnergy => prevEnergy + MAX_ENERGY_INCREMENT_PER_LEVEL);
             canPurchase = true;
           }
         }
@@ -538,9 +598,8 @@ export default function HomePage() {
         if (clickPowerLevel < CLICK_POWER_MAX_LEVEL) {
           cost = clickPowerUpgradeCosts[clickPowerLevel];
           if (score >= cost) {
-            setScore(prevScore => prevScore - cost);
-            setClickPowerLevel(prev => prev + 1);
-            // clickPower will update via useEffect
+            newScore -= cost;
+            newClickPowerLevel++;
             canPurchase = true;
           }
         }
@@ -549,9 +608,8 @@ export default function HomePage() {
         if (energyRegenLevel < ENERGY_REGEN_MAX_LEVEL) {
           cost = energyRegenUpgradeCosts[energyRegenLevel];
           if (score >= cost) {
-            setScore(prevScore => prevScore - cost);
-            setEnergyRegenLevel(prev => prev + 1);
-            // energyRegenRatePerSecond will update via useEffect
+            newScore -= cost;
+            newEnergyRegenLevel++;
             canPurchase = true;
           }
         }
@@ -559,58 +617,83 @@ export default function HomePage() {
       case 'offlineBotPurchase':
         if (!isBotOwned && score >= BOT_PURCHASE_COST) {
           cost = BOT_PURCHASE_COST;
-          setScore(prevScore => prevScore - cost);
-          setIsBotOwned(true);
-          localStorage.setItem('isBotOwned', 'true');
-          localStorage.setItem('lastSeenTimestamp', Date.now().toString());
-          toast({
-            title: "🤖 Оффлайн Бот Активирован!",
-            description: "Теперь ваш бот будет собирать монеты, пока вы отдыхаете.",
-            duration: 5000,
-          });
+          newScore -= cost;
+          newIsBotOwned = true;
+          toast({ title: "🤖 Оффлайн Бот Активирован!", description: "Теперь ваш бот будет собирать монеты, пока вы отдыхаете.", duration: 5000 });
           canPurchase = true;
         }
         break;
     }
+
+    if (canPurchase) {
+      setScore(newScore);
+      setMaxEnergyLevel(newMaxEnergyLevel);
+      setClickPowerLevel(newClickPowerLevel);
+      setEnergyRegenLevel(newEnergyRegenLevel);
+      setIsBotOwned(newIsBotOwned);
+      await saveGameState(currentUser.uid); // Save after purchase
+    }
     return canPurchase;
   };
 
-  const handleActivateClickBoost = useCallback(() => {
-    if (!currentUser) return;
-    if (dailyClickBoostsAvailable > 0 && !isBoostActive) {
-      // originalClickPowerBeforeBoost is already up-to-date via useEffect
-      // setClickPower is handled by useEffect reacting to isBoostActive and clickPowerLevel
-      setDailyClickBoostsAvailable(prev => prev - 1);
-      setIsBoostActive(true);
-      setBoostEndTime(Date.now() + BOOST_DURATION_MS);
+  const handleActivateClickBoost = useCallback(async () => {
+    if (!currentUser || isGameDataLoading || dailyClickBoostsAvailable <= 0 || isBoostActive) return;
+    
+    setDailyClickBoostsAvailable(prev => prev - 1);
+    setIsBoostActive(true);
+    setBoostEndTime(Date.now() + BOOST_DURATION_MS);
+    setLastClickBoostResetDate(getCurrentDateString()); // Ensure reset date is current
 
-      toast({
-        title: "🚀 Буст Активирован!",
-        description: "x2 сила клика на 1 минуту.",
-        duration: 4000,
-      });
-    }
-  }, [dailyClickBoostsAvailable, isBoostActive, toast, currentUser]);
+    toast({ title: "🚀 Буст Активирован!", description: "x2 сила клика на 1 минуту.", duration: 4000 });
+    await saveGameState(currentUser.uid);
+  }, [currentUser, isGameDataLoading, dailyClickBoostsAvailable, isBoostActive, toast, saveGameState]);
 
-  const handleActivateFullEnergyBoost = useCallback(() => {
-    if (!currentUser) return;
-    if (dailyFullEnergyBoostsAvailable > 0) {
-      setEnergy(maxEnergy); // maxEnergy is derived and up-to-date
-      setDailyFullEnergyBoostsAvailable(prev => prev - 1);
-      toast({
-        title: "⚡ Энергия Восстановлена!",
-        description: "Ваша энергия полностью заполнена.",
-        duration: 4000,
-      });
-    }
-  }, [dailyFullEnergyBoostsAvailable, maxEnergy, toast, currentUser]);
+  const handleActivateFullEnergyBoost = useCallback(async () => {
+    if (!currentUser || isGameDataLoading || dailyFullEnergyBoostsAvailable <= 0) return;
+
+    setEnergy(maxEnergy);
+    setDailyFullEnergyBoostsAvailable(prev => prev - 1);
+    setLastFullEnergyBoostResetDate(getCurrentDateString()); // Ensure reset date is current
+
+    toast({ title: "⚡ Энергия Восстановлена!", description: "Ваша энергия полностью заполнена.", duration: 4000 });
+    await saveGameState(currentUser.uid);
+  }, [currentUser, isGameDataLoading, dailyFullEnergyBoostsAvailable, maxEnergy, toast, saveGameState]);
+
+  const handleNavigation = (path: string) => router.push(path);
+
+  // Effect to save game state on unmount or page visibility change (Best effort)
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      if (currentUser && gameDataLoadedRef.current) {
+        // Update lastSeenTimestamp before saving on unload
+        const updatedGameState = { lastSeenTimestamp: new Date().toISOString() };
+         try {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            // Use a non-merged setDoc or updateDoc if you only want to update specific fields and not the whole state
+            // For simplicity here, we're assuming saveGameState handles the full state or is smart enough.
+            // A more targeted update for `lastSeenTimestamp` might be better for `beforeunload`.
+            await setDoc(userDocRef, { ...updatedGameState, lastUpdated: serverTimestamp() }, { merge: true });
+        } catch (error) {
+            console.error("Error saving lastSeenTimestamp on unload:", error);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    // Could also use document.addEventListener('visibilitychange', ...) for tab switching
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Save one last time if user is navigating away within the app
+      // This depends on how navigation is handled. For Next.js router, this cleanup might be too late.
+      // if (currentUser && gameDataLoadedRef.current) {
+      //   saveGameState(currentUser.uid);
+      // }
+    };
+  }, [currentUser, saveGameState]);
 
 
-  const handleNavigation = (path: string) => {
-    router.push(path);
-  };
-
-  if (authLoading || (!currentUser && !authLoading)) {
+  if (authLoading || (!currentUser && !authLoading) || (currentUser && isGameDataLoading && !gameDataLoadedRef.current)) {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-background to-indigo-900/50">
         <Sparkles className="w-16 h-16 animate-spin text-primary" />
@@ -618,7 +701,7 @@ export default function HomePage() {
       </div>
     );
   }
-
+  
   return (
     <div className={cn(
         "flex flex-col min-h-screen bg-gradient-to-br text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground",
@@ -630,7 +713,7 @@ export default function HomePage() {
         score={score}
         currentEnergy={energy}
         maxEnergy={maxEnergy}
-        clickPower={clickPower} // This is the boosted or base power
+        clickPower={clickPower}
         energyRegenRate={energyRegenRatePerSecond}
         isBoostActive={isBoostActive}
         boostEndTime={boostEndTime}
@@ -646,46 +729,38 @@ export default function HomePage() {
         />
       </main>
 
-      <BottomNavBar onNavigate={handleNavigation} />
+      <BottomNavBar onNavigate={handleNavigation} activeItem="/" />
 
       <ShopModal
         isOpen={isShopOpen}
         onOpenChange={setIsShopOpen}
         score={score}
-        
         maxEnergyLevel={maxEnergyLevel}
         clickPowerLevel={clickPowerLevel}
         energyRegenLevel={energyRegenLevel}
-        
         currentMaxEnergy={maxEnergy}
-        currentClickPower={clickPower} // Pass the current effective click power
-        baseClickPower={originalClickPowerBeforeBoost} // Pass the non-boosted power for display
+        currentClickPower={clickPower}
+        baseClickPower={originalClickPowerBeforeBoost}
         currentEnergyRegenRate={energyRegenRatePerSecond}
-
         onPurchase={handlePurchase}
         isBotOwned={isBotOwned}
         botPurchaseCost={BOT_PURCHASE_COST}
         botClickIntervalSeconds={BOT_CLICK_INTERVAL_SECONDS}
         botMaxOfflineCoins={BOT_MAX_OFFLINE_COINS}
-        
         dailyClickBoostsAvailable={dailyClickBoostsAvailable}
         isBoostActive={isBoostActive}
         onActivateClickBoost={handleActivateClickBoost}
         boostEndTime={boostEndTime}
         dailyFullEnergyBoostsAvailable={dailyFullEnergyBoostsAvailable}
         onActivateFullEnergyBoost={handleActivateFullEnergyBoost}
-
-        // Pass constants for display in ShopModal
         initialMaxEnergyBase={INITIAL_MAX_ENERGY_BASE}
         maxEnergyIncrementPerLevel={MAX_ENERGY_INCREMENT_PER_LEVEL}
         maxEnergyMaxLevel={MAX_ENERGY_MAX_LEVEL}
         maxEnergyUpgradeCosts={maxEnergyUpgradeCosts}
-
         initialClickPowerBase={INITIAL_CLICK_POWER_BASE}
         clickPowerIncrementPerLevel={CLICK_POWER_INCREMENT_PER_LEVEL}
         clickPowerMaxLevel={CLICK_POWER_MAX_LEVEL}
         clickPowerUpgradeCosts={clickPowerUpgradeCosts}
-
         initialEnergyRegenRateBase={INITIAL_ENERGY_REGEN_RATE_BASE}
         energyRegenIncrementPerLevel={ENERGY_REGEN_INCREMENT_PER_LEVEL}
         energyRegenMaxLevel={ENERGY_REGEN_MAX_LEVEL}
@@ -694,5 +769,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
