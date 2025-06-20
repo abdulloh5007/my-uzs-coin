@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Coins, Zap, Target, History, Lightbulb, Bot, Info } from 'lucide-react';
+import { Coins, Zap, Target, History, Lightbulb, Bot, Info, BatteryFull } from 'lucide-react'; // Added BatteryFull
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -27,9 +27,9 @@ interface UpgradeItemProps {
   cost: number;
   onPurchase: () => void;
   canAfford: boolean;
-  currentLevel?: number; // For display like (current -> next)
-  effectAmount?: number; // For display like (current -> next)
-  isOwned?: boolean; // Added for bot
+  currentLevel?: number; 
+  effectAmount?: number; 
+  isOwned?: boolean; 
 }
 
 const UpgradeItemCard: React.FC<UpgradeItemProps> = ({
@@ -39,7 +39,7 @@ const UpgradeItemCard: React.FC<UpgradeItemProps> = ({
   cost,
   onPurchase,
   canAfford,
-  isOwned, // Added for bot
+  isOwned, 
 }) => {
   let buttonText = 'Купить';
   let buttonDisabled = !canAfford;
@@ -96,10 +96,12 @@ interface ShopModalProps {
   botPurchaseCost: number;
   botClickIntervalSeconds: number;
   botMaxOfflineCoins: number;
-  dailyBoostsAvailable: number;
+  dailyClickBoostsAvailable: number;
   isBoostActive: boolean;
-  onActivateBoost: () => void;
+  onActivateClickBoost: () => void;
   boostEndTime: number;
+  dailyFullEnergyBoostsAvailable: number;
+  onActivateFullEnergyBoost: () => void;
 }
 
 const ShopModal: React.FC<ShopModalProps> = ({
@@ -115,10 +117,12 @@ const ShopModal: React.FC<ShopModalProps> = ({
   botPurchaseCost,
   botClickIntervalSeconds,
   botMaxOfflineCoins,
-  dailyBoostsAvailable,
+  dailyClickBoostsAvailable,
   isBoostActive,
-  onActivateBoost,
+  onActivateClickBoost,
   boostEndTime,
+  dailyFullEnergyBoostsAvailable,
+  onActivateFullEnergyBoost,
 }) => {
   const [timeLeftInBoost, setTimeLeftInBoost] = useState(0);
 
@@ -258,25 +262,39 @@ const ShopModal: React.FC<ShopModalProps> = ({
                       <Zap className="w-6 h-6 text-purple-400" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-foreground">x2 Сила клика (1 мин)</h4>
-                      <p className="text-xs text-muted-foreground">Удваивает силу вашего клика на 60 секунд.</p>
+                      <div className="flex items-center">
+                        <h4 className="font-semibold text-foreground">x2 Сила клика (1 мин)</h4>
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 ml-1.5 p-0">
+                                <Info className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" align="start">
+                              <p className="max-w-xs text-xs">Удваивает силу вашего клика на 60 секунд.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Усиливает ваши клики.</p>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1 min-w-[130px] text-right">
                     <div className="text-xs text-muted-foreground mb-1">
-                      Доступно: <span className="font-semibold text-primary">{dailyBoostsAvailable} / 3</span>
+                      Доступно: <span className="font-semibold text-primary">{dailyClickBoostsAvailable} / 3</span>
                     </div>
                     <Button
                       size="sm"
-                      onClick={onActivateBoost}
-                      disabled={isBoostActive || dailyBoostsAvailable === 0}
+                      onClick={onActivateClickBoost}
+                      disabled={isBoostActive || dailyClickBoostsAvailable === 0}
                       className={cn(
                         "px-4 w-full", 
                         isBoostActive ? "bg-blue-600 hover:bg-blue-700 text-white cursor-default" : 
-                        (dailyBoostsAvailable > 0 ? "bg-accent hover:bg-accent/90 text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed")
+                        (dailyClickBoostsAvailable > 0 ? "bg-accent hover:bg-accent/90 text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed")
                       )}
                     >
-                      {isBoostActive ? `Активен (${timeLeftInBoost}с)` : (dailyBoostsAvailable > 0 ? "Активировать" : "Нет доступных")}
+                      {isBoostActive ? `Активен (${timeLeftInBoost}с)` : (dailyClickBoostsAvailable > 0 ? "Активировать" : "Нет доступных")}
                     </Button>
                   </div>
                 </CardContent>
@@ -286,6 +304,51 @@ const ShopModal: React.FC<ShopModalProps> = ({
                   Действие буста x2 закончится через {timeLeftInBoost} сек.
                 </p>
               )}
+
+              <Card className="bg-card/80 border-border/50">
+                <CardContent className="p-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="p-2 bg-green-500/20 rounded-full">
+                      <BatteryFull className="w-6 h-6 text-green-400" />
+                    </div>
+                    <div className="flex-1">
+                       <div className="flex items-center">
+                        <h4 className="font-semibold text-foreground">Полная Энергия</h4>
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 ml-1.5 p-0">
+                                <Info className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" align="start">
+                              <p className="max-w-xs text-xs">Мгновенно восстанавливает вашу энергию до максимума.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Мгновенное пополнение энергии.</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 min-w-[130px] text-right">
+                    <div className="text-xs text-muted-foreground mb-1">
+                      Доступно: <span className="font-semibold text-primary">{dailyFullEnergyBoostsAvailable} / 3</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={onActivateFullEnergyBoost}
+                      disabled={dailyFullEnergyBoostsAvailable === 0}
+                      className={cn(
+                        "px-4 w-full", 
+                        dailyFullEnergyBoostsAvailable > 0 ? "bg-accent hover:bg-accent/90 text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed"
+                      )}
+                    >
+                      {dailyFullEnergyBoostsAvailable > 0 ? "Активировать" : "Нет доступных"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
             </TabsContent>
           </Tabs>
           
