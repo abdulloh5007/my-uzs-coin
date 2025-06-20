@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 const INITIAL_MAX_ENERGY = 100;
 const INITIAL_CLICK_POWER = 1;
 const INITIAL_ENERGY_REGEN_RATE_PER_SECOND = 3;
-const INITIAL_SCORE = 1000000000; 
+const INITIAL_SCORE = 1000000000;
 const INITIAL_TOTAL_CLICKS = 0;
 
 const ENERGY_PER_CLICK = 1;
@@ -259,7 +259,7 @@ export default function HomePage() {
 
   return (
     <div className={cn(
-        "flex flex-col min-h-screen text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground",
+        "flex flex-col min-h-screen bg-gradient-to-br text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground",
         currentSkin.pageGradientFromClass,
         currentSkin.pageGradientToClass
       )}>
