@@ -2,6 +2,8 @@
 import type { Skin } from '@/types/skins';
 import { Palette as PaletteIcon } from 'lucide-react';
 import RainbowPaletteIcon from '@/components/skins/RainbowPaletteIcon';
+import EmeraldCoin from '@/components/coinshapes/EmeraldCoin';
+import DiamondCoin from '@/components/coinshapes/DiamondCoin';
 
 export const initialSkins: Skin[] = [
   {
@@ -12,10 +14,10 @@ export const initialSkins: Skin[] = [
     iconBgClass: 'bg-purple-500/40',
     cardBgClass: 'bg-purple-600/30 hover:bg-purple-600/40',
     price: 0,
-    coinColorClass: 'bg-primary hover:bg-primary/90', 
-    coinIconColorClass: 'text-primary-foreground', 
-    pageGradientFromClass: 'from-background', 
-    pageGradientToClass: 'to-indigo-900/50', 
+    coinColorClass: 'bg-primary hover:bg-primary/90',
+    coinIconColorClass: 'text-primary-foreground',
+    pageGradientFromClass: 'from-background',
+    pageGradientToClass: 'to-indigo-900/50',
   },
   {
     id: 'silver',
@@ -51,10 +53,11 @@ export const initialSkins: Skin[] = [
     iconBgClass: 'bg-green-600/40',
     cardBgClass: 'bg-green-700/30 hover:bg-green-700/40',
     price: 10000,
-    coinColorClass: 'bg-emerald-600 hover:bg-emerald-700',
+    coinColorClass: 'fill-emerald-500 hover:fill-emerald-600 transition-colors duration-150', // Changed to fill class
     coinIconColorClass: 'text-emerald-100',
     pageGradientFromClass: 'from-emerald-800',
     pageGradientToClass: 'to-emerald-900',
+    coinShapeComponent: EmeraldCoin, // Added shape component
   },
   {
     id: 'diamond',
@@ -64,19 +67,23 @@ export const initialSkins: Skin[] = [
     iconBgClass: 'bg-blue-600/40',
     cardBgClass: 'bg-blue-700/30 hover:bg-blue-700/40',
     price: 25000,
-    coinColorClass: 'bg-sky-500 hover:bg-sky-600',
+    coinColorClass: 'fill-sky-400 hover:fill-sky-500 transition-colors duration-150', // Changed to fill class
     coinIconColorClass: 'text-sky-100',
     pageGradientFromClass: 'from-sky-800',
     pageGradientToClass: 'to-sky-900',
+    coinShapeComponent: DiamondCoin, // Added shape component
   },
   {
     id: 'rainbow',
     name: 'Радужная',
     iconComponent: RainbowPaletteIcon,
-    iconColorClass: '', 
+    iconColorClass: '',
     iconBgClass: 'bg-indigo-600/40',
     cardBgClass: 'bg-indigo-700/30 hover:bg-indigo-700/40',
     price: 50000,
+    // For gradients on SVGs, it's more complex. We'll keep it a button with bg gradient for now.
+    // Alternatively, RainbowPaletteIcon would need to be adapted to be a coin shape itself.
+    // For simplicity, Rainbow will remain a standard circular coin with gradient bg.
     coinColorClass: 'bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500 hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600',
     coinIconColorClass: 'text-white',
     pageGradientFromClass: 'from-purple-700',
