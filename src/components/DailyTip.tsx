@@ -1,15 +1,23 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Lightbulb } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getDailyTip } from '@/ai/flows/daily-tip-flow';
+// Removed: import { getDailyTip } from '@/ai/flows/daily-tip-flow';
 
 const getCurrentDateString = () => {
   const today = new Date();
   return today.toISOString().split('T')[0]; // YYYY-MM-DD
 };
+
+interface AdviceSlipResponse {
+  slip: {
+    id: number;
+    advice: string;
+  };
+}
 
 const DailyTip: React.FC = () => {
   const [tip, setTip] = useState<string | null>(null);
@@ -39,16 +47,20 @@ const DailyTip: React.FC = () => {
       } else {
         setIsLoading(true);
         try {
-          const result = await getDailyTip();
-          if (result && result.tip) {
-            setTip(result.tip);
-            localStorage.setItem('dailyGameTip', JSON.stringify({ date: todayStr, tip: result.tip }));
+          const response = await fetch('https://api.adviceslip.com/advice');
+          if (!response.ok) {
+            throw new Error(`API request failed with status ${response.status}`);
+          }
+          const data: AdviceSlipResponse = await response.json();
+          if (data && data.slip && data.slip.advice) {
+            setTip(data.slip.advice);
+            localStorage.setItem('dailyGameTip', JSON.stringify({ date: todayStr, tip: data.slip.advice }));
           } else {
-            setTip("Не удалось получить совет сегодня. Попробуйте позже!"); // Fallback message
+            setTip("Не удалось получить совет сегодня. Попробуйте позже!"); 
           }
         } catch (error) {
-          console.error("Error fetching daily tip:", error);
-          setTip("Ой! Что-то пошло не так при получении ежедневного совета."); // Error message
+          console.error("Error fetching daily tip from API:", error);
+          setTip("Ой! Что-то пошло не так при получении ежедневного совета из сети.");
         } finally {
           setIsLoading(false);
         }
