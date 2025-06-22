@@ -46,6 +46,7 @@ export default function TasksPage() {
                 ownedSkin_rainbow: (data.ownedSkins || []).includes('rainbow') ? 1 : 0,
                 ownedSkins_length: (data.ownedSkins || []).length,
                 userScore: data.score || 0,
+                totalScoreCollected: data.totalScoreCollected || data.score || 0,
             };
             setUserProgress(newProgress);
             const unclaimed = data.completedUnclaimedTaskTierIds || [];
@@ -152,5 +153,4 @@ export default function TasksPage() {
     </div>
   );
 }
-
     

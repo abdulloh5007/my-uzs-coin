@@ -59,6 +59,7 @@ const BOOST_DURATION_MS = 60000;
 // --- Firestore Game State Interface ---
 interface UserGameState {
   score: number;
+  totalScoreCollected: number; // Tracks all-time score for leagues
   energy: number; // Added energy to save state
   maxEnergyLevel: number;
   clickPowerLevel: number;
@@ -100,6 +101,7 @@ const getCurrentDateString = () => {
 
 const initialGameState: UserGameState = {
   score: INITIAL_SCORE,
+  totalScoreCollected: INITIAL_SCORE,
   energy: INITIAL_MAX_ENERGY_BASE,
   maxEnergyLevel: 0,
   clickPowerLevel: 0,
@@ -141,6 +143,7 @@ export default function HomePage() {
 
   // --- React State Variables ---
   const [score, setScore] = useState(INITIAL_SCORE);
+  const [totalScoreCollected, setTotalScoreCollected] = useState(INITIAL_SCORE);
   const [maxEnergyLevel, setMaxEnergyLevel] = useState(0);
   const [clickPowerLevel, setClickPowerLevel] = useState(0);
   const [energyRegenLevel, setEnergyRegenLevel] = useState(0);
@@ -199,14 +202,17 @@ export default function HomePage() {
     if (!currentUser || coinsToClaim <= 0) return;
 
     const newScore = score + coinsToClaim;
+    const newTotalScoreCollected = totalScoreCollected + coinsToClaim;
     const newSeen = new Date().toISOString();
 
     setScore(newScore);
+    setTotalScoreCollected(newTotalScoreCollected);
     setUnclaimedBotCoins(0);
     setLastSeenTimestamp(newSeen);
 
     const gameStateUpdate = {
       score: newScore,
+      totalScoreCollected: newTotalScoreCollected,
       unclaimedBotCoins: 0,
       lastSeenTimestamp: newSeen,
       lastUpdated: serverTimestamp(),
@@ -223,12 +229,13 @@ export default function HomePage() {
         console.error("Error saving after claiming bot coins:", error);
         toast({ variant: "destructive", title: "Ошибка", description: "Не удалось сохранить сбор монет." });
     }
-  }, [currentUser, score, toast]);
+  }, [currentUser, score, totalScoreCollected, toast]);
   
   const saveGameState = useCallback(async (userId: string) => {
     if (!userId) return;
     const gameStateToSave: UserGameState = {
       score: score,
+      totalScoreCollected: totalScoreCollected,
       energy: energy,
       maxEnergyLevel: maxEnergyLevel,
       clickPowerLevel: clickPowerLevel,
@@ -263,7 +270,7 @@ export default function HomePage() {
       toast({ variant: "destructive", title: "Ошибка сохранения", description: "Не удалось сохранить прогресс игры." });
     }
   }, [
-    score, energy, maxEnergyLevel, clickPowerLevel, energyRegenLevel, totalClicks, gameStartTime,
+    score, totalScoreCollected, energy, maxEnergyLevel, clickPowerLevel, energyRegenLevel, totalClicks, gameStartTime,
     dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, lastResetDate,
     isBoostActive, boostEndTime, dailyClickBoostsAvailable, lastClickBoostResetDate,
     dailyFullEnergyBoostsAvailable, lastFullEnergyBoostResetDate,
@@ -282,7 +289,10 @@ export default function HomePage() {
       let stateToSet: UserGameState;
 
       if (docSnap.exists()) {
-        stateToSet = { ...initialGameState, ...docSnap.data() as Partial<UserGameState> };
+        const data = docSnap.data();
+        stateToSet = { ...initialGameState, ...data as Partial<UserGameState> };
+        // Legacy support for users before totalScoreCollected was introduced
+        stateToSet.totalScoreCollected = data.totalScoreCollected || data.score || 0;
 
         // Handle date string to Date object conversion for gameStartTime
         if (stateToSet.gameStartTime && typeof stateToSet.gameStartTime === 'string') {
@@ -296,6 +306,7 @@ export default function HomePage() {
         }
         
         setScore(stateToSet.score);
+        setTotalScoreCollected(stateToSet.totalScoreCollected);
         setMaxEnergyLevel(stateToSet.maxEnergyLevel);
         setClickPowerLevel(stateToSet.clickPowerLevel);
         setEnergyRegenLevel(stateToSet.energyRegenLevel);
@@ -362,18 +373,18 @@ export default function HomePage() {
             ? Math.floor((Date.now() - new Date(stateToSet.lastSeenTimestamp).getTime()) / 1000)
             : 0;
 
-        // 1. Offline Energy Regeneration
         let energyAfterOfflineRegen = stateToSet.energy;
+        const calculatedMaxEnergy = INITIAL_MAX_ENERGY_BASE + (stateToSet.maxEnergyLevel * MAX_ENERGY_INCREMENT_PER_LEVEL);
         if (timeOfflineInSeconds > 0) {
-            const calculatedMaxEnergy = INITIAL_MAX_ENERGY_BASE + (stateToSet.maxEnergyLevel * MAX_ENERGY_INCREMENT_PER_LEVEL);
             const calculatedEnergyRegenRate = INITIAL_ENERGY_REGEN_RATE_BASE + (stateToSet.energyRegenLevel * ENERGY_REGEN_INCREMENT_PER_LEVEL);
             const energyRegenerated = timeOfflineInSeconds * calculatedEnergyRegenRate;
             energyAfterOfflineRegen = Math.min(calculatedMaxEnergy, stateToSet.energy + energyRegenerated);
-            updatesToPersist.energy = energyAfterOfflineRegen;
+            if(energyAfterOfflineRegen > stateToSet.energy) {
+              updatesToPersist.energy = energyAfterOfflineRegen;
+            }
         }
         setEnergy(energyAfterOfflineRegen);
 
-        // 2. Bot Offline Earnings
         let totalUnclaimedCoins = 0;
         if (stateToSet.isBotOwned) {
             const savedUnclaimedBotCoins = stateToSet.unclaimedBotCoins || 0;
@@ -390,19 +401,20 @@ export default function HomePage() {
 
             if (totalUnclaimedCoins > 0) {
                 setUnclaimedBotCoins(totalUnclaimedCoins);
-                if (totalUnclaimedCoins > savedUnclaimedBotCoins) {
+                if (totalUnclaimedCoins !== savedUnclaimedBotCoins) {
                     updatesToPersist.unclaimedBotCoins = totalUnclaimedCoins;
                 }
             }
         }
         
-        // 3. Update Last Seen Timestamp & Persist all changes
         const newSeen = new Date().toISOString();
         setLastSeenTimestamp(newSeen);
         updatesToPersist.lastSeenTimestamp = newSeen;
-        await setDoc(userDocRef, { ...updatesToPersist, lastUpdated: serverTimestamp() }, { merge: true });
+        
+        if (Object.keys(updatesToPersist).length > 0) {
+          await setDoc(userDocRef, { ...updatesToPersist, lastUpdated: serverTimestamp() }, { merge: true });
+        }
 
-        // 4. Show toast for bot coins after saving state
         if (stateToSet.isBotOwned && totalUnclaimedCoins > 0) {
             toast({
                 title: <div className="flex items-center gap-2"><Bot className="h-5 w-5 text-primary" /><span className="font-semibold text-foreground">Бот ждет!</span></div>,
@@ -418,6 +430,7 @@ export default function HomePage() {
         stateToSet = initialGameState;
         setGameStartTime(new Date(initialGameState.gameStartTime!));
         setScore(initialGameState.score);
+        setTotalScoreCollected(initialGameState.totalScoreCollected);
         setEnergy(initialGameState.energy);
         setMaxEnergyLevel(initialGameState.maxEnergyLevel);
         setClickPowerLevel(initialGameState.clickPowerLevel);
@@ -491,11 +504,12 @@ export default function HomePage() {
       daily_coinsCollected: dailyCoinsCollected,
       daily_timePlayedSeconds: dailyTimePlayedSeconds,
       userScore: score,
+      totalScoreCollected: totalScoreCollected,
       ownedSkin_emerald: ownedSkins.includes('emerald') ? 1 : 0,
       ownedSkin_rainbow: ownedSkins.includes('rainbow') ? 1 : 0,
       ownedSkins_length: ownedSkins.length,
     };
-  }, [dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, score, ownedSkins]);
+  }, [dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, score, totalScoreCollected, ownedSkins]);
 
    useEffect(() => {
     if (currentUser && !isGameDataLoading) {
@@ -511,7 +525,7 @@ export default function HomePage() {
             saveGameState(currentUser.uid); 
         }
     }
-  }, [score, dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, ownedSkins, currentUser, isGameDataLoading, getFullProgressForCheck, allTasksForNotification, toast, saveGameState, claimedTaskTierIds, completedUnclaimedTaskTierIds]);
+  }, [score, totalScoreCollected, dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, ownedSkins, currentUser, isGameDataLoading, getFullProgressForCheck, allTasksForNotification, toast, saveGameState, claimedTaskTierIds, completedUnclaimedTaskTierIds]);
 
 
   // Boost Timer Effect
@@ -542,6 +556,7 @@ export default function HomePage() {
     if (energy >= ENERGY_PER_CLICK) {
       const scoreIncrease = clickPower;
       setScore(prevScore => prevScore + scoreIncrease);
+      setTotalScoreCollected(prev => prev + scoreIncrease);
       setEnergy(prevEnergy => Math.max(0, prevEnergy - ENERGY_PER_CLICK));
       setTotalClicks(prevClicks => prevClicks + 1);
       setDailyClicks(prev => prev + 1);
@@ -732,13 +747,13 @@ export default function HomePage() {
       )}>
       <TopBar score={score} />
       
-      <main className="flex flex-col flex-grow pt-16 pb-20 md:pb-24 px-4">
-        <div className="flex flex-col items-center py-4">
-          <span className="text-3xl font-bold text-primary tracking-tighter">{score.toLocaleString()}</span>
+      <main className="flex flex-col flex-grow pt-4 pb-20 md:pb-24 px-4">
+        <div className="flex flex-col items-center justify-center mb-4">
+          <span className="text-3xl font-bold text-foreground tracking-tighter">{score.toLocaleString()}</span>
           <span className="text-xs -mt-1 text-muted-foreground">монет</span>
         </div>
       
-        <div className="flex-grow flex flex-col items-center justify-center gap-6">
+        <div className="flex-grow flex flex-col items-center justify-center gap-4">
           <ClickableCoin
             onClick={handleCoinClick}
             isAnimating={isAnimatingClick}

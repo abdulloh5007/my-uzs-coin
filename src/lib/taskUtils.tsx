@@ -23,7 +23,9 @@ export function checkAndNotifyTaskCompletion(
 
   allTasks.forEach(task => {
     task.tiers.forEach(tier => {
-      const progressVal = currentProgress[tier.progressKey || ''] || 0;
+      const progressKey = tier.progressKey || 'userScore'; // Default to userScore for legacy tasks
+      const progressVal = currentProgress[progressKey] || 0;
+      
       if (progressVal >= tier.target) {
         if (!newUnclaimedIds.includes(tier.id) && !claimedTierIds.includes(tier.id)) {
           newUnclaimedIds.push(tier.id);

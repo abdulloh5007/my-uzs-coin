@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History } from 'lucide-react';
+import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
@@ -23,6 +23,7 @@ const ENERGY_REGEN_INCREMENT_PER_LEVEL = 1;
 
 interface ProfileStats {
   score: number;
+  totalScoreCollected: number;
   totalClicks: number;
   gameStartTime: string | null;
   clickPowerLevel: number;
@@ -36,6 +37,7 @@ export default function ProfilePage() {
 
   const [stats, setStats] = useState<ProfileStats>({
     score: 0,
+    totalScoreCollected: 0,
     totalClicks: 0,
     gameStartTime: null,
     clickPowerLevel: 0,
@@ -58,6 +60,7 @@ export default function ProfilePage() {
         const data = docSnap.data();
         setStats({
           score: data.score || 0,
+          totalScoreCollected: data.totalScoreCollected || data.score || 0,
           totalClicks: data.totalClicks || 0,
           gameStartTime: data.gameStartTime || null,
           clickPowerLevel: data.clickPowerLevel || 0,
@@ -100,7 +103,7 @@ export default function ProfilePage() {
   }, [stats.gameStartTime]);
 
 
-  const { currentLeague, nextLeague, progressPercentage } = getLeagueInfo(stats.score);
+  const { currentLeague, nextLeague, progressPercentage } = getLeagueInfo(stats.totalScoreCollected);
 
   const handleOpenLeaderboard = () => {
     setSelectedLeagueForLeaderboard(currentLeague);
@@ -123,7 +126,7 @@ export default function ProfilePage() {
   if (!currentUser) return null; // Should be redirected, but as a fallback
 
   const mockTopPlayers: Array<{ name: string; score: number; rank: number }> = [];
-  const currentPlayerLeaderboardEntry = { name: currentUser.displayName || 'Вы', score: stats.score, rank: 1 };
+  const currentPlayerLeaderboardEntry = { name: currentUser.displayName || 'Вы', score: stats.totalScoreCollected, rank: 1 };
   
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
@@ -146,12 +149,13 @@ export default function ProfilePage() {
           <LeagueInfoCard
             currentLeague={currentLeague}
             nextLeague={nextLeague}
-            currentScore={stats.score} 
+            leagueScore={stats.totalScoreCollected} 
             progressPercentage={progressPercentage}
             onOpenLeaderboard={handleOpenLeaderboard}
           />
           
-          <StatCard icon={Coins} label="Всего монет" value={stats.score.toLocaleString()} />
+          <StatCard icon={Coins} label="Текущий баланс" value={stats.score.toLocaleString()} />
+          <StatCard icon={TrendingUp} label="Всего заработано" value={stats.totalScoreCollected.toLocaleString()} />
           <StatCard icon={Target} label="Сила клика" value={`+${clickPower}`} />
           <StatCard icon={History} label="Восстановление" value={`+${energyRegenRate}/сек`} />
           <StatCard icon={Star} label="Всего кликов" value={stats.totalClicks.toLocaleString()} />

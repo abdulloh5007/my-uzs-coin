@@ -25,6 +25,7 @@ export interface DisplayableReward {
 
 interface RewardsState {
     score: number;
+    totalScoreCollected: number;
     completedUnclaimedTaskTierIds: string[];
     claimedTaskTierIds: string[];
 }
@@ -39,6 +40,7 @@ export default function RewardsPage() {
   const [claimedRewardsList, setClaimedRewardsList] = useState<DisplayableReward[]>([]);
   const [rewardsState, setRewardsState] = useState<RewardsState>({
       score: 0,
+      totalScoreCollected: 0,
       completedUnclaimedTaskTierIds: [],
       claimedTaskTierIds: [],
   });
@@ -74,6 +76,7 @@ export default function RewardsPage() {
         const data = docSnap.data();
         const currentState = {
             score: data.score || 0,
+            totalScoreCollected: data.totalScoreCollected || data.score || 0,
             completedUnclaimedTaskTierIds: data.completedUnclaimedTaskTierIds || [],
             claimedTaskTierIds: data.claimedTaskTierIds || [],
         };
@@ -101,12 +104,14 @@ export default function RewardsPage() {
     if (!currentUser) return;
     
     const newScore = rewardsState.score + rewardAmount;
+    const newTotalScore = rewardsState.totalScoreCollected + rewardAmount;
     const updatedCompletedUnclaimed = rewardsState.completedUnclaimedTaskTierIds.filter(id => id !== tierId);
     const updatedClaimed = [...rewardsState.claimedTaskTierIds, tierId];
 
     // Optimistic UI update
-    const newState = {
+    const newState: RewardsState = {
         score: newScore,
+        totalScoreCollected: newTotalScore,
         completedUnclaimedTaskTierIds: updatedCompletedUnclaimed,
         claimedTaskTierIds: updatedClaimed
     };
@@ -119,6 +124,7 @@ export default function RewardsPage() {
         const userDocRef = doc(db, 'users', currentUser.uid);
         await setDoc(userDocRef, {
             score: newScore,
+            totalScoreCollected: newTotalScore,
             completedUnclaimedTaskTierIds: updatedCompletedUnclaimed,
             claimedTaskTierIds: updatedClaimed,
             lastUpdated: serverTimestamp()
@@ -200,5 +206,4 @@ export default function RewardsPage() {
     </div>
   );
 }
-
     

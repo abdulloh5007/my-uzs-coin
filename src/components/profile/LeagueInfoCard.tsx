@@ -7,7 +7,7 @@ import type { League } from '@/lib/leagues';
 interface LeagueInfoCardProps {
   currentLeague: League;
   nextLeague: League | null;
-  currentScore: number;
+  leagueScore: number;
   progressPercentage: number;
   onOpenLeaderboard: () => void;
 }
@@ -15,7 +15,7 @@ interface LeagueInfoCardProps {
 const LeagueInfoCard: React.FC<LeagueInfoCardProps> = ({
   currentLeague,
   nextLeague,
-  currentScore,
+  leagueScore,
   progressPercentage,
   onOpenLeaderboard
 }) => {
@@ -46,7 +46,7 @@ const LeagueInfoCard: React.FC<LeagueInfoCardProps> = ({
             </div>
             <Progress value={progressPercentage} className={`h-2 ${currentLeague.color.replace('text-','bg-').replace('-400','/30')}`} indicatorClassName={`${currentLeague.color.replace('text-','bg-')}`} />
             <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
-              <span>{isClient ? currentScore.toLocaleString() : currentScore} монет</span>
+              <span>{isClient ? leagueScore.toLocaleString() : leagueScore} монет</span>
               <span>{isClient && nextLeague ? nextLeague.threshold.toLocaleString() : nextLeague?.threshold} монет</span>
             </div>
           </>

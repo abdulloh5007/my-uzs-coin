@@ -105,7 +105,7 @@ export const initialLeagueTasks: Task[] = [
     stars: 1,
     type: 'league',
     tiers: [
-      { id: 'l-silver-m1', description: 'Собрать 100,000 монет', target: 100000, reward: 10000, progressKey: 'userScore' },
+      { id: 'l-silver-m1', description: 'Собрать 100,000 монет', target: 100000, reward: 10000, progressKey: 'totalScoreCollected' },
     ],
   },
   {
@@ -118,7 +118,7 @@ export const initialLeagueTasks: Task[] = [
     stars: 1,
     type: 'league',
     tiers: [
-      { id: 'l-gold-m1', description: 'Собрать 500,000 монет', target: 500000, reward: 50000, progressKey: 'userScore' },
+      { id: 'l-gold-m1', description: 'Собрать 500,000 монет', target: 500000, reward: 50000, progressKey: 'totalScoreCollected' },
     ],
   },
   {
@@ -131,7 +131,7 @@ export const initialLeagueTasks: Task[] = [
     stars: 1,
     type: 'league',
     tiers: [
-      { id: 'l-platinum-m1', description: 'Собрать 2,000,000 монет', target: 2000000, reward: 200000, progressKey: 'userScore' },
+      { id: 'l-platinum-m1', description: 'Собрать 2,000,000 монет', target: 2000000, reward: 200000, progressKey: 'totalScoreCollected' },
     ],
   },
   {
@@ -144,7 +144,7 @@ export const initialLeagueTasks: Task[] = [
     stars: 1,
     type: 'league',
     tiers: [
-      { id: 'l-diamond-m1', description: 'Собрать 10,000,000 монет', target: 10000000, reward: 1000000, progressKey: 'userScore' },
+      { id: 'l-diamond-m1', description: 'Собрать 10,000,000 монет', target: 10000000, reward: 1000000, progressKey: 'totalScoreCollected' },
     ],
   },
 ];
