@@ -733,7 +733,12 @@ export default function HomePage() {
       <TopBar score={score} />
       
       <main className="flex flex-col flex-grow pt-16 pb-20 md:pb-24 px-4">
-        <div className="flex-grow flex flex-col items-center justify-center gap-6 pb-10">
+        <div className="flex flex-col items-center py-4">
+          <span className="text-3xl font-bold text-primary tracking-tighter">{score.toLocaleString()}</span>
+          <span className="text-xs -mt-1 text-muted-foreground">монет</span>
+        </div>
+      
+        <div className="flex-grow flex flex-col items-center justify-center gap-6">
           <ClickableCoin
             onClick={handleCoinClick}
             isAnimating={isAnimatingClick}
@@ -743,7 +748,7 @@ export default function HomePage() {
           />
         </div>
         
-        <div className="w-full max-w-md mx-auto flex items-center gap-4">
+        <div className="w-full max-w-md mx-auto flex items-center gap-4 mt-4">
           <EnergyBar currentEnergy={energy} maxEnergy={maxEnergy} className="flex-grow" />
            <Button 
             size="icon"

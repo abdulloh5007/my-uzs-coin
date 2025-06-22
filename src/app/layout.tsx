@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/context/AuthContext';
 
 export const metadata: Metadata = {
-  title: 'UZS',
+  title: 'UZSCOIN',
   description: 'An interactive clicker game.',
 };
 

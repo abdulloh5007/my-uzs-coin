@@ -24,12 +24,7 @@ const TopBar: React.FC<TopBarProps> = ({ score }) => {
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
         <div className="flex items-center gap-2">
           <Coins className="w-8 h-8 text-primary" />
-          <h1 className="text-xl md:text-2xl font-bold text-foreground">UZS</h1>
-        </div>
-
-        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
-            <span className="text-2xl font-bold text-primary tracking-tighter">{score.toLocaleString()}</span>
-            <span className="text-xs -mt-1 text-muted-foreground">монет</span>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">UZSCOIN</h1>
         </div>
 
         <div className="flex items-center gap-2">

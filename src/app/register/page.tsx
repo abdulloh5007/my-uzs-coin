@@ -70,7 +70,7 @@ export default function RegisterPage() {
     } else { // User
       toast({
         title: "Регистрация успешна!",
-        description: "Добро пожаловать в UZS!",
+        description: "Добро пожаловать в UZSCOIN!",
       });
       router.push('/');
     }
@@ -96,7 +96,7 @@ export default function RegisterPage() {
           <div className="mx-auto mb-4 flex items-center justify-center">
              <Coins className="w-12 h-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-bold text-foreground">Регистрация в UZS</CardTitle>
+          <CardTitle className="text-2xl font-bold text-foreground">Регистрация в UZSCOIN</CardTitle>
           <CardDescription className="text-muted-foreground">Создайте аккаунт, чтобы начать играть.</CardDescription>
         </CardHeader>
         <CardContent>

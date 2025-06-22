@@ -88,7 +88,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex items-center justify-center">
              <Coins className="w-12 h-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-bold text-foreground">Вход в UZS</CardTitle>
+          <CardTitle className="text-2xl font-bold text-foreground">Вход в UZSCOIN</CardTitle>
           <CardDescription className="text-muted-foreground">Введите свои данные, чтобы продолжить.</CardDescription>
         </CardHeader>
         <CardContent>
