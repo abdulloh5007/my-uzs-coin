@@ -4,6 +4,7 @@
  *
  * - checkAndNotifyTaskCompletion - Checks for task completion and shows notifications.
  */
+
 import type { Task } from '@/types/tasks';
 import type { Toast } from "@/hooks/use-toast";
 import { CheckCircle2 } from 'lucide-react';
@@ -12,19 +13,20 @@ import React from 'react';
 export function checkAndNotifyTaskCompletion(
   currentProgress: Record<string, number>,
   allTasks: Task[],
-  toastFn: (props: Toast) => void, // This is the toast function from useToast()
+  claimedTierIds: string[],
+  completedUnclaimedTaskTierIds: string[],
+  toastFn: (props: Toast) => void,
   showNewTaskCompletedToast: boolean = true
 ): { newCompletedUnclaimedTierIds: string[], newRewardsWereAdded: boolean } {
-  let completedUnclaimed = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
-  const claimed = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
+  let newUnclaimedIds = [...completedUnclaimedTaskTierIds];
   let newRewardsWereAddedThisCheck = false;
 
   allTasks.forEach(task => {
     task.tiers.forEach(tier => {
       const progressVal = currentProgress[tier.progressKey || ''] || 0;
       if (progressVal >= tier.target) {
-        if (!completedUnclaimed.includes(tier.id) && !claimed.includes(tier.id)) {
-          completedUnclaimed.push(tier.id);
+        if (!newUnclaimedIds.includes(tier.id) && !claimedTierIds.includes(tier.id)) {
+          newUnclaimedIds.push(tier.id);
           newRewardsWereAddedThisCheck = true;
 
           if (showNewTaskCompletedToast) {
@@ -49,8 +51,8 @@ export function checkAndNotifyTaskCompletion(
   });
 
   if (newRewardsWereAddedThisCheck) {
-    localStorage.setItem('completedUnclaimedTaskTierIds', JSON.stringify(completedUnclaimed));
     sessionStorage.removeItem('newRewardsToastShownThisSession');
   }
-  return { newCompletedUnclaimedTierIds: completedUnclaimed, newRewardsWereAdded: newRewardsWereAddedThisCheck };
+
+  return { newCompletedUnclaimedTierIds: newUnclaimedIds, newRewardsWereAdded: newRewardsWereAddedThisCheck };
 }
