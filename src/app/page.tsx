@@ -195,21 +195,29 @@ export default function HomePage() {
   const saveGameState = useCallback(async (userId: string) => {
     if (!userId) return;
     const gameStateToSave: UserGameState = {
-      score, maxEnergyLevel, clickPowerLevel, energyRegenLevel, totalClicks,
+      score,
+      maxEnergyLevel,
+      clickPowerLevel,
+      energyRegenLevel,
+      totalClicks,
       gameStartTime: gameStartTime ? gameStartTime.toISOString() : new Date().toISOString(),
-      daily_clicks: dailyClicks, 
-      daily_coinsCollected: dailyCoinsCollected, 
-      daily_timePlayedSeconds: dailyTimePlayedSeconds, 
+      daily_clicks: dailyClicks,
+      daily_coinsCollected: dailyCoinsCollected,
+      daily_timePlayedSeconds: dailyTimePlayedSeconds,
       daily_lastResetDate: lastResetDate,
       isBoostActive,
       boostEndTime,
-      daily_clickBoostsAvailable: dailyClickBoostsAvailable, 
+      daily_clickBoostsAvailable: dailyClickBoostsAvailable,
       daily_lastClickBoostResetDate: lastClickBoostResetDate,
-      daily_fullEnergyBoostsAvailable: dailyFullEnergyBoostsAvailable, 
+      daily_fullEnergyBoostsAvailable: dailyFullEnergyBoostsAvailable,
       daily_lastFullEnergyBoostResetDate: lastFullEnergyBoostResetDate,
-      isBotOwned, lastSeenTimestamp, unclaimedBotCoins,
-      ownedSkins, selectedSkinId: currentSkin.id,
-      completedUnclaimedTaskTierIds, claimedTaskTierIds,
+      isBotOwned,
+      lastSeenTimestamp,
+      unclaimedBotCoins,
+      ownedSkins,
+      selectedSkinId: currentSkin.id,
+      completedUnclaimedTaskTierIds,
+      claimedTaskTierIds,
       ownedNfts,
       lastUpdated: serverTimestamp(),
     };
@@ -725,15 +733,19 @@ export default function HomePage() {
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    // Could also use document.addEventListener('visibilitychange', ...) for tab switching
-
+    
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      // Save one last time if user is navigating away within the app
-      // This depends on how navigation is handled. For Next.js router, this cleanup might be too late.
-      // if (currentUser && gameDataLoadedRef.current) {
-      //   saveGameState(currentUser.uid);
-      // }
+    };
+  }, [currentUser]);
+
+  // Effect to save game state when navigating away from the page
+  useEffect(() => {
+    return () => {
+      // This function runs when the component is about to unmount.
+      if (currentUser && gameDataLoadedRef.current) {
+        saveGameState(currentUser.uid);
+      }
     };
   }, [currentUser, saveGameState]);
 
@@ -815,5 +827,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
