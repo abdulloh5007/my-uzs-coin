@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { formatDistanceStrict } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/data/tasks';
-import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
+import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils.tsx';
 import type { Skin } from '@/types/skins';
 import { initialSkins, defaultSkin } from '@/data/skins';
 import { cn } from '@/lib/utils';
@@ -191,11 +191,16 @@ export default function HomePage() {
     const gameStateToSave: UserGameState = {
       score, maxEnergyLevel, clickPowerLevel, energyRegenLevel, totalClicks,
       gameStartTime: gameStartTime ? gameStartTime.toISOString() : new Date().toISOString(),
-      daily_clicks: dailyClicks, daily_coinsCollected, daily_timePlayedSeconds, daily_lastResetDate: lastResetDate,
-      daily_clickBoostsAvailable, daily_lastClickBoostResetDate: lastClickBoostResetDate,
-      daily_fullEnergyBoostsAvailable, daily_lastFullEnergyBoostResetDate: lastFullEnergyBoostResetDate,
+      daily_clicks: dailyClicks, 
+      daily_coinsCollected: dailyCoinsCollected, 
+      daily_timePlayedSeconds: dailyTimePlayedSeconds, 
+      daily_lastResetDate: lastResetDate,
+      daily_clickBoostsAvailable: dailyClickBoostsAvailable, 
+      daily_lastClickBoostResetDate: lastClickBoostResetDate,
+      daily_fullEnergyBoostsAvailable: dailyFullEnergyBoostsAvailable, 
+      daily_lastFullEnergyBoostResetDate: lastFullEnergyBoostResetDate,
       isBotOwned, lastSeenTimestamp, unclaimedBotCoins,
-      ownedSkins, selectedSkinId: currentSkin.id, // Save currentSkin.id as selectedSkinId
+      ownedSkins, selectedSkinId: currentSkin.id,
       completedUnclaimedTaskTierIds, claimedTaskTierIds,
       ownedNfts,
       lastUpdated: serverTimestamp(),
