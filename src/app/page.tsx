@@ -857,6 +857,8 @@ export default function HomePage() {
             onClick={toggleShop}
             aria-label="Открыть магазин"
           >
+            <ShoppingCart className="h-6 w-6" />
+          </Button>
           <Button 
             size="icon"
             className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-12 h-12 flex-shrink-0"
@@ -864,8 +866,6 @@ export default function HomePage() {
             aria-label="Открыть задания"
           >
             <ListChecks className="h-6 w-6" />
-          </Button>
-            <ShoppingCart className="h-6 w-6" />
           </Button>
         </div>
       </main>
