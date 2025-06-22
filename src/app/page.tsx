@@ -183,6 +183,7 @@ export default function HomePage() {
 
   const [isBoostActive, setIsBoostActive] = useState(false);
   const [boostEndTime, setBoostEndTime] = useState(0);
+  const [boostTimeLeft, setBoostTimeLeft] = useState(0);
   const [originalClickPowerBeforeBoost, setOriginalClickPowerBeforeBoost] = useState(INITIAL_CLICK_POWER_BASE);
   
   const prevIsBoostActiveRef = useRef<boolean>();
@@ -547,6 +548,24 @@ export default function HomePage() {
       }
       prevIsBoostActiveRef.current = isBoostActive;
   }, [isBoostActive, currentUser, saveGameState]);
+  
+  // Boost Timer Countdown for UI
+  useEffect(() => {
+      if (!isBoostActive || boostEndTime === 0) {
+          setBoostTimeLeft(0);
+          return;
+      }
+
+      const updateTimer = () => {
+          const remaining = Math.max(0, Math.ceil((boostEndTime - Date.now()) / 1000));
+          setBoostTimeLeft(remaining);
+      };
+
+      updateTimer(); // Initial call
+      const intervalId = setInterval(updateTimer, 1000);
+
+      return () => clearInterval(intervalId);
+  }, [isBoostActive, boostEndTime]);
 
 
   const energyRegenAmountPerInterval = energyRegenRatePerSecond * (ENERGY_REGEN_INTERVAL / 1000);
@@ -567,7 +586,7 @@ export default function HomePage() {
         setTimeout(() => setIsAnimatingClick(false), CLICK_ANIMATION_DURATION);
       }
     }
-  }, [currentUser, isGameDataLoading, energy, clickPower, isAnimatingClick]);
+  }, [currentUser, isGameDataLoading, energy, clickPower, isAnimatingClick, dailyCoinsCollected]);
 
   useEffect(() => {
     if (!currentUser || isGameDataLoading) return;
@@ -672,7 +691,8 @@ export default function HomePage() {
   const handleActivateClickBoost = useCallback(async () => {
     if (!currentUser || isGameDataLoading || dailyClickBoostsAvailable <= 0 || isBoostActive) return;
     
-    setDailyClickBoostsAvailable(prev => prev - 1);
+    const newDailyClickBoostsAvailable = dailyClickBoostsAvailable - 1;
+    setDailyClickBoostsAvailable(newDailyClickBoostsAvailable);
     setIsBoostActive(true);
     const newBoostEndTime = Date.now() + BOOST_DURATION_MS;
     setBoostEndTime(newBoostEndTime);
@@ -683,7 +703,7 @@ export default function HomePage() {
     
     const userDocRef = doc(db, 'users', currentUser.uid);
     await setDoc(userDocRef, {
-      daily_clickBoostsAvailable: dailyClickBoostsAvailable - 1,
+      daily_clickBoostsAvailable: newDailyClickBoostsAvailable,
       isBoostActive: true,
       boostEndTime: newBoostEndTime,
       daily_lastClickBoostResetDate: newResetDate,
@@ -693,9 +713,10 @@ export default function HomePage() {
 
   const handleActivateFullEnergyBoost = useCallback(async () => {
     if (!currentUser || isGameDataLoading || dailyFullEnergyBoostsAvailable <= 0 || energy >= maxEnergy) return;
-
+    
+    const newDailyFullEnergyBoostsAvailable = dailyFullEnergyBoostsAvailable - 1;
     setEnergy(maxEnergy);
-    setDailyFullEnergyBoostsAvailable(prev => prev - 1);
+    setDailyFullEnergyBoostsAvailable(newDailyFullEnergyBoostsAvailable);
     const newResetDate = getCurrentDateString();
     setLastFullEnergyBoostResetDate(newResetDate);
 
@@ -704,7 +725,7 @@ export default function HomePage() {
     const userDocRef = doc(db, 'users', currentUser.uid);
     await setDoc(userDocRef, {
       energy: maxEnergy, // Save the full energy
-      daily_fullEnergyBoostsAvailable: dailyFullEnergyBoostsAvailable - 1,
+      daily_fullEnergyBoostsAvailable: newDailyFullEnergyBoostsAvailable,
       daily_lastFullEnergyBoostResetDate: newResetDate,
       lastUpdated: serverTimestamp()
     }, { merge: true });
@@ -754,12 +775,19 @@ export default function HomePage() {
         </div>
       
         <div className="flex-grow flex flex-col items-center justify-center gap-4">
+          {isBoostActive && boostTimeLeft > 0 && (
+            <div className="mb-2 text-center">
+              <p className="text-2xl font-bold text-amber-400 animate-pulse">BOOST x2</p>
+              <p className="text-lg font-semibold text-foreground">{boostTimeLeft}с осталось</p>
+            </div>
+          )}
           <ClickableCoin
             onClick={handleCoinClick}
             isAnimating={isAnimatingClick}
             disabled={energy < ENERGY_PER_CLICK}
             coinColorClass={currentSkin.coinColorClass}
             coinIconColorClass={currentSkin.coinIconColorClass}
+            isBoostActive={isBoostActive}
           />
         </div>
         
