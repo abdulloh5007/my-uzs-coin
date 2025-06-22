@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Coins, Zap, Target, History, Lightbulb, Bot, Info, BatteryFull } from 'lucide-react';
+import { Coins, Zap, Target, History, Lightbulb, Bot, Info, BatteryFull, Palette } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -17,6 +17,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { initialSkins } from '@/data/skins';
+import SkinCard from '@/components/skins/SkinCard';
 
 export type UpgradeId = 'maxEnergyUpgrade' | 'clickPowerUpgrade' | 'energyRegenRateUpgrade' | 'offlineBotPurchase';
 
@@ -102,7 +104,7 @@ interface ShopModalProps {
   baseClickPower: number;    // Non-boosted click power
   currentEnergyRegenRate: number;
 
-  onPurchase: (upgradeId: UpgradeId) => boolean; // Returns true if purchase was successful for UI feedback
+  onPurchase: (upgradeId: UpgradeId) => Promise<boolean>;
 
   isBotOwned: boolean;
   botPurchaseCost: number;
@@ -131,6 +133,12 @@ interface ShopModalProps {
   energyRegenIncrementPerLevel: number;
   energyRegenMaxLevel: number;
   energyRegenUpgradeCosts: number[];
+  
+  // Skin props
+  ownedSkins: string[];
+  selectedSkinId: string;
+  onBuySkin: (skinId: string, price: number) => Promise<boolean>;
+  onSelectSkin: (skinId: string) => Promise<void>;
 }
 
 const ShopModal: React.FC<ShopModalProps> = ({
@@ -168,6 +176,10 @@ const ShopModal: React.FC<ShopModalProps> = ({
   energyRegenIncrementPerLevel,
   energyRegenMaxLevel,
   energyRegenUpgradeCosts,
+  ownedSkins,
+  selectedSkinId,
+  onBuySkin,
+  onSelectSkin,
 }) => {
   const [timeLeftInBoost, setTimeLeftInBoost] = useState(0);
   const isEnergyFull = currentEnergy >= currentMaxEnergy;
@@ -247,9 +259,10 @@ const ShopModal: React.FC<ShopModalProps> = ({
           </Card>
 
           <Tabs defaultValue="upgrades" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
               <TabsTrigger value="upgrades">Улучшения</TabsTrigger>
               <TabsTrigger value="boosts">Бусты</TabsTrigger>
+              <TabsTrigger value="skins">Скины</TabsTrigger>
             </TabsList>
             
             <TabsContent value="upgrades" className="space-y-3">
@@ -431,7 +444,24 @@ const ShopModal: React.FC<ShopModalProps> = ({
                   </div>
                 </CardContent>
               </Card>
-
+            </TabsContent>
+            
+            <TabsContent value="skins">
+                <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
+                  {initialSkins.map((skin) => (
+                    <SkinCard
+                      key={skin.id}
+                      skin={{
+                        ...skin,
+                        isOwned: ownedSkins.includes(skin.id),
+                        isSelected: skin.id === selectedSkinId,
+                      }}
+                      userBalance={score}
+                      onSelectSkin={onSelectSkin}
+                      onBuySkin={onBuySkin}
+                    />
+                  ))}
+                </div>
             </TabsContent>
           </Tabs>
           
@@ -446,5 +476,3 @@ const ShopModal: React.FC<ShopModalProps> = ({
 };
 
 export default ShopModal;
-
-    

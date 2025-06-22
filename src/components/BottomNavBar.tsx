@@ -72,10 +72,8 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
   const navItems: Omit<NavItemProps, 'isActive' | 'onClick' | 'hasNotification'>[] = [
     { icon: User, label: 'Профиль', path: '/profile' },
     { icon: MousePointerClick, label: 'Кликер', path: '/' }, 
-    { icon: ListChecks, label: 'Задания', path: '/tasks' }, 
     { icon: Gift, label: 'Награды', path: '/rewards' },
     { icon: Sparkles, label: 'Mint', path: '/mint' },
-    { icon: Palette, label: 'Скины', path: '/skins' },
   ];
 
   const handleItemClick = (path: string) => {
@@ -115,5 +113,3 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
 };
 
 export default BottomNavBar;
-
-    

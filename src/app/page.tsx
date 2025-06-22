@@ -16,7 +16,7 @@ import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils.tsx';
 import type { Skin } from '@/types/skins';
 import { initialSkins, defaultSkin } from '@/data/skins';
 import { cn } from '@/lib/utils';
-import { Bot, Coins as CoinsIcon, Sparkles, ShoppingCart } from 'lucide-react';
+import { Bot, Coins as CoinsIcon, Sparkles, ShoppingCart, ListChecks } from 'lucide-react';
 import type { ToastActionElement } from "@/components/ui/toast";
 import { ToastAction } from "@/components/ui/toast";
 import { useAuth } from '@/context/AuthContext';
@@ -570,7 +570,7 @@ export default function HomePage() {
         setTimeout(() => setIsAnimatingClick(false), CLICK_ANIMATION_DURATION);
       }
     }
-  }, [currentUser, isGameDataLoading, energy, clickPower, isAnimatingClick, dailyCoinsCollected]);
+  }, [currentUser, isGameDataLoading, energy, clickPower, isAnimatingClick]);
 
   useEffect(() => {
     if (!currentUser || isGameDataLoading) return;
@@ -599,7 +599,7 @@ export default function HomePage() {
 
   const toggleShop = () => setIsShopOpen(prev => !prev);
 
-  const handlePurchase = async (upgradeId: UpgradeId) => {
+  const handlePurchase = async (upgradeId: UpgradeId): Promise<boolean> => {
     if (!currentUser || isGameDataLoading) return false;
     let cost = 0;
     let canPurchase = false;
@@ -714,6 +714,73 @@ export default function HomePage() {
       lastUpdated: serverTimestamp()
     }, { merge: true });
   }, [currentUser, isGameDataLoading, dailyFullEnergyBoostsAvailable, maxEnergy, toast, energy]);
+  
+  const handleSelectSkin = useCallback(async (skinId: string) => {
+    if (!currentUser) return;
+    
+    const newSkin = initialSkins.find(s => s.id === skinId) || defaultSkin;
+    setCurrentSkin(newSkin); // Optimistic UI update
+    
+    try {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await setDoc(userDocRef, { 
+            selectedSkinId: skinId,
+            lastUpdated: serverTimestamp()
+        }, { merge: true });
+
+        toast({
+            title: "Скин выбран!",
+            description: `Скин "${newSkin.name}" активирован.`,
+        });
+    } catch(error) {
+        console.error("Error selecting skin:", error);
+        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось сохранить выбор скина." });
+        loadGameState(currentUser.uid); // Revert
+    }
+  }, [currentUser, loadGameState, toast]);
+
+  const handleBuySkin = useCallback(async (skinId: string, price: number): Promise<boolean> => {
+    if (!currentUser || score < price) {
+        if(score < price) {
+            toast({
+                variant: "destructive",
+                title: "Недостаточно средств",
+                description: "У вас не хватает монет для покупки этого скина.",
+            });
+        }
+        return false;
+    }
+
+    const newBalance = score - price;
+    const newOwnedSkins = [...ownedSkins, skinId];
+      
+    // Optimistic UI update
+    setScore(newBalance);
+    setOwnedSkins(newOwnedSkins);
+    handleSelectSkin(skinId); // Auto-select new skin
+
+    try {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await setDoc(userDocRef, { 
+            score: newBalance,
+            ownedSkins: newOwnedSkins,
+            selectedSkinId: skinId,
+            lastUpdated: serverTimestamp()
+        }, { merge: true });
+
+        toast({
+          title: "Скин куплен!",
+          description: `Скин "${initialSkins.find(s => s.id === skinId)?.name}" теперь ваш.`,
+        });
+        return true;
+
+    } catch(error) {
+        console.error("Error buying skin:", error);
+        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось сохранить покупку." });
+        loadGameState(currentUser.uid); // Revert UI if save fails
+        return false;
+    }
+  }, [currentUser, score, ownedSkins, toast, loadGameState, handleSelectSkin]);
 
   const handleNavigation = (path: string) => {
     if (currentUser) {
@@ -721,6 +788,13 @@ export default function HomePage() {
     }
     router.push(path);
   };
+  
+  const handleTasksNavigation = () => {
+    if (currentUser) {
+        saveGameState(currentUser.uid);
+    }
+    router.push('/tasks');
+  }
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -777,6 +851,14 @@ export default function HomePage() {
         
         <div className="w-full max-w-md mx-auto flex items-center gap-4 mt-auto">
           <EnergyBar currentEnergy={energy} maxEnergy={maxEnergy} className="flex-grow" />
+          <Button 
+            size="icon"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-12 h-12 flex-shrink-0"
+            onClick={handleTasksNavigation}
+            aria-label="Открыть задания"
+          >
+            <ListChecks className="h-6 w-6" />
+          </Button>
            <Button 
             size="icon"
             className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-12 h-12 flex-shrink-0"
@@ -825,6 +907,10 @@ export default function HomePage() {
         energyRegenIncrementPerLevel={ENERGY_REGEN_INCREMENT_PER_LEVEL}
         energyRegenMaxLevel={ENERGY_REGEN_MAX_LEVEL}
         energyRegenUpgradeCosts={energyRegenUpgradeCosts}
+        ownedSkins={ownedSkins}
+        selectedSkinId={currentSkin.id}
+        onBuySkin={handleBuySkin}
+        onSelectSkin={handleSelectSkin}
       />
     </div>
   );
