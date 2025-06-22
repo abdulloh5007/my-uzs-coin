@@ -94,11 +94,18 @@ export default {
           '50%': { transform: 'scale(0.92)' },
           '100%': { transform: 'scale(1)' },
         },
+        'boost-pulse': {
+          '50%': {
+            transform: 'scale(1.05)',
+            filter: 'drop-shadow(0 0 8px hsl(var(--primary))) brightness(1.15)',
+          },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'coin-click': 'coin-click-effect 0.2s ease-out', /* Added for completeness */
+        'boost-pulse': 'boost-pulse 2.5s ease-in-out infinite',
       },
     },
   },

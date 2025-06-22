@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 
 interface TopBarProps {
-  score: number;
+  // score prop removed
 }
 
-const TopBar: React.FC<TopBarProps> = ({ score }) => {
+const TopBar: React.FC<TopBarProps> = ({}) => {
   const { currentUser, logout } = useAuth();
 
   const handleLogout = async () => {

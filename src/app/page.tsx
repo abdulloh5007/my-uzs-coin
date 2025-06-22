@@ -531,16 +531,19 @@ export default function HomePage() {
 
   // Boost Timer Effect
   useEffect(() => {
-    if (!currentUser || !isBoostActive || boostEndTime === 0) return;
-    const timer = setInterval(() => {
-      if (Date.now() >= boostEndTime) {
-        setIsBoostActive(false);
-        setBoostEndTime(0);
-        toast({ title: "⚙️ Буст Завершён", description: "Действие буста x2 силы клика закончилось.", duration: 4000 });
-      }
-    }, 1000);
+    let timer: NodeJS.Timeout;
+    if (isBoostActive && boostEndTime > 0) {
+      timer = setInterval(() => {
+        if (Date.now() >= boostEndTime) {
+          setIsBoostActive(false);
+          setBoostEndTime(0);
+          toast({ title: "⚙️ Буст Завершён", description: "Действие буста x2 силы клика закончилось.", duration: 4000 });
+        }
+      }, 1000);
+    }
     return () => clearInterval(timer);
-  }, [isBoostActive, boostEndTime, toast, currentUser]);
+  }, [isBoostActive, boostEndTime, toast]);
+
 
   useEffect(() => {
       if (prevIsBoostActiveRef.current === true && isBoostActive === false && currentUser) {
@@ -766,11 +769,12 @@ export default function HomePage() {
         currentSkin.pageGradientFromClass,
         currentSkin.pageGradientToClass
       )}>
-      <TopBar score={score} />
+      <TopBar />
       
-      <main className="flex flex-col flex-grow pt-4 pb-20 md:pb-24 px-4">
+      <main className="flex flex-col flex-grow pt-20 pb-20 md:pb-24 px-4">
+        
         <div className="flex flex-col items-center justify-center mb-4">
-          <span className="text-3xl font-bold text-foreground tracking-tighter">{score.toLocaleString()}</span>
+          <span className="text-4xl font-bold text-foreground tracking-tighter">{score.toLocaleString()}</span>
           <span className="text-xs -mt-1 text-muted-foreground">монет</span>
         </div>
       
@@ -791,7 +795,7 @@ export default function HomePage() {
           />
         </div>
         
-        <div className="w-full max-w-md mx-auto flex items-center gap-4 mt-4">
+        <div className="w-full max-w-md mx-auto flex items-center gap-4 mt-auto pt-4">
           <EnergyBar currentEnergy={energy} maxEnergy={maxEnergy} className="flex-grow" />
            <Button 
             size="icon"

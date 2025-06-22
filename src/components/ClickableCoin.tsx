@@ -32,7 +32,7 @@ const ClickableCoin: React.FC<ClickableCoinProps> = ({
         coinColorClass,
         isAnimating ? 'animate-coin-click' : '',
         'rounded-full',
-        isBoostActive && 'shadow-lg shadow-amber-400/80 animate-pulse'
+        isBoostActive && 'animate-boost-pulse'
       )}
     >
       <Coins
