@@ -18,6 +18,7 @@ import type { AuthError } from 'firebase/auth';
 import { Coins } from 'lucide-react';
 
 const registerSchema = z.object({
+  nickname: z.string().min(3, { message: "Никнейм должен быть не менее 3 символов." }).max(20, { message: "Никнейм должен быть не более 20 символов." }),
   email: z.string().email({ message: "Некорректный email." }),
   password: z.string().min(6, { message: "Пароль должен быть не менее 6 символов." }),
   confirmPassword: z.string().min(6, { message: "Подтверждение пароля должно быть не менее 6 символов." }),
@@ -36,6 +37,7 @@ export default function RegisterPage() {
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
+      nickname: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -49,7 +51,7 @@ export default function RegisterPage() {
   }, [currentUser, loading, router]);
 
   const onSubmit = async (data: RegisterFormValues) => {
-    const result = await register(data.email, data.password);
+    const result = await register(data.email, data.password, data.nickname);
     if ('code' in result) { // AuthError
       const firebaseError = result as AuthError;
       let errorMessage = "Ошибка регистрации. Пожалуйста, попробуйте еще раз.";
@@ -99,7 +101,20 @@ export default function RegisterPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="nickname"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-foreground">Никнейм</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ваш ник" {...field} className="bg-input/80 border-border text-foreground placeholder:text-muted-foreground" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="email"
@@ -139,7 +154,7 @@ export default function RegisterPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={form.formState.isSubmitting}>
+              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground pt-2" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? "Регистрация..." : "Зарегистрироваться"}
               </Button>
             </form>

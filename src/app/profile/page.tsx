@@ -1,56 +1,73 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Coins, Star, Clock4 } from 'lucide-react';
+import { User, Coins, Star, Clock4, Mail, Sparkles } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
 import LeaderboardModal from '@/components/profile/LeaderboardModal';
 import type { League } from '@/lib/leagues';
 import { getLeagueInfo } from '@/lib/leagues';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { formatDistanceStrict } from 'date-fns';
+import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
+interface ProfileStats {
+  score: number;
+  totalClicks: number;
+  gameStartTime: string | null;
+}
 
 export default function ProfilePage() {
-  const [userScore, setUserScore] = useState(0);
-  const [totalClicks, setTotalClicks] = useState(0);
+  const { currentUser, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [isDataLoading, setIsDataLoading] = useState(true);
+
+  const [stats, setStats] = useState<ProfileStats>({
+    score: 0,
+    totalClicks: 0,
+    gameStartTime: null,
+  });
   const [gameTimePlayed, setGameTimePlayed] = useState("0s");
-  
+
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [selectedLeagueForLeaderboard, setSelectedLeagueForLeaderboard] = useState<League | null>(null);
 
-  const [clientUserScoreDisplay, setClientUserScoreDisplay] = useState<string | number>(0);
-  const [clientTotalClicksDisplay, setClientTotalClicksDisplay] = useState<string | number>(0);
-
-  const router = useRouter();
-  const pathname = usePathname();
+  const loadProfileData = useCallback(async (userId: string) => {
+    setIsDataLoading(true);
+    try {
+      const userDocRef = doc(db, 'users', userId);
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setStats({
+          score: data.score || 0,
+          totalClicks: data.totalClicks || 0,
+          gameStartTime: data.gameStartTime || null,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading profile data:", error);
+    } finally {
+      setIsDataLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const storedScore = localStorage.getItem('userScore');
-    const storedClicks = localStorage.getItem('totalClicks');
-    const storedStartTime = localStorage.getItem('gameStartTime');
-
-    let currentScoreVal = 0;
-    let currentClicksVal = 0;
-
-    if (storedScore) {
-      currentScoreVal = parseInt(storedScore, 10);
+    if (!authLoading && !currentUser) {
+      router.push('/login');
+    } else if (currentUser) {
+      loadProfileData(currentUser.uid);
     }
-    if (storedClicks) {
-      currentClicksVal = parseInt(storedClicks, 10);
-    }
-
-    setUserScore(currentScoreVal);
-    setTotalClicks(currentClicksVal);
-
-    setClientUserScoreDisplay(currentScoreVal.toLocaleString());
-    setClientTotalClicksDisplay(currentClicksVal.toLocaleString());
-
-    if (storedStartTime) {
-      const startTime = new Date(storedStartTime);
+  }, [currentUser, authLoading, router, loadProfileData]);
+  
+  useEffect(() => {
+    if (stats.gameStartTime) {
+      const startTime = new Date(stats.gameStartTime);
       const updateTime = () => {
          setGameTimePlayed(formatDistanceStrict(new Date(), startTime, {roundingMethod: 'floor'}));
       };
@@ -60,9 +77,10 @@ export default function ProfilePage() {
     } else {
       setGameTimePlayed("N/A");
     }
-  }, []);
+  }, [stats.gameStartTime]);
 
-  const { currentLeague, nextLeague, progressPercentage } = getLeagueInfo(userScore);
+
+  const { currentLeague, nextLeague, progressPercentage } = getLeagueInfo(stats.score);
 
   const handleOpenLeaderboard = () => {
     setSelectedLeagueForLeaderboard(currentLeague);
@@ -73,74 +91,62 @@ export default function ProfilePage() {
     router.push(path);
   };
 
-  // Mock data for top players - in a real app, this would come from a backend
-  const mockTopPlayers: Array<{ name: string; score: number; rank: number }> = []; 
-  // const mockTopPlayers: Array<{ name: string; score: number; rank: number }> = [
-  //   { name: "Player One", score: userScore + 10000, rank: 1 },
-  //   { name: "Player Two", score: userScore + 5000, rank: 2 },
-  // ];
-
-
-  const currentPlayerLeaderboardEntry = { name: "Вы (Это вы)", score: userScore, rank: 1 };
-  
-  let leaderboardPlayersToShow = mockTopPlayers;
-  let playerRankInList = 1; // Default to 1 if no other players
-
-  if (mockTopPlayers.length === 0) {
-    leaderboardPlayersToShow = [currentPlayerLeaderboardEntry];
-  } else {
-    // In a real scenario, you'd fetch the top players and the current player's rank
-    // For now, if mockTopPlayers has data, we assume the current player might not be in it
-    // and their rank would be determined by the backend or further logic.
-    // For this example, if mockTopPlayers is not empty, we'll assume rank is based on that list or 101 if not in top.
-    const playerInMockTop = mockTopPlayers.find(p => p.name === currentPlayerLeaderboardEntry.name);
-    if (playerInMockTop) {
-      playerRankInList = playerInMockTop.rank;
-    } else if (mockTopPlayers.length > 0) {
-      playerRankInList = mockTopPlayers.length + 1; // Example: just after the last player in the list
-    }
+  if (authLoading || isDataLoading) {
+    return (
+      <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-background to-indigo-900/50">
+        <Sparkles className="w-16 h-16 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-foreground">Загрузка профиля...</p>
+      </div>
+    );
   }
-  // Update rank for the currentPlayer object that gets passed to the modal
-  const currentPlayerForModal = { ...currentPlayerLeaderboardEntry, rank: playerRankInList };
+  
+  if (!currentUser) return null; // Should be redirected, but as a fallback
 
-
+  const mockTopPlayers: Array<{ name: string; score: number; rank: number }> = [];
+  const currentPlayerLeaderboardEntry = { name: currentUser.displayName || 'Вы', score: stats.score, rank: 1 };
+  
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
       <div className="flex-grow container mx-auto px-4 pt-10 md:pt-16 pb-20 md:pb-24 text-center">
-        <h1 className="text-4xl font-bold mb-8">Профиль</h1>
         
-        <Avatar className="w-24 h-24 mx-auto mb-8 shadow-lg ring-2 ring-primary/50">
-          <AvatarImage src="https://placehold.co/100x100.png" alt="User Avatar" data-ai-hint="silhouette person" />
+        <Avatar className="w-24 h-24 mx-auto mb-4 shadow-lg ring-2 ring-primary/50">
+          <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${currentUser.uid}`} alt="User Avatar" />
           <AvatarFallback>
             <User className="w-12 h-12 text-muted-foreground" />
           </AvatarFallback>
         </Avatar>
+        
+        <h1 className="text-3xl font-bold">{currentUser.displayName || 'Игрок'}</h1>
+        <p className="text-muted-foreground mb-8 flex items-center justify-center gap-1.5">
+          <Mail className="w-4 h-4"/>
+          {currentUser.email}
+        </p>
 
         <div className="max-w-md mx-auto space-y-4">
           <LeagueInfoCard
             currentLeague={currentLeague}
             nextLeague={nextLeague}
-            currentScore={userScore} 
+            currentScore={stats.score} 
             progressPercentage={progressPercentage}
             onOpenLeaderboard={handleOpenLeaderboard}
           />
           
-          <StatCard icon={Coins} label="Всего монет" value={clientUserScoreDisplay} />
-          <StatCard icon={Star} label="Всего кликов" value={clientTotalClicksDisplay} />
+          <StatCard icon={Coins} label="Всего монет" value={stats.score.toLocaleString()} />
+          <StatCard icon={Star} label="Всего кликов" value={stats.totalClicks.toLocaleString()} />
           <StatCard icon={Clock4} label="Время игры" value={gameTimePlayed} />
         </div>
 
       </div>
       
-      <BottomNavBar activeItem={pathname} onNavigate={handleNavigation} />
+      <BottomNavBar activeItem="/profile" onNavigate={handleNavigation} />
 
       {selectedLeagueForLeaderboard && (
         <LeaderboardModal
           isOpen={isLeaderboardOpen}
           onOpenChange={setIsLeaderboardOpen}
           leagueName={selectedLeagueForLeaderboard.name}
-          topPlayers={leaderboardPlayersToShow} // Pass the constructed list
-          currentPlayer={currentPlayerForModal} // Pass current player with potentially updated rank
+          topPlayers={mockTopPlayers}
+          currentPlayer={currentPlayerLeaderboardEntry}
         />
       )}
     </div>

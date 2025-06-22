@@ -8,6 +8,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
+  updateProfile,
   type User,
   type AuthError,
 } from 'firebase/auth';
@@ -18,7 +19,7 @@ interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<User | AuthError>;
-  register: (email: string, password: string) => Promise<User | AuthError>;
+  register: (email: string, password: string, nickname: string) => Promise<User | AuthError>;
   logout: () => Promise<void>;
 }
 
@@ -46,9 +47,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string): Promise<User | AuthError> => {
+  const register = async (email: string, password: string, nickname: string): Promise<User | AuthError> => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      // After creating the user, update their profile with the nickname
+      await updateProfile(userCredential.user, {
+        displayName: nickname,
+      });
+      // We need to reload the user to get the updated displayName
+      // However, onAuthStateChanged will trigger automatically with the updated user,
+      // so we can just return the user from the credential.
       return userCredential.user;
     } catch (error) {
       return error as AuthError;
