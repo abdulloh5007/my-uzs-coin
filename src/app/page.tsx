@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import ClickableCoin from '@/components/ClickableCoin';
 import TopBar from '@/components/TopBar';
 import BottomNavBar from '@/components/BottomNavBar';
-import GameStats from '@/components/GameStats';
+import EnergyBar from '@/components/EnergyBar';
 import ShopModal from '@/components/ShopModal';
 import type { UpgradeId } from '@/components/ShopModal';
 import { useRouter } from 'next/navigation';
@@ -729,18 +729,9 @@ export default function HomePage() {
         currentSkin.pageGradientFromClass,
         currentSkin.pageGradientToClass
       )}>
-      <TopBar onShopClick={toggleShop} />
-      <GameStats
-        score={score}
-        currentEnergy={energy}
-        maxEnergy={maxEnergy}
-        clickPower={clickPower}
-        energyRegenRate={energyRegenRatePerSecond}
-        isBoostActive={isBoostActive}
-        boostEndTime={boostEndTime}
-      />
-
-      <main className="flex flex-col items-center justify-center flex-grow pt-32 pb-20 md:pt-36 md:pb-24 px-4">
+      <TopBar onShopClick={toggleShop} score={score} />
+      
+      <main className="flex flex-col items-center justify-center flex-grow pt-16 pb-20 md:pb-24 px-4">
         <ClickableCoin
           onClick={handleCoinClick}
           isAnimating={isAnimatingClick}
@@ -748,6 +739,7 @@ export default function HomePage() {
           coinColorClass={currentSkin.coinColorClass}
           coinIconColorClass={currentSkin.coinIconColorClass}
         />
+        <EnergyBar currentEnergy={energy} maxEnergy={maxEnergy} className="w-full max-w-md mt-8" />
       </main>
 
       <BottomNavBar onNavigate={handleNavigation} activeItem="/" />

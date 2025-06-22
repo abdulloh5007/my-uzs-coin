@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Coins, Star, Clock4, Mail, Sparkles } from 'lucide-react';
+import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
@@ -16,10 +16,17 @@ import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
+const INITIAL_CLICK_POWER_BASE = 1;
+const CLICK_POWER_INCREMENT_PER_LEVEL = 1;
+const INITIAL_ENERGY_REGEN_RATE_BASE = 1;
+const ENERGY_REGEN_INCREMENT_PER_LEVEL = 1;
+
 interface ProfileStats {
   score: number;
   totalClicks: number;
   gameStartTime: string | null;
+  clickPowerLevel: number;
+  energyRegenLevel: number;
 }
 
 export default function ProfilePage() {
@@ -31,7 +38,12 @@ export default function ProfilePage() {
     score: 0,
     totalClicks: 0,
     gameStartTime: null,
+    clickPowerLevel: 0,
+    energyRegenLevel: 0,
   });
+  
+  const [clickPower, setClickPower] = useState(INITIAL_CLICK_POWER_BASE);
+  const [energyRegenRate, setEnergyRegenRate] = useState(INITIAL_ENERGY_REGEN_RATE_BASE);
   const [gameTimePlayed, setGameTimePlayed] = useState("0s");
 
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
@@ -48,6 +60,8 @@ export default function ProfilePage() {
           score: data.score || 0,
           totalClicks: data.totalClicks || 0,
           gameStartTime: data.gameStartTime || null,
+          clickPowerLevel: data.clickPowerLevel || 0,
+          energyRegenLevel: data.energyRegenLevel || 0,
         });
       }
     } catch (error) {
@@ -56,6 +70,12 @@ export default function ProfilePage() {
       setIsDataLoading(false);
     }
   }, []);
+  
+  useEffect(() => {
+    setClickPower(INITIAL_CLICK_POWER_BASE + (stats.clickPowerLevel * CLICK_POWER_INCREMENT_PER_LEVEL));
+    setEnergyRegenRate(INITIAL_ENERGY_REGEN_RATE_BASE + (stats.energyRegenLevel * ENERGY_REGEN_INCREMENT_PER_LEVEL));
+  }, [stats.clickPowerLevel, stats.energyRegenLevel]);
+
 
   useEffect(() => {
     if (!authLoading && !currentUser) {
@@ -132,6 +152,8 @@ export default function ProfilePage() {
           />
           
           <StatCard icon={Coins} label="Всего монет" value={stats.score.toLocaleString()} />
+          <StatCard icon={Target} label="Сила клика" value={`+${clickPower}`} />
+          <StatCard icon={History} label="Восстановление" value={`+${energyRegenRate}/сек`} />
           <StatCard icon={Star} label="Всего кликов" value={stats.totalClicks.toLocaleString()} />
           <StatCard icon={Clock4} label="Время игры" value={gameTimePlayed} />
         </div>

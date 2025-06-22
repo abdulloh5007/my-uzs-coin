@@ -1,24 +1,23 @@
 import type React from 'react';
 import { Zap } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
 
 interface EnergyBarProps {
   currentEnergy: number;
   maxEnergy: number;
+  className?: string;
 }
 
-// This component might be largely superseded by GameStats.tsx,
-// but keeping it in case it's used elsewhere or for direct use.
-// The GameStats component will replicate similar UI for energy.
-const EnergyBar: React.FC<EnergyBarProps> = ({ currentEnergy, maxEnergy }) => {
+const EnergyBar: React.FC<EnergyBarProps> = ({ currentEnergy, maxEnergy, className }) => {
   const energyPercentage = maxEnergy > 0 ? (currentEnergy / maxEnergy) * 100 : 0;
 
   return (
-    <div className="w-full max-w-md mx-auto my-4 md:my-6 px-4">
-      <div className="flex justify-between items-center mb-1 text-sm font-medium text-foreground"> {/* text-primary-foreground to text-foreground */}
+    <div className={cn(className)}>
+      <div className="flex justify-between items-center mb-1 text-sm font-medium text-foreground">
         <div className="flex items-center">
           <Zap className="w-4 h-4 mr-1.5 text-primary" />
-          <span>Energy</span>
+          <span>Энергия</span>
         </div>
         <span>{Math.floor(currentEnergy)} / {maxEnergy}</span>
       </div>
