@@ -240,9 +240,9 @@ export default function HomePage() {
       daily_lastResetDate: lastResetDate,
       isBoostActive,
       boostEndTime,
-      daily_clickBoostsAvailable,
+      daily_clickBoostsAvailable: dailyClickBoostsAvailable,
       daily_lastClickBoostResetDate: lastClickBoostResetDate,
-      daily_fullEnergyBoostsAvailable,
+      daily_fullEnergyBoostsAvailable: dailyFullEnergyBoostsAvailable,
       daily_lastFullEnergyBoostResetDate: lastFullEnergyBoostResetDate,
       isBotOwned,
       lastSeenTimestamp,
@@ -732,7 +732,7 @@ export default function HomePage() {
       <TopBar onShopClick={toggleShop} />
       
       <main className="flex flex-col flex-grow pt-16 pb-20 md:pb-24 px-4">
-        <div className="flex-grow flex flex-col items-center justify-center gap-6">
+        <div className="flex-grow flex flex-col items-center justify-center gap-6 pb-10">
           <div className="text-center">
             <h2 className="text-5xl md:text-6xl font-bold text-primary tracking-tighter">{score.toLocaleString()}</h2>
             <p className="text-muted-foreground -mt-1">монет</p>
