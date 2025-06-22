@@ -43,7 +43,6 @@ export const energyRegenUpgradeCosts = [800, 2400, 7200, 21600];
 
 const INITIAL_SCORE = 0;
 const INITIAL_TOTAL_CLICKS = 0;
-const ENERGY_PER_CLICK = 1;
 const ENERGY_REGEN_INTERVAL = 50;
 const CLICK_ANIMATION_DURATION = 200;
 const DAILY_STATS_UPDATE_INTERVAL = 1000;
@@ -556,11 +555,11 @@ export default function HomePage() {
 
   const handleCoinClick = useCallback(() => {
     if (!currentUser || isGameDataLoading) return;
-    if (energy >= ENERGY_PER_CLICK) {
+    if (energy >= clickPower) {
       const scoreIncrease = clickPower;
       setScore(prevScore => prevScore + scoreIncrease);
       setTotalScoreCollected(prev => prev + scoreIncrease);
-      setEnergy(prevEnergy => Math.max(0, prevEnergy - ENERGY_PER_CLICK));
+      setEnergy(prevEnergy => Math.max(0, prevEnergy - clickPower));
       setTotalClicks(prevClicks => prevClicks + 1);
       setDailyClicks(prev => prev + 1);
       setDailyCoinsCollected(prev => prev + scoreIncrease);
@@ -842,7 +841,7 @@ export default function HomePage() {
           <ClickableCoin
             onClick={handleCoinClick}
             isAnimating={isAnimatingClick}
-            disabled={energy < ENERGY_PER_CLICK}
+            disabled={energy < clickPower}
             coinColorClass={currentSkin.coinColorClass}
             coinIconColorClass={currentSkin.coinIconColorClass}
             isBoostActive={isBoostActive}
