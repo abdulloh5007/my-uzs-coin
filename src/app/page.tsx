@@ -69,6 +69,8 @@ interface UserGameState {
   daily_timePlayedSeconds: number;
   daily_lastResetDate: string; // YYYY-MM-DD
 
+  isBoostActive: boolean; // Is click boost active
+  boostEndTime: number; // Timestamp when the boost ends
   daily_clickBoostsAvailable: number;
   daily_lastClickBoostResetDate: string; // YYYY-MM-DD
   daily_fullEnergyBoostsAvailable: number;
@@ -107,6 +109,8 @@ const initialGameState: UserGameState = {
   daily_timePlayedSeconds: 0,
   daily_lastResetDate: getCurrentDateString(),
 
+  isBoostActive: false,
+  boostEndTime: 0,
   daily_clickBoostsAvailable: DAILY_CLICK_BOOST_LIMIT,
   daily_lastClickBoostResetDate: getCurrentDateString(),
   daily_fullEnergyBoostsAvailable: DAILY_FULL_ENERGY_BOOST_LIMIT,
@@ -174,6 +178,8 @@ export default function HomePage() {
   const [isBoostActive, setIsBoostActive] = useState(false);
   const [boostEndTime, setBoostEndTime] = useState(0);
   const [originalClickPowerBeforeBoost, setOriginalClickPowerBeforeBoost] = useState(INITIAL_CLICK_POWER_BASE);
+  
+  const prevIsBoostActiveRef = useRef<boolean>();
 
   // Tasks (read from localStorage for now, will be part of UserGameState)
   const [completedUnclaimedTaskTierIds, setCompletedUnclaimedTaskTierIds] = useState<string[]>([]);
@@ -195,6 +201,8 @@ export default function HomePage() {
       daily_coinsCollected: dailyCoinsCollected, 
       daily_timePlayedSeconds: dailyTimePlayedSeconds, 
       daily_lastResetDate: lastResetDate,
+      isBoostActive,
+      boostEndTime,
       daily_clickBoostsAvailable: dailyClickBoostsAvailable, 
       daily_lastClickBoostResetDate: lastClickBoostResetDate,
       daily_fullEnergyBoostsAvailable: dailyFullEnergyBoostsAvailable, 
@@ -215,10 +223,10 @@ export default function HomePage() {
   }, [
     score, maxEnergyLevel, clickPowerLevel, energyRegenLevel, totalClicks, gameStartTime,
     dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, lastResetDate,
-    dailyClickBoostsAvailable, lastClickBoostResetDate,
+    isBoostActive, boostEndTime, dailyClickBoostsAvailable, lastClickBoostResetDate,
     dailyFullEnergyBoostsAvailable, lastFullEnergyBoostResetDate,
     isBotOwned, lastSeenTimestamp, unclaimedBotCoins,
-    ownedSkins, currentSkin.id, // Ensure currentSkin.id is used for selectedSkinId
+    ownedSkins, currentSkin.id,
     completedUnclaimedTaskTierIds, claimedTaskTierIds, ownedNfts, toast
   ]);
 
@@ -285,6 +293,18 @@ export default function HomePage() {
         setDailyFullEnergyBoostsAvailable(stateToSet.daily_fullEnergyBoostsAvailable);
         setLastFullEnergyBoostResetDate(stateToSet.daily_lastFullEnergyBoostResetDate);
 
+        // Handle boost persistence
+        if(stateToSet.isBoostActive && stateToSet.boostEndTime > Date.now()) {
+            setIsBoostActive(true);
+            setBoostEndTime(stateToSet.boostEndTime);
+        } else {
+            setIsBoostActive(false);
+            setBoostEndTime(0);
+            if (stateToSet.isBoostActive) { // if it was active but expired
+              stateToSet.isBoostActive = false; // ensure we save it as inactive
+            }
+        }
+
         setIsBotOwned(stateToSet.isBotOwned);
         setLastSeenTimestamp(stateToSet.lastSeenTimestamp || new Date().toISOString());
         setUnclaimedBotCoins(stateToSet.unclaimedBotCoins || 0);
@@ -321,6 +341,8 @@ export default function HomePage() {
         setDailyCoinsCollected(initialGameState.daily_coinsCollected);
         setDailyTimePlayedSeconds(initialGameState.daily_timePlayedSeconds);
         setLastResetDate(initialGameState.daily_lastResetDate);
+        setIsBoostActive(initialGameState.isBoostActive);
+        setBoostEndTime(initialGameState.boostEndTime);
         setDailyClickBoostsAvailable(initialGameState.daily_clickBoostsAvailable);
         setLastClickBoostResetDate(initialGameState.daily_lastClickBoostResetDate);
         setDailyFullEnergyBoostsAvailable(initialGameState.daily_fullEnergyBoostsAvailable);
@@ -481,12 +503,24 @@ export default function HomePage() {
         setIsBoostActive(false);
         setBoostEndTime(0);
         toast({ title: "⚙️ Буст Завершён", description: "Действие буста x2 силы клика закончилось.", duration: 4000 });
-        // Save state after boost ends
-        if (currentUser) saveGameState(currentUser.uid);
+        // The saveGameState call is removed from here to prevent stale closure issues.
+        // Another effect will handle saving.
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [isBoostActive, boostEndTime, toast, currentUser, saveGameState]);
+  }, [isBoostActive, boostEndTime, toast, currentUser]);
+
+  // Effect to save state when boost ends to avoid stale closures in setInterval
+  useEffect(() => {
+      // This effect runs after every render.
+      // We check if the boost has just transitioned from active to inactive.
+      if (prevIsBoostActiveRef.current === true && isBoostActive === false && currentUser) {
+          saveGameState(currentUser.uid);
+      }
+      // Update the ref to the current value for the next render.
+      prevIsBoostActiveRef.current = isBoostActive;
+  }, [isBoostActive, currentUser, saveGameState]);
+
 
   const energyRegenAmountPerInterval = energyRegenRatePerSecond * (ENERGY_REGEN_INTERVAL / 1000);
 
