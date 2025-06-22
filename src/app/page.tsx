@@ -655,7 +655,7 @@ export default function HomePage() {
   }, [currentUser, isGameDataLoading, dailyClickBoostsAvailable, isBoostActive, toast, saveGameState]);
 
   const handleActivateFullEnergyBoost = useCallback(async () => {
-    if (!currentUser || isGameDataLoading || dailyFullEnergyBoostsAvailable <= 0) return;
+    if (!currentUser || isGameDataLoading || dailyFullEnergyBoostsAvailable <= 0 || energy >= maxEnergy) return;
 
     setEnergy(maxEnergy);
     setDailyFullEnergyBoostsAvailable(prev => prev - 1);
@@ -663,7 +663,7 @@ export default function HomePage() {
 
     toast({ title: "⚡ Энергия Восстановлена!", description: "Ваша энергия полностью заполнена.", duration: 4000 });
     await saveGameState(currentUser.uid);
-  }, [currentUser, isGameDataLoading, dailyFullEnergyBoostsAvailable, maxEnergy, toast, saveGameState]);
+  }, [currentUser, isGameDataLoading, dailyFullEnergyBoostsAvailable, maxEnergy, toast, saveGameState, energy]);
 
   const handleNavigation = (path: string) => router.push(path);
 
@@ -741,6 +741,7 @@ export default function HomePage() {
         isOpen={isShopOpen}
         onOpenChange={setIsShopOpen}
         score={score}
+        currentEnergy={energy}
         maxEnergyLevel={maxEnergyLevel}
         clickPowerLevel={clickPowerLevel}
         energyRegenLevel={energyRegenLevel}

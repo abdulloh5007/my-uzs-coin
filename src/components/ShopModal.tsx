@@ -91,6 +91,7 @@ interface ShopModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   score: number;
+  currentEnergy: number;
 
   maxEnergyLevel: number;
   clickPowerLevel: number;
@@ -136,6 +137,7 @@ const ShopModal: React.FC<ShopModalProps> = ({
   isOpen,
   onOpenChange,
   score,
+  currentEnergy,
   maxEnergyLevel,
   clickPowerLevel,
   energyRegenLevel,
@@ -168,6 +170,7 @@ const ShopModal: React.FC<ShopModalProps> = ({
   energyRegenUpgradeCosts,
 }) => {
   const [timeLeftInBoost, setTimeLeftInBoost] = useState(0);
+  const isEnergyFull = currentEnergy >= currentMaxEnergy;
 
   useEffect(() => {
     if (isBoostActive && boostEndTime > 0) {
@@ -397,7 +400,11 @@ const ShopModal: React.FC<ShopModalProps> = ({
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent side="top" align="start">
-                              <p className="max-w-xs text-xs">Мгновенно восстанавливает вашу энергию до максимума.</p>
+                              <p className="max-w-xs text-xs">
+                                {isEnergyFull 
+                                  ? "Нельзя использовать при максимальной энергии." 
+                                  : "Мгновенно восстанавливает вашу энергию до максимума."}
+                              </p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -412,13 +419,14 @@ const ShopModal: React.FC<ShopModalProps> = ({
                     <Button
                       size="sm"
                       onClick={onActivateFullEnergyBoost}
-                      disabled={dailyFullEnergyBoostsAvailable === 0}
+                      disabled={dailyFullEnergyBoostsAvailable === 0 || isEnergyFull}
                       className={cn(
-                        "px-4 w-full", 
-                        dailyFullEnergyBoostsAvailable > 0 ? "bg-accent hover:bg-accent/90 text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed"
+                        "px-4 w-full",
+                        isEnergyFull ? "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed" :
+                        (dailyFullEnergyBoostsAvailable > 0 ? "bg-accent hover:bg-accent/90 text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed")
                       )}
                     >
-                      {dailyFullEnergyBoostsAvailable > 0 ? "Активировать" : "Нет доступных"}
+                      {isEnergyFull ? 'Энергия полная' : (dailyFullEnergyBoostsAvailable > 0 ? "Активировать" : "Нет доступных")}
                     </Button>
                   </div>
                 </CardContent>
