@@ -240,9 +240,9 @@ export default function HomePage() {
       daily_lastResetDate: lastResetDate,
       isBoostActive,
       boostEndTime,
-      daily_clickBoostsAvailable: dailyClickBoostsAvailable,
+      daily_clickBoostsAvailable,
       daily_lastClickBoostResetDate: lastClickBoostResetDate,
-      daily_fullEnergyBoostsAvailable: dailyFullEnergyBoostsAvailable,
+      daily_fullEnergyBoostsAvailable,
       daily_lastFullEnergyBoostResetDate: lastFullEnergyBoostResetDate,
       isBotOwned,
       lastSeenTimestamp,
@@ -729,17 +729,27 @@ export default function HomePage() {
         currentSkin.pageGradientFromClass,
         currentSkin.pageGradientToClass
       )}>
-      <TopBar onShopClick={toggleShop} score={score} />
+      <TopBar onShopClick={toggleShop} />
       
-      <main className="flex flex-col items-center justify-center flex-grow pt-16 pb-20 md:pb-24 px-4">
-        <ClickableCoin
-          onClick={handleCoinClick}
-          isAnimating={isAnimatingClick}
-          disabled={energy < ENERGY_PER_CLICK}
-          coinColorClass={currentSkin.coinColorClass}
-          coinIconColorClass={currentSkin.coinIconColorClass}
-        />
-        <EnergyBar currentEnergy={energy} maxEnergy={maxEnergy} className="w-full max-w-md mt-8" />
+      <main className="flex flex-col flex-grow pt-16 pb-20 md:pb-24 px-4">
+        <div className="flex-grow flex flex-col items-center justify-center gap-6">
+          <div className="text-center">
+            <h2 className="text-5xl md:text-6xl font-bold text-primary tracking-tighter">{score.toLocaleString()}</h2>
+            <p className="text-muted-foreground -mt-1">монет</p>
+          </div>
+          
+          <ClickableCoin
+            onClick={handleCoinClick}
+            isAnimating={isAnimatingClick}
+            disabled={energy < ENERGY_PER_CLICK}
+            coinColorClass={currentSkin.coinColorClass}
+            coinIconColorClass={currentSkin.coinIconColorClass}
+          />
+        </div>
+        
+        <div>
+          <EnergyBar currentEnergy={energy} maxEnergy={maxEnergy} className="w-full max-w-md mx-auto" />
+        </div>
       </main>
 
       <BottomNavBar onNavigate={handleNavigation} activeItem="/" />
