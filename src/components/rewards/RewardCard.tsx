@@ -57,7 +57,7 @@ const RewardCard: React.FC<RewardCardProps> = ({ reward, onClaim }) => {
             )}
           </div>
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-0.5">
+            <div className="flex flex-col items-left gap-1 mb-0.5">
                 <h4 className="text-md font-semibold text-foreground">{parentTask.title}</h4>
                 <TaskTypeBadge type={parentTask.type} />
             </div>
