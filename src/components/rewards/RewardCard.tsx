@@ -34,7 +34,7 @@ const TaskTypeBadge: React.FC<{ type: 'daily' | 'main' | 'league' }> = ({ type }
       break;
   }
   return (
-    <span className={cn("px-2 py-0.5 text-xs font-medium rounded-full", bgColor, textColor)}>
+    <span className={cn("px-2 py-0.5 text-xs font-medium rounded-full self-start", bgColor, textColor)}>
       {text}
     </span>
   );
@@ -57,9 +57,9 @@ const RewardCard: React.FC<RewardCardProps> = ({ reward, onClaim }) => {
             )}
           </div>
           <div className="flex-1">
-            <div className="flex flex-col items-left gap-1 mb-0.5">
-                <h4 className="text-md font-semibold text-foreground">{parentTask.title}</h4>
-                <TaskTypeBadge type={parentTask.type} />
+            <div className="flex flex-col lg:flex-row md:items-start lg:items-center gap-1 mb-0.5">
+              <h4 className="text-md font-semibold text-foreground">{parentTask.title}</h4>
+              <TaskTypeBadge type={parentTask.type} />
             </div>
             <p className="text-xs text-muted-foreground mb-1">{tier.description}</p>
             <div className="flex items-center text-sm text-yellow-400">
