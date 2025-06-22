@@ -197,13 +197,15 @@ export default function HomePage() {
   const handleClaimBotCoins = useCallback(async (coinsToClaim: number) => {
     if (!currentUser || coinsToClaim <= 0) return;
 
-    setScore(prevScore => prevScore + coinsToClaim);
-    setUnclaimedBotCoins(0);
+    const newScore = score + coinsToClaim;
     const newSeen = new Date().toISOString();
+
+    setScore(newScore);
+    setUnclaimedBotCoins(0);
     setLastSeenTimestamp(newSeen);
 
     const gameStateUpdate = {
-      score: score + coinsToClaim,
+      score: newScore,
       unclaimedBotCoins: 0,
       lastSeenTimestamp: newSeen,
       lastUpdated: serverTimestamp(),
@@ -238,10 +240,10 @@ export default function HomePage() {
       daily_lastResetDate: lastResetDate,
       isBoostActive,
       boostEndTime,
-      daily_clickBoostsAvailable: dailyClickBoostsAvailable,
-      daily_lastClickBoostResetDate: lastClickBoostResetDate,
-      daily_fullEnergyBoostsAvailable: dailyFullEnergyBoostsAvailable,
-      daily_lastFullEnergyBoostResetDate: lastFullEnergyBoostResetDate,
+      daily_clickBoostsAvailable,
+      daily_lastClickBoostResetDate,
+      daily_fullEnergyBoostsAvailable,
+      daily_lastFullEnergyBoostResetDate,
       isBotOwned,
       lastSeenTimestamp,
       unclaimedBotCoins,
@@ -353,6 +355,63 @@ export default function HomePage() {
         setClaimedTaskTierIds(stateToSet.claimedTaskTierIds);
         setOwnedNfts(stateToSet.ownedNfts || []);
 
+         // --- OFFLINE & POST-LOAD CALCULATIONS ---
+        const updatesToPersist: Partial<UserGameState> = {};
+        const timeOfflineInSeconds = stateToSet.lastSeenTimestamp
+            ? Math.floor((Date.now() - new Date(stateToSet.lastSeenTimestamp).getTime()) / 1000)
+            : 0;
+
+        // 1. Offline Energy Regeneration
+        let energyAfterOfflineRegen = stateToSet.energy;
+        if (timeOfflineInSeconds > 0) {
+            const calculatedMaxEnergy = INITIAL_MAX_ENERGY_BASE + (stateToSet.maxEnergyLevel * MAX_ENERGY_INCREMENT_PER_LEVEL);
+            const calculatedEnergyRegenRate = INITIAL_ENERGY_REGEN_RATE_BASE + (stateToSet.energyRegenLevel * ENERGY_REGEN_INCREMENT_PER_LEVEL);
+            const energyRegenerated = timeOfflineInSeconds * calculatedEnergyRegenRate;
+            energyAfterOfflineRegen = Math.min(calculatedMaxEnergy, stateToSet.energy + energyRegenerated);
+            updatesToPersist.energy = energyAfterOfflineRegen;
+        }
+        setEnergy(energyAfterOfflineRegen);
+
+        // 2. Bot Offline Earnings
+        let totalUnclaimedCoins = 0;
+        if (stateToSet.isBotOwned) {
+            const savedUnclaimedBotCoins = stateToSet.unclaimedBotCoins || 0;
+            let newlyEarnedBotCoins = 0;
+
+            if (timeOfflineInSeconds > BOT_CLICK_INTERVAL_SECONDS) {
+                const botBaseClickPower = INITIAL_CLICK_POWER_BASE + (stateToSet.clickPowerLevel * CLICK_POWER_INCREMENT_PER_LEVEL);
+                const botClicksCount = Math.floor(timeOfflineInSeconds / BOT_CLICK_INTERVAL_SECONDS);
+                newlyEarnedBotCoins = botClicksCount * botBaseClickPower;
+            }
+
+            const totalPotentialCoins = savedUnclaimedBotCoins + newlyEarnedBotCoins;
+            totalUnclaimedCoins = Math.min(totalPotentialCoins, BOT_MAX_OFFLINE_COINS);
+
+            if (totalUnclaimedCoins > 0) {
+                setUnclaimedBotCoins(totalUnclaimedCoins);
+                if (totalUnclaimedCoins > savedUnclaimedBotCoins) {
+                    updatesToPersist.unclaimedBotCoins = totalUnclaimedCoins;
+                }
+            }
+        }
+        
+        // 3. Update Last Seen Timestamp & Persist all changes
+        const newSeen = new Date().toISOString();
+        setLastSeenTimestamp(newSeen);
+        updatesToPersist.lastSeenTimestamp = newSeen;
+        await setDoc(userDocRef, { ...updatesToPersist, lastUpdated: serverTimestamp() }, { merge: true });
+
+        // 4. Show toast for bot coins after saving state
+        if (stateToSet.isBotOwned && totalUnclaimedCoins > 0) {
+            toast({
+                title: <div className="flex items-center gap-2"><Bot className="h-5 w-5 text-primary" /><span className="font-semibold text-foreground">Бот ждет!</span></div>,
+                description: `Ваш бот накопил ${totalUnclaimedCoins.toLocaleString()} монет. Заберите их!`,
+                duration: 30000,
+                action: ( <ToastAction altText="Забрать" onClick={() => handleClaimBotCoins(totalUnclaimedCoins)}>Забрать</ToastAction> ) as ToastActionElement,
+            });
+        }
+
+
       } else {
         // New user: set from initial and save
         stateToSet = initialGameState;
@@ -385,58 +444,6 @@ export default function HomePage() {
         await setDoc(userDocRef, { ...initialGameState, gameStartTime: initialGameState.gameStartTime, lastUpdated: serverTimestamp() });
       }
 
-      // --- OFFLINE & POST-LOAD CALCULATIONS ---
-      const timeOfflineInSeconds = stateToSet.lastSeenTimestamp
-        ? Math.floor((Date.now() - new Date(stateToSet.lastSeenTimestamp).getTime()) / 1000)
-        : 0;
-
-      // 1. Offline Energy Regeneration
-      if (timeOfflineInSeconds > 0) {
-        const calculatedMaxEnergy = INITIAL_MAX_ENERGY_BASE + (stateToSet.maxEnergyLevel * MAX_ENERGY_INCREMENT_PER_LEVEL);
-        const calculatedEnergyRegenRate = INITIAL_ENERGY_REGEN_RATE_BASE + (stateToSet.energyRegenLevel * ENERGY_REGEN_INCREMENT_PER_LEVEL);
-        const energyRegenerated = timeOfflineInSeconds * calculatedEnergyRegenRate;
-        const newEnergy = Math.min(calculatedMaxEnergy, stateToSet.energy + energyRegenerated);
-        setEnergy(newEnergy);
-      } else {
-        setEnergy(stateToSet.energy);
-      }
-
-      // 2. Bot Offline Earnings
-      if (stateToSet.isBotOwned) {
-        const savedUnclaimedBotCoins = stateToSet.unclaimedBotCoins || 0;
-        let newlyEarnedBotCoins = 0;
-
-        if (timeOfflineInSeconds > BOT_CLICK_INTERVAL_SECONDS) {
-          const botBaseClickPower = INITIAL_CLICK_POWER_BASE + (stateToSet.clickPowerLevel * CLICK_POWER_INCREMENT_PER_LEVEL);
-          const botClicksCount = Math.floor(timeOfflineInSeconds / BOT_CLICK_INTERVAL_SECONDS);
-          newlyEarnedBotCoins = botClicksCount * botBaseClickPower;
-        }
-
-        const totalPotentialCoins = savedUnclaimedBotCoins + newlyEarnedBotCoins;
-        const totalUnclaimedCoins = Math.min(totalPotentialCoins, BOT_MAX_OFFLINE_COINS);
-
-        if (totalUnclaimedCoins > 0) {
-          setUnclaimedBotCoins(totalUnclaimedCoins);
-          
-          if (totalUnclaimedCoins > savedUnclaimedBotCoins) {
-              await setDoc(userDocRef, { unclaimedBotCoins: totalUnclaimedCoins, lastUpdated: serverTimestamp() }, { merge: true });
-          }
-
-          toast({
-            title: <div className="flex items-center gap-2"><Bot className="h-5 w-5 text-primary" /><span className="font-semibold text-foreground">Бот ждет!</span></div>,
-            description: `Ваш бот накопил ${totalUnclaimedCoins.toLocaleString()} монет. Заберите их!`,
-            duration: 30000,
-            action: ( <ToastAction altText="Забрать" onClick={() => handleClaimBotCoins(totalUnclaimedCoins)}>Забрать</ToastAction> ) as ToastActionElement,
-          });
-        }
-      }
-
-      // 3. Update Last Seen Timestamp for all users
-      const newSeen = new Date().toISOString();
-      setLastSeenTimestamp(newSeen);
-      if (docSnap.exists()) {
-        await setDoc(userDocRef, { lastSeenTimestamp: newSeen, lastUpdated: serverTimestamp() }, { merge: true });
-      }
 
       // Unclaimed rewards toast
       if (stateToSet.completedUnclaimedTaskTierIds.length > 0 && !sessionStorage.getItem('newRewardsToastShownThisSession')) {
