@@ -851,6 +851,12 @@ export default function HomePage() {
         
         <div className="w-full max-w-md mx-auto flex items-center gap-4 mt-auto">
           <EnergyBar currentEnergy={energy} maxEnergy={maxEnergy} className="flex-grow" />
+           <Button 
+            size="icon"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-12 h-12 flex-shrink-0"
+            onClick={toggleShop}
+            aria-label="Открыть магазин"
+          >
           <Button 
             size="icon"
             className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-12 h-12 flex-shrink-0"
@@ -859,12 +865,6 @@ export default function HomePage() {
           >
             <ListChecks className="h-6 w-6" />
           </Button>
-           <Button 
-            size="icon"
-            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-12 h-12 flex-shrink-0"
-            onClick={toggleShop}
-            aria-label="Открыть магазин"
-          >
             <ShoppingCart className="h-6 w-6" />
           </Button>
         </div>
