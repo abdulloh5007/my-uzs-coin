@@ -10,44 +10,16 @@ import StarDisplay from './StarDisplay';
 interface TaskCardProps {
   task: Task;
   userTierProgressGetter: (progressKey?: string) => number;
+  completedTierIds: string[]; // Pass all completed tier IDs
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, userTierProgressGetter }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ task, userTierProgressGetter, completedTierIds }) => {
   const { icon: Icon, title, subtitle, stars, tiers } = task;
-  const [isClient, setIsClient] = useState(false);
-  const [locallyTrackedCompletedTierIds, setLocallyTrackedCompletedTierIds] = useState<string[]>([]);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    if (isClient) {
-      const localCompletedUnclaimed = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
-      const localClaimed = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
-      setLocallyTrackedCompletedTierIds([...localCompletedUnclaimed, ...localClaimed]);
-    }
-    // No direct dependency on task.id here, as this effect should primarily react to client-side status.
-    // It will run once on mount after isClient is true.
-    // If localStorage changes from elsewhere, this component won't know without more complex state management or event listeners.
-    // However, TasksPage is the primary writer and this card is usually displayed within it.
-  }, [isClient]);
-
-
-  let completedTiersForStarsDisplay = 0;
-  if (isClient) {
-    tiers.forEach(tier => {
-      if (locallyTrackedCompletedTierIds.includes(tier.id)) {
-        completedTiersForStarsDisplay++;
-      }
-    });
-  }
-
+  const completedTiersForStarsDisplay = tiers.filter(tier => completedTierIds.includes(tier.id)).length;
   const overallProgressPercentage = tiers.length > 0 ? (completedTiersForStarsDisplay / tiers.length) * 100 : 0;
-  
   const starDisplayCount = stars > 0 ? stars : (tiers.length > 0 ? tiers.length : 1);
   const starDisplayFilledCount = Math.min(completedTiersForStarsDisplay, starDisplayCount);
-
 
   return (
     <Card className="bg-card/80 border-border/50 shadow-lg w-full">
@@ -91,3 +63,5 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, userTierProgressGetter }) => 
 };
 
 export default TaskCard;
+
+    

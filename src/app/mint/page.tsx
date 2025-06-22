@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Coins, Trophy, Crown, Sparkles, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 interface NftItem {
   id: 'standard' | 'premium';
@@ -41,45 +44,88 @@ const nftItems: NftItem[] = [
   },
 ];
 
+interface MintPageState {
+    score: number;
+    ownedNfts: string[];
+}
+
 export default function MintPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [isClient, setIsClient] = useState(false);
-  const [userBalance, setUserBalance] = useState(0);
-  const [ownedNfts, setOwnedNfts] = useState<string[]>([]); // Each entry is an ID of a minted NFT
+  const { currentUser, loading: authLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [pageState, setPageState] = useState<MintPageState>({
+    score: 0,
+    ownedNfts: [],
+  });
+
+  const loadMintData = useCallback(async (userId: string) => {
+    setIsLoading(true);
+    try {
+      const userDocRef = doc(db, 'users', userId);
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setPageState({
+          score: data.score || 0,
+          ownedNfts: data.ownedNfts || [],
+        });
+      }
+    } catch (error) {
+      console.error("Error loading mint data:", error);
+      toast({ variant: "destructive", title: "Ошибка", description: "Не удалось загрузить данные для минтинга." });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
-    setIsClient(true);
-    const storedBalance = localStorage.getItem('userScore');
-    if (storedBalance) {
-      setUserBalance(parseInt(storedBalance, 10));
+    if (!authLoading && !currentUser) {
+      router.push('/login');
+    } else if (currentUser) {
+      loadMintData(currentUser.uid);
     }
-    const storedOwnedNfts = localStorage.getItem('ownedNfts');
-    if (storedOwnedNfts) {
-      setOwnedNfts(JSON.parse(storedOwnedNfts));
-    }
-  }, []);
+  }, [currentUser, authLoading, router, loadMintData]);
 
-  const handleMintNft = (nft: NftItem) => {
-    if (userBalance >= nft.price) {
-      const newBalance = userBalance - nft.price;
-      setUserBalance(newBalance);
-      localStorage.setItem('userScore', newBalance.toString());
 
-      const newOwnedNfts = [...ownedNfts, nft.id]; // Add another instance of the NFT ID
-      setOwnedNfts(newOwnedNfts);
-      localStorage.setItem('ownedNfts', JSON.stringify(newOwnedNfts));
+  const handleMintNft = async (nft: NftItem) => {
+    if (!currentUser) return;
+    if (pageState.score >= nft.price) {
+      const newBalance = pageState.score - nft.price;
+      const newOwnedNfts = [...pageState.ownedNfts, nft.id];
 
-      toast({
-        title: `🎉 ${nft.name} сминтен!`,
-        description: `Вы успешно приобрели еще один ${nft.name}. Он добавлен в "Мои NFT".`,
-        duration: 5000,
+      // Optimistic UI update
+      setPageState({
+        score: newBalance,
+        ownedNfts: newOwnedNfts,
       });
+
+      try {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await setDoc(userDocRef, { 
+            score: newBalance, 
+            ownedNfts: newOwnedNfts,
+            lastUpdated: serverTimestamp() 
+        }, { merge: true });
+
+        toast({
+          title: `🎉 ${nft.name} сминтен!`,
+          description: `Вы успешно приобрели еще один ${nft.name}. Он добавлен в "Мои NFT".`,
+          duration: 5000,
+        });
+
+      } catch (error) {
+        console.error("Error minting NFT:", error);
+        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось сохранить покупку NFT." });
+        // Revert UI state if save fails
+        loadMintData(currentUser.uid); 
+      }
+
     } else {
       toast({
         variant: "destructive",
         title: "Недостаточно монет",
-        description: `Вам не хватает ${ (nft.price - userBalance).toLocaleString()} монет для покупки ${nft.name}.`,
+        description: `Вам не хватает ${ (nft.price - pageState.score).toLocaleString()} монет для покупки ${nft.name}.`,
         duration: 5000,
       });
     }
@@ -89,7 +135,7 @@ export default function MintPage() {
     router.push(path);
   };
 
-  if (!isClient) {
+  if (authLoading || isLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground items-center justify-center">
         <Sparkles className="w-16 h-16 animate-spin text-primary" />
@@ -107,15 +153,15 @@ export default function MintPage() {
           <CardContent className="p-4 flex items-center justify-center">
             <Coins className="w-6 h-6 mr-3 text-primary" />
             <span className="text-lg font-medium text-foreground">Баланс: </span>
-            <span className="text-lg font-semibold text-primary ml-1.5">{userBalance.toLocaleString()}</span>
+            <span className="text-lg font-semibold text-primary ml-1.5">{pageState.score.toLocaleString()}</span>
           </CardContent>
         </Card>
 
         <div className="space-y-6 max-w-2xl mx-auto">
           <div className="flex flex-col md:flex-row md:gap-6 space-y-6 md:space-y-0">
             {nftItems.map((nft) => {
-              const canAfford = userBalance >= nft.price;
-              const balanceAfterPurchase = userBalance - nft.price;
+              const canAfford = pageState.score >= nft.price;
+              const balanceAfterPurchase = pageState.score - nft.price;
 
               return (
                 <div key={nft.id} className="flex-1 md:min-w-0">
@@ -172,9 +218,9 @@ export default function MintPage() {
               </div>
             </CardHeader>
             <CardContent className="p-4 pt-2">
-              {ownedNfts.length > 0 ? (
+              {pageState.ownedNfts.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {ownedNfts.map((nftId, index) => {
+                  {pageState.ownedNfts.map((nftId, index) => {
                     const foundNft = nftItems.find(item => item.id === nftId);
                     if (!foundNft) return null;
                     const IconComponent = foundNft.icon;
@@ -202,3 +248,5 @@ export default function MintPage() {
     </div>
   );
 }
+
+    

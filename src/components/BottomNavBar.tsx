@@ -5,6 +5,9 @@ import { User, MousePointerClick, ListChecks, Gift, Sparkles, Palette } from 'lu
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 interface NavItemProps {
   icon: React.ElementType;
@@ -46,29 +49,24 @@ interface BottomNavBarProps {
 const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const [isClient, setIsClient] = useState(false);
+  const { currentUser } = useAuth();
   const [hasUnclaimedRewards, setHasUnclaimedRewards] = useState(false);
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
+    if (currentUser) {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const unsubscribe = onSnapshot(userDocRef, (doc) => {
+        if (doc.exists()) {
+          const data = doc.data();
+          const unclaimed = data.completedUnclaimedTaskTierIds || [];
+          setHasUnclaimedRewards(unclaimed.length > 0);
+        }
+      });
 
-  useEffect(() => {
-    if (isClient) {
-      const checkRewards = () => {
-        const unclaimedRewards = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
-        setHasUnclaimedRewards(unclaimedRewards.length > 0);
-      };
-      checkRewards(); // Initial check
-      const intervalId = setInterval(checkRewards, 5000); // Check every 5 seconds
-      window.addEventListener('storage', checkRewards); // Listen for storage changes from other tabs
-
-      return () => {
-        clearInterval(intervalId);
-        window.removeEventListener('storage', checkRewards);
-      };
+      // Cleanup the listener when the component unmounts or user changes
+      return () => unsubscribe();
     }
-  }, [isClient]);
+  }, [currentUser]);
 
 
   const navItems: Omit<NavItemProps, 'isActive' | 'onClick' | 'hasNotification'>[] = [
@@ -97,7 +95,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
     <div className="fixed bottom-0 left-0 right-0 z-20 bg-card shadow-up h-16 md:h-20">
       <div className="container mx-auto flex items-stretch justify-around h-full px-0">
         {navItems.map((item) => {
-          const currentItemIsActive = isClient ? (currentPathForActivity === item.path || (currentPathForActivity === '/' && item.path === '/') || (item.path === '/' && currentPathForActivity.startsWith('/?'))) : false;
+          const currentItemIsActive = (currentPathForActivity === item.path || (currentPathForActivity === '/' && item.path === '/') || (item.path === '/' && currentPathForActivity.startsWith('/?')));
           const itemHasNotification = item.path === '/rewards' && hasUnclaimedRewards;
           return (
             <NavItem
@@ -117,3 +115,5 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
 };
 
 export default BottomNavBar;
+
+    

@@ -451,7 +451,13 @@ export default function HomePage() {
   // Check for task completion when relevant states change
    useEffect(() => {
     if (currentUser && !isGameDataLoading) {
-        const { newCompletedUnclaimedTierIds, newRewardsWereAdded } = checkAndNotifyTaskCompletion(getFullProgressForCheck(), allTasksForNotification, toast);
+        const { newCompletedUnclaimedTierIds, newRewardsWereAdded } = checkAndNotifyTaskCompletion(
+            getFullProgressForCheck(),
+            allTasksForNotification,
+            claimedTaskTierIds,
+            completedUnclaimedTaskTierIds,
+            toast
+        );
         if (newRewardsWereAdded) {
             setCompletedUnclaimedTaskTierIds(newCompletedUnclaimedTierIds); // Update local state for UI
             // The saveGameState will be triggered by other actions or a dedicated save mechanism
@@ -459,7 +465,7 @@ export default function HomePage() {
             saveGameState(currentUser.uid); 
         }
     }
-  }, [score, dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, ownedSkins, currentUser, isGameDataLoading, getFullProgressForCheck, allTasksForNotification, toast, saveGameState]);
+  }, [score, dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, ownedSkins, currentUser, isGameDataLoading, getFullProgressForCheck, allTasksForNotification, toast, saveGameState, claimedTaskTierIds, completedUnclaimedTaskTierIds]);
 
 
   // Boost Timer Effect
@@ -769,3 +775,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    

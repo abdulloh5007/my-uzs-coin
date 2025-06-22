@@ -1,77 +1,112 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
-import { Coins } from 'lucide-react';
+import { Coins, Sparkles } from 'lucide-react';
 import type { Skin } from '@/types/skins';
 import SkinCard from '@/components/skins/SkinCard';
 import { useToast } from '@/hooks/use-toast';
-import { initialSkins } from '@/data/skins'; // Import from new data file
+import { initialSkins } from '@/data/skins';
+import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+
+
+interface SkinsPageState {
+  score: number;
+  ownedSkins: string[];
+  selectedSkinId: string;
+}
 
 export default function SkinsPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { currentUser, loading: authLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [userBalance, setUserBalance] = useState(0);
-  const [ownedSkins, setOwnedSkins] = useState<string[]>(['classic']);
-  const [selectedSkinId, setSelectedSkinId] = useState<string>('classic');
-  const [skins, setSkins] = useState<Skin[]>([]);
-  const [isClient, setIsClient] = useState(false);
+  const [pageState, setPageState] = useState<SkinsPageState>({
+    score: 0,
+    ownedSkins: ['classic'],
+    selectedSkinId: 'classic',
+  });
+  const [displaySkins, setDisplaySkins] = useState<Skin[]>([]);
+  
+  const loadSkinsData = useCallback(async (userId: string) => {
+    setIsLoading(true);
+    try {
+      const userDocRef = doc(db, 'users', userId);
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setPageState({
+          score: data.score || 0,
+          ownedSkins: data.ownedSkins || ['classic'],
+          selectedSkinId: data.selectedSkinId || 'classic',
+        });
+      }
+    } catch (error) {
+      console.error("Error loading skins data:", error);
+      toast({ variant: "destructive", title: "Ошибка", description: "Не удалось загрузить данные о скинах." });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
-    setIsClient(true);
-    const storedBalance = localStorage.getItem('userScore');
-    if (storedBalance) {
-      setUserBalance(parseInt(storedBalance, 10));
+    if (!authLoading && !currentUser) {
+      router.push('/login');
+    } else if (currentUser) {
+      loadSkinsData(currentUser.uid);
     }
-
-    const storedOwnedSkins = localStorage.getItem('ownedSkins');
-    if (storedOwnedSkins) {
-      setOwnedSkins(JSON.parse(storedOwnedSkins));
-    } else {
-      localStorage.setItem('ownedSkins', JSON.stringify(['classic']));
-    }
-
-    const storedSelectedSkin = localStorage.getItem('selectedSkinId');
-    if (storedSelectedSkin) {
-      setSelectedSkinId(storedSelectedSkin);
-    } else {
-      localStorage.setItem('selectedSkinId', 'classic');
-    }
-  }, []);
+  }, [currentUser, authLoading, router, loadSkinsData]);
 
   useEffect(() => {
-    setSkins(
+    setDisplaySkins(
       initialSkins.map(skin => ({
         ...skin,
-        isOwned: ownedSkins.includes(skin.id),
-        isSelected: skin.id === selectedSkinId,
+        isOwned: pageState.ownedSkins.includes(skin.id),
+        isSelected: skin.id === pageState.selectedSkinId,
       }))
     );
-  }, [ownedSkins, selectedSkinId]);
+  }, [pageState.ownedSkins, pageState.selectedSkinId]);
 
 
-  const handleBuySkin = (skinId: string, price: number) => {
-    if (userBalance >= price) {
-      const newBalance = userBalance - price;
-      setUserBalance(newBalance);
-      localStorage.setItem('userScore', newBalance.toString());
-
-      const newOwnedSkins = [...ownedSkins, skinId];
-      setOwnedSkins(newOwnedSkins);
-      localStorage.setItem('ownedSkins', JSON.stringify(newOwnedSkins));
+  const handleBuySkin = async (skinId: string, price: number) => {
+    if (!currentUser) return;
+    if (pageState.score >= price) {
+      const newBalance = pageState.score - price;
+      const newOwnedSkins = [...pageState.ownedSkins, skinId];
       
-      // Automatically select the newly bought skin
-      setSelectedSkinId(skinId);
-      localStorage.setItem('selectedSkinId', skinId);
-
-      toast({
-        title: "Скин куплен!",
-        description: `Скин "${initialSkins.find(s => s.id === skinId)?.name}" теперь ваш.`,
+      // Optimistic UI update
+      setPageState({
+        score: newBalance,
+        ownedSkins: newOwnedSkins,
+        selectedSkinId: skinId, // Auto-select new skin
       });
+
+      try {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await setDoc(userDocRef, { 
+            score: newBalance,
+            ownedSkins: newOwnedSkins,
+            selectedSkinId: skinId,
+            lastUpdated: serverTimestamp()
+        }, { merge: true });
+
+        toast({
+          title: "Скин куплен!",
+          description: `Скин "${initialSkins.find(s => s.id === skinId)?.name}" теперь ваш.`,
+        });
+
+      } catch(error) {
+        console.error("Error buying skin:", error);
+        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось сохранить покупку." });
+        // Revert UI if save fails
+        loadSkinsData(currentUser.uid); 
+      }
     } else {
       toast({
         variant: "destructive",
@@ -81,21 +116,42 @@ export default function SkinsPage() {
     }
   };
 
-  const handleSelectSkin = (skinId: string) => {
-    setSelectedSkinId(skinId);
-    localStorage.setItem('selectedSkinId', skinId);
-    toast({
-        title: "Скин выбран!",
-        description: `Скин "${initialSkins.find(s => s.id === skinId)?.name}" активирован.`,
-      });
+  const handleSelectSkin = async (skinId: string) => {
+    if (!currentUser) return;
+    
+    // Optimistic UI update
+    setPageState(prevState => ({ ...prevState, selectedSkinId: skinId }));
+    
+    try {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await setDoc(userDocRef, { 
+            selectedSkinId: skinId,
+            lastUpdated: serverTimestamp()
+        }, { merge: true });
+
+        toast({
+            title: "Скин выбран!",
+            description: `Скин "${initialSkins.find(s => s.id === skinId)?.name}" активирован.`,
+        });
+    } catch(error) {
+        console.error("Error selecting skin:", error);
+        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось сохранить выбор скина." });
+        // Revert UI if save fails
+        loadSkinsData(currentUser.uid);
+    }
   };
 
   const handleNavigation = (path: string) => {
     router.push(path);
   };
 
-  if (!isClient) {
-    return null; // Or a loading spinner
+  if (authLoading || isLoading) {
+    return (
+      <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-background to-indigo-900/50">
+        <Sparkles className="w-16 h-16 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-foreground">Загрузка скинов...</p>
+      </div>
+    );
   }
 
   return (
@@ -107,16 +163,16 @@ export default function SkinsPage() {
           <CardContent className="p-3 flex items-center justify-center">
             <Coins className="w-5 h-5 mr-2 text-primary" />
             <span className="text-sm font-medium text-foreground">Баланс: </span>
-            <span className="text-sm font-semibold text-primary ml-1">{userBalance.toLocaleString()}</span>
+            <span className="text-sm font-semibold text-primary ml-1">{pageState.score.toLocaleString()}</span>
           </CardContent>
         </Card>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 gap-4 max-w-2xl mx-auto">
-          {skins.map((skin) => (
+          {displaySkins.map((skin) => (
             <SkinCard
               key={skin.id}
               skin={skin}
-              userBalance={userBalance}
+              userBalance={pageState.score}
               onSelectSkin={handleSelectSkin}
               onBuySkin={handleBuySkin}
             />
@@ -127,3 +183,5 @@ export default function SkinsPage() {
     </div>
   );
 }
+
+    

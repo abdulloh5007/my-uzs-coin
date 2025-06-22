@@ -6,19 +6,15 @@ import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Gift, CheckCircle2, Coins, History } from 'lucide-react';
+import { Gift, CheckCircle2, Coins, History, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Task, TaskTier } from '@/types/tasks';
 import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/data/tasks';
 import RewardCard from '@/components/rewards/RewardCard';
+import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc, serverTimestamp, arrayRemove, arrayUnion } from 'firebase/firestore';
 
-const getCurrentDateString = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = (today.getMonth() + 1).toString().padStart(2, '0');
-  const day = today.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 export interface DisplayableReward {
   id: string; // tier.id
@@ -27,55 +23,39 @@ export interface DisplayableReward {
   isClaimed: boolean;
 }
 
+interface RewardsState {
+    score: number;
+    completedUnclaimedTaskTierIds: string[];
+    claimedTaskTierIds: string[];
+}
+
 export default function RewardsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [isClient, setIsClient] = useState(false);
+  const { currentUser, loading: authLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
 
   const [availableRewards, setAvailableRewards] = useState<DisplayableReward[]>([]);
   const [claimedRewardsList, setClaimedRewardsList] = useState<DisplayableReward[]>([]);
-  const [userScore, setUserScore] = useState(0);
+  const [rewardsState, setRewardsState] = useState<RewardsState>({
+      score: 0,
+      completedUnclaimedTaskTierIds: [],
+      claimedTaskTierIds: [],
+  });
 
   const allPossibleTasks = useMemo<Task[]>(() => {
     return [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks];
   }, []);
 
-  const loadAndProcessRewards = useCallback(() => {
-    if (!isClient) return;
-
-    const currentScore = parseInt(localStorage.getItem('userScore') || '0', 10);
-    setUserScore(currentScore);
-
-    const currentDateStr = getCurrentDateString();
-    const storedLastResetDate = localStorage.getItem('daily_lastResetDate');
-
-    let completedUnclaimedTierIds = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
-    let claimedTierIds = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
-
-    if (storedLastResetDate !== currentDateStr) {
-      localStorage.setItem('daily_lastResetDate', currentDateStr);
-      localStorage.setItem('daily_clicks', '0');
-      localStorage.setItem('daily_coinsCollected', '0');
-      localStorage.setItem('daily_timePlayedSeconds', '0');
-
-      const dailyTierIdsSet = new Set<string>();
-      initialDailyTasks.forEach(task => task.tiers.forEach(tier => dailyTierIdsSet.add(tier.id)));
-
-      completedUnclaimedTierIds = completedUnclaimedTierIds.filter(id => !dailyTierIdsSet.has(id));
-      localStorage.setItem('completedUnclaimedTaskTierIds', JSON.stringify(completedUnclaimedTierIds));
-      
-      claimedTierIds = claimedTierIds.filter(id => !dailyTierIdsSet.has(id));
-      localStorage.setItem('claimedTaskTierIds', JSON.stringify(claimedTierIds));
-    }
-    
+  const processRewards = useCallback((state: RewardsState) => {
     const newAvailableRewards: DisplayableReward[] = [];
     const newClaimedRewards: DisplayableReward[] = [];
 
     allPossibleTasks.forEach(task => {
       task.tiers.forEach(tier => {
-        if (claimedTierIds.includes(tier.id)) {
+        if (state.claimedTaskTierIds.includes(tier.id)) {
           newClaimedRewards.push({ id: tier.id, parentTask: task, tier, isClaimed: true });
-        } else if (completedUnclaimedTierIds.includes(tier.id)) {
+        } else if (state.completedUnclaimedTaskTierIds.includes(tier.id)) {
           newAvailableRewards.push({ id: tier.id, parentTask: task, tier, isClaimed: false });
         }
       });
@@ -83,49 +63,90 @@ export default function RewardsPage() {
 
     setAvailableRewards(newAvailableRewards);
     setClaimedRewardsList(newClaimedRewards);
+  }, [allPossibleTasks]);
 
-  }, [isClient, allPossibleTasks]);
-
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    if (isClient) { // Ensure loadAndProcessRewards is called only when client is ready
-      loadAndProcessRewards();
+  const loadRewardsData = useCallback(async (userId: string) => {
+    setIsLoading(true);
+    try {
+      const userDocRef = doc(db, 'users', userId);
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const currentState = {
+            score: data.score || 0,
+            completedUnclaimedTaskTierIds: data.completedUnclaimedTaskTierIds || [],
+            claimedTaskTierIds: data.claimedTaskTierIds || [],
+        };
+        setRewardsState(currentState);
+        processRewards(currentState);
+      }
+    } catch (error) {
+      console.error("Error loading rewards data:", error);
+      toast({ variant: "destructive", title: "Ошибка", description: "Не удалось загрузить данные о наградах." });
+    } finally {
+        setIsLoading(false);
     }
-  }, [isClient, loadAndProcessRewards]);
+  }, [processRewards, toast]);
+  
+  useEffect(() => {
+    if (!authLoading && !currentUser) {
+      router.push('/login');
+    } else if (currentUser) {
+      loadRewardsData(currentUser.uid);
+    }
+  }, [currentUser, authLoading, router, loadRewardsData]);
 
 
-  const handleClaimReward = (tierId: string, rewardAmount: number) => {
-    const newScore = userScore + rewardAmount;
-    setUserScore(newScore);
-    localStorage.setItem('userScore', newScore.toString());
-
-    let completedUnclaimed = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
-    completedUnclaimed = completedUnclaimed.filter(id => id !== tierId);
-    localStorage.setItem('completedUnclaimedTaskTierIds', JSON.stringify(completedUnclaimed));
-
-    let claimed = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
-    claimed.push(tierId);
-    localStorage.setItem('claimedTaskTierIds', JSON.stringify(claimed));
+  const handleClaimReward = async (tierId: string, rewardAmount: number) => {
+    if (!currentUser) return;
     
+    const newScore = rewardsState.score + rewardAmount;
+    const updatedCompletedUnclaimed = rewardsState.completedUnclaimedTaskTierIds.filter(id => id !== tierId);
+    const updatedClaimed = [...rewardsState.claimedTaskTierIds, tierId];
+
+    // Optimistic UI update
+    const newState = {
+        score: newScore,
+        completedUnclaimedTaskTierIds: updatedCompletedUnclaimed,
+        claimedTaskTierIds: updatedClaimed
+    };
+    setRewardsState(newState);
+    processRewards(newState);
+
     sessionStorage.removeItem('newRewardsToastShownThisSession'); 
 
-    toast({
-      title: "Награда получена!",
-      description: `+${rewardAmount} монет добавлено к вашему балансу.`,
-    });
-    loadAndProcessRewards(); 
+    try {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await setDoc(userDocRef, {
+            score: newScore,
+            completedUnclaimedTaskTierIds: updatedCompletedUnclaimed,
+            claimedTaskTierIds: updatedClaimed,
+            lastUpdated: serverTimestamp()
+        }, { merge: true });
+
+        toast({
+            title: "Награда получена!",
+            description: `+${rewardAmount.toLocaleString()} монет добавлено к вашему балансу.`,
+        });
+    } catch (error) {
+        console.error("Error claiming reward:", error);
+        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось сохранить получение награды." });
+        // Revert UI on error
+        loadRewardsData(currentUser.uid);
+    }
   };
 
   const handleNavigation = (path: string) => {
     router.push(path);
   };
 
-  if (!isClient) {
-    return null; 
+  if (authLoading || isLoading) {
+    return (
+      <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-background to-indigo-900/50">
+        <Sparkles className="w-16 h-16 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-foreground">Загрузка наград...</p>
+      </div>
+    );
   }
 
   const totalAvailable = availableRewards.length;
@@ -179,3 +200,5 @@ export default function RewardsPage() {
     </div>
   );
 }
+
+    

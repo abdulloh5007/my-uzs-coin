@@ -7,100 +7,101 @@ import TaskCard from '@/components/tasks/TaskCard';
 import type { Task } from '@/types/tasks';
 import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
+import { Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast'; 
 import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/data/tasks';
 import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
+import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
-const getCurrentDateString = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = (today.getMonth() + 1).toString().padStart(2, '0');
-  const day = today.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 export default function TasksPage() {
   const [activeTab, setActiveTab] = useState<string>("daily");
   const router = useRouter();
   const { toast } = useToast();
+  const { currentUser, loading: authLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+
   const [userProgress, setUserProgress] = useState<Record<string, number>>({});
-  const [isClient, setIsClient] = useState(false);
+  const [completedUnclaimedTaskTierIds, setCompletedUnclaimedTaskTierIds] = useState<string[]>([]);
+  const [claimedTaskTierIds, setClaimedTaskTierIds] = useState<string[]>([]);
 
   const allTasks = useMemo<Task[]>(() => {
     return [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks];
   }, []);
 
+  const loadProgress = useCallback(async (userId: string) => {
+    setIsLoading(true);
+    try {
+        const userDocRef = doc(db, 'users', userId);
+        const docSnap = await getDoc(userDocRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            const newProgress: Record<string, number> = {
+                daily_clicks: data.daily_clicks || 0,
+                daily_coinsCollected: data.daily_coinsCollected || 0,
+                daily_timePlayedSeconds: data.daily_timePlayedSeconds || 0,
+                ownedSkin_emerald: (data.ownedSkins || []).includes('emerald') ? 1 : 0,
+                ownedSkin_rainbow: (data.ownedSkins || []).includes('rainbow') ? 1 : 0,
+                ownedSkins_length: (data.ownedSkins || []).length,
+                userScore: data.score || 0,
+            };
+            setUserProgress(newProgress);
+            const unclaimed = data.completedUnclaimedTaskTierIds || [];
+            const claimed = data.claimedTaskTierIds || [];
+            setCompletedUnclaimedTaskTierIds(unclaimed);
+            setClaimedTaskTierIds(claimed);
 
-  const loadAndCheckTasks = useCallback(() => {
-    if (!isClient) return;
+            // This function checks for new completions based on the loaded progress
+            // and updates Firestore if any new tasks are completed.
+            const { newRewardsWereAdded } = checkAndNotifyTaskCompletion(
+                newProgress,
+                allTasks,
+                claimed,
+                unclaimed,
+                toast,
+                false // Don't show toasts on this page, only on HomePage
+            );
 
-    const currentDateStr = getCurrentDateString();
-    const storedLastResetDate = localStorage.getItem('daily_lastResetDate');
+            // If task completion check added new rewards, we might need to re-fetch or update state
+            if (newRewardsWereAdded) {
+               // The function already saves to Firestore, but local state might need an update
+               // For now, a page refresh or re-navigation would show it.
+               // A more advanced solution would involve a shared state manager (like Zustand/Redux).
+               // For now, the user will see the updates when they visit the Rewards page.
+            }
 
-    let dailyClicks = 0;
-    let dailyCoinsCollected = 0;
-    let dailyTimePlayedSeconds = 0;
-
-    if (storedLastResetDate === currentDateStr) {
-      dailyClicks = parseInt(localStorage.getItem('daily_clicks') || '0', 10);
-      dailyCoinsCollected = parseInt(localStorage.getItem('daily_coinsCollected') || '0', 10);
-      dailyTimePlayedSeconds = parseInt(localStorage.getItem('daily_timePlayedSeconds') || '0', 10);
-    } else {
-      localStorage.setItem('daily_lastResetDate', currentDateStr);
-      localStorage.setItem('daily_clicks', '0');
-      localStorage.setItem('daily_coinsCollected', '0');
-      localStorage.setItem('daily_timePlayedSeconds', '0');
-      
-      const dailyTierIds = new Set<string>();
-      initialDailyTasks.forEach(task => task.tiers.forEach(tier => dailyTierIds.add(tier.id)));
-
-      let completedUnclaimed = JSON.parse(localStorage.getItem('completedUnclaimedTaskTierIds') || '[]') as string[];
-      completedUnclaimed = completedUnclaimed.filter(id => !dailyTierIds.has(id));
-      localStorage.setItem('completedUnclaimedTaskTierIds', JSON.stringify(completedUnclaimed));
-      
-      let claimed = JSON.parse(localStorage.getItem('claimedTaskTierIds') || '[]') as string[];
-      claimed = claimed.filter(id => !dailyTierIds.has(id));
-      localStorage.setItem('claimedTaskTierIds', JSON.stringify(claimed));
+        }
+    } catch (error) {
+        console.error("Error loading task progress:", error);
+        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось загрузить прогресс заданий." });
+    } finally {
+        setIsLoading(false);
     }
-
-    const currentScore = parseInt(localStorage.getItem('userScore') || '0', 10);
-    const ownedSkinsRaw = localStorage.getItem('ownedSkins');
-    const ownedSkinsArray: string[] = ownedSkinsRaw ? JSON.parse(ownedSkinsRaw) : ['classic'];
-    
-    const newProgress: Record<string, number> = {
-      daily_clicks: dailyClicks,
-      daily_coinsCollected: dailyCoinsCollected,
-      daily_timePlayedSeconds: dailyTimePlayedSeconds,
-      ownedSkin_emerald: ownedSkinsArray.includes('emerald') ? 1 : 0,
-      ownedSkin_rainbow: ownedSkinsArray.includes('rainbow') ? 1 : 0,
-      ownedSkins_length: ownedSkinsArray.length,
-      userScore: currentScore,
-    };
-    setUserProgress(newProgress);
-
-    // Pass false for showNewTaskCompletedToast to prevent duplicate toasts if also triggered from HomePage
-    checkAndNotifyTaskCompletion(newProgress, allTasks, toast, false);
-
-  }, [isClient, allTasks, toast]);
+  }, [allTasks, toast]);
 
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    if (isClient) {
-      loadAndCheckTasks();
+    if (!authLoading && !currentUser) {
+      router.push('/login');
+    } else if (currentUser) {
+      loadProgress(currentUser.uid);
     }
-  }, [isClient, activeTab, loadAndCheckTasks]); 
+  }, [currentUser, authLoading, router, loadProgress]);
 
 
   const handleNavigation = (path: string) => {
     router.push(path);
   };
   
-  if (!isClient) {
-    return null; 
+  if (authLoading || isLoading) {
+    return (
+      <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-background to-indigo-900/50">
+        <Sparkles className="w-16 h-16 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-foreground">Загрузка заданий...</p>
+      </div>
+    );
   }
 
   const getTierProgress = (progressKey?: string): number => {
@@ -123,14 +124,14 @@ export default function TasksPage() {
           <TabsContent value="daily">
             <div className="space-y-6">
               {initialDailyTasks.map(task => (
-                <TaskCard key={task.id} task={task} userTierProgressGetter={getTierProgress} />
+                <TaskCard key={task.id} task={task} userTierProgressGetter={getTierProgress} completedTierIds={[...completedUnclaimedTaskTierIds, ...claimedTaskTierIds]} />
               ))}
             </div>
           </TabsContent>
           <TabsContent value="main">
              <div className="space-y-6">
               {initialMainTasks.length > 0 ? initialMainTasks.map(task => (
-                <TaskCard key={task.id} task={task} userTierProgressGetter={getTierProgress} />
+                <TaskCard key={task.id} task={task} userTierProgressGetter={getTierProgress} completedTierIds={[...completedUnclaimedTaskTierIds, ...claimedTaskTierIds]} />
               )) : (
                 <p className="text-center text-muted-foreground py-8">Основные задания скоро появятся!</p>
               )}
@@ -139,7 +140,7 @@ export default function TasksPage() {
           <TabsContent value="league">
             <div className="space-y-6">
                 {initialLeagueTasks.length > 0 ? initialLeagueTasks.map(task => (
-                    <TaskCard key={task.id} task={task} userTierProgressGetter={getTierProgress} />
+                    <TaskCard key={task.id} task={task} userTierProgressGetter={getTierProgress} completedTierIds={[...completedUnclaimedTaskTierIds, ...claimedTaskTierIds]}/>
                 )) : (
                     <p className="text-center text-muted-foreground py-8">Задания лиг появятся по мере вашего продвижения!</p>
                 )}
@@ -151,3 +152,5 @@ export default function TasksPage() {
     </div>
   );
 }
+
+    
