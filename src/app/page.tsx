@@ -58,6 +58,7 @@ const BOOST_DURATION_MS = 60000;
 // --- Firestore Game State Interface ---
 interface UserGameState {
   score: number;
+  energy: number; // Added energy to save state
   maxEnergyLevel: number;
   clickPowerLevel: number;
   energyRegenLevel: number;
@@ -98,6 +99,7 @@ const getCurrentDateString = () => {
 
 const initialGameState: UserGameState = {
   score: INITIAL_SCORE,
+  energy: INITIAL_MAX_ENERGY_BASE,
   maxEnergyLevel: 0,
   clickPowerLevel: 0,
   energyRegenLevel: 0,
@@ -162,7 +164,7 @@ export default function HomePage() {
 
   // Skins
   const [currentSkin, setCurrentSkin] = useState<Skin>(defaultSkin);
-  const [ownedSkins, setOwnedSkins] = useState<string[]>(['classic']); // Firestore will be source of truth
+  const [ownedSkins, setOwnedSkins] = useState<string[]>(['classic']);
 
   // Bot
   const [isBotOwned, setIsBotOwned] = useState(false);
@@ -181,21 +183,50 @@ export default function HomePage() {
   
   const prevIsBoostActiveRef = useRef<boolean>();
 
-  // Tasks (read from localStorage for now, will be part of UserGameState)
+  // Tasks
   const [completedUnclaimedTaskTierIds, setCompletedUnclaimedTaskTierIds] = useState<string[]>([]);
   const [claimedTaskTierIds, setClaimedTaskTierIds] = useState<string[]>([]);
   
-  // NFTs (read from localStorage for now)
+  // NFTs
   const [ownedNfts, setOwnedNfts] = useState<string[]>([]);
 
 
   const allTasksForNotification = useMemo(() => [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks], []);
 
   // --- Firestore Functions ---
+  const handleClaimBotCoins = useCallback(async (coinsToClaim: number) => {
+    if (!currentUser || coinsToClaim <= 0) return;
+
+    setScore(prevScore => prevScore + coinsToClaim);
+    setUnclaimedBotCoins(0);
+    const newSeen = new Date().toISOString();
+    setLastSeenTimestamp(newSeen);
+
+    const gameStateUpdate = {
+      score: score + coinsToClaim,
+      unclaimedBotCoins: 0,
+      lastSeenTimestamp: newSeen,
+      lastUpdated: serverTimestamp(),
+    };
+    try {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      await setDoc(userDocRef, gameStateUpdate, { merge: true });
+      toast({
+          title: "💰 Монеты зачислены!",
+          description: `${coinsToClaim.toLocaleString()} монет добавлено на ваш баланс.`,
+          duration: 3000,
+      });
+    } catch (error) {
+        console.error("Error saving after claiming bot coins:", error);
+        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось сохранить сбор монет." });
+    }
+  }, [currentUser, score, toast]);
+  
   const saveGameState = useCallback(async (userId: string) => {
     if (!userId) return;
     const gameStateToSave: UserGameState = {
       score,
+      energy,
       maxEnergyLevel,
       clickPowerLevel,
       energyRegenLevel,
@@ -229,7 +260,7 @@ export default function HomePage() {
       toast({ variant: "destructive", title: "Ошибка сохранения", description: "Не удалось сохранить прогресс игры." });
     }
   }, [
-    score, maxEnergyLevel, clickPowerLevel, energyRegenLevel, totalClicks, gameStartTime,
+    score, energy, maxEnergyLevel, clickPowerLevel, energyRegenLevel, totalClicks, gameStartTime,
     dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, lastResetDate,
     isBoostActive, boostEndTime, dailyClickBoostsAvailable, lastClickBoostResetDate,
     dailyFullEnergyBoostsAvailable, lastFullEnergyBoostResetDate,
@@ -245,22 +276,20 @@ export default function HomePage() {
       const userDocRef = doc(db, 'users', userId);
       const docSnap = await getDoc(userDocRef);
       const currentDateStr = getCurrentDateString();
-      let stateToSet = { ...initialGameState }; // Start with defaults
+      let stateToSet: UserGameState;
 
       if (docSnap.exists()) {
-        stateToSet = { ...initialGameState, ...docSnap.data() as UserGameState };
+        stateToSet = { ...initialGameState, ...docSnap.data() as Partial<UserGameState> };
 
         // Handle date string to Date object conversion for gameStartTime
         if (stateToSet.gameStartTime && typeof stateToSet.gameStartTime === 'string') {
           setGameStartTime(new Date(stateToSet.gameStartTime));
         } else if (!stateToSet.gameStartTime) {
-          stateToSet.gameStartTime = new Date().toISOString(); // Ensure new users get a gameStartTime
+          stateToSet.gameStartTime = new Date().toISOString();
           setGameStartTime(new Date());
         } else {
-           // If it's already a Timestamp or some other object, handle appropriately or log
-           // For now, if it's not a string, we'll default. This might happen if Firestore auto-converts.
-           console.warn("gameStartTime from Firestore was not a string:", stateToSet.gameStartTime);
-           setGameStartTime(new Date( (stateToSet.gameStartTime as any)?.toDate?.() || Date.now()));
+           const startTime = (stateToSet.gameStartTime as any)?.toDate?.() || stateToSet.gameStartTime;
+           setGameStartTime(new Date(startTime));
         }
         
         setScore(stateToSet.score);
@@ -275,7 +304,6 @@ export default function HomePage() {
           stateToSet.daily_coinsCollected = 0;
           stateToSet.daily_timePlayedSeconds = 0;
           stateToSet.daily_lastResetDate = currentDateStr;
-          // Reset daily task progress in Firestore if necessary by updating task-related arrays
           const dailyTierIds = new Set<string>();
           initialDailyTasks.forEach(task => task.tiers.forEach(tier => dailyTierIds.add(tier.id)));
           stateToSet.completedUnclaimedTaskTierIds = stateToSet.completedUnclaimedTaskTierIds.filter(id => !dailyTierIds.has(id));
@@ -308,8 +336,8 @@ export default function HomePage() {
         } else {
             setIsBoostActive(false);
             setBoostEndTime(0);
-            if (stateToSet.isBoostActive) { // if it was active but expired
-              stateToSet.isBoostActive = false; // ensure we save it as inactive
+            if (stateToSet.isBoostActive) {
+              stateToSet.isBoostActive = false;
             }
         }
 
@@ -325,23 +353,13 @@ export default function HomePage() {
         setClaimedTaskTierIds(stateToSet.claimedTaskTierIds);
         setOwnedNfts(stateToSet.ownedNfts || []);
 
-
-        // If any reset happened, save the updated state back
-        if (stateToSet.daily_lastResetDate === currentDateStr &&
-            stateToSet.daily_lastClickBoostResetDate === currentDateStr &&
-            stateToSet.daily_lastFullEnergyBoostResetDate === currentDateStr &&
-            docSnap.data().daily_lastResetDate !== currentDateStr // Check if original was different
-           ) {
-             // This save is if date fields were updated due to reset
-             await setDoc(userDocRef, stateToSet, { merge: true });
-        }
-
       } else {
-        // New user: save initial state
-        setGameStartTime(new Date(initialGameState.gameStartTime!)); // Set from initial explicitly
+        // New user: set from initial and save
+        stateToSet = initialGameState;
+        setGameStartTime(new Date(initialGameState.gameStartTime!));
         setScore(initialGameState.score);
+        setEnergy(initialGameState.energy);
         setMaxEnergyLevel(initialGameState.maxEnergyLevel);
-        // ... set all other states from initialGameState
         setClickPowerLevel(initialGameState.clickPowerLevel);
         setEnergyRegenLevel(initialGameState.energyRegenLevel);
         setTotalClicks(initialGameState.totalClicks);
@@ -367,65 +385,58 @@ export default function HomePage() {
         await setDoc(userDocRef, { ...initialGameState, gameStartTime: initialGameState.gameStartTime, lastUpdated: serverTimestamp() });
       }
 
-      // Bot offline earning calculation after loading state
-      if (stateToSet.isBotOwned) {
-        let currentUnclaimed = stateToSet.unclaimedBotCoins || 0;
-        let newLastSeen = stateToSet.lastSeenTimestamp || new Date().toISOString();
+      // --- OFFLINE & POST-LOAD CALCULATIONS ---
+      const timeOfflineInSeconds = stateToSet.lastSeenTimestamp
+        ? Math.floor((Date.now() - new Date(stateToSet.lastSeenTimestamp).getTime()) / 1000)
+        : 0;
 
-        if (currentUnclaimed > 0) {
-            // Already has unclaimed coins from previous session
-            toast({
-                title: <div className="flex items-center gap-2"><Bot className="h-5 w-5 text-primary" /><span className="font-semibold text-foreground">Бот Ожидает!</span></div>,
-                description: `У вас есть ${currentUnclaimed.toLocaleString()} монет от бота, ожидающих сбора.`,
-                duration: 30000,
-                action: ( <ToastAction altText="Забрать" onClick={() => handleClaimBotCoins(currentUnclaimed)}>Забрать</ToastAction> ) as ToastActionElement,
-            });
-            // Do not update lastSeenTimestamp here, it was from the previous session.
-            // It will be updated when coins are claimed or next time game is saved.
-        } else {
-            // Calculate earnings for the current offline period
-            const timeOfflineInSeconds = Math.floor((Date.now() - new Date(newLastSeen).getTime()) / 1000);
-            if (timeOfflineInSeconds > BOT_CLICK_INTERVAL_SECONDS) {
-                const botBaseClickPower = INITIAL_CLICK_POWER_BASE + (stateToSet.clickPowerLevel * CLICK_POWER_INCREMENT_PER_LEVEL);
-                const botClicksCount = Math.floor(timeOfflineInSeconds / BOT_CLICK_INTERVAL_SECONDS);
-                const coinsEarnedByBot = botClicksCount * botBaseClickPower;
-                const actualCoinsEarned = Math.min(coinsEarnedByBot, BOT_MAX_OFFLINE_COINS);
-
-                if (actualCoinsEarned > 0) {
-                    setUnclaimedBotCoins(actualCoinsEarned); // Update local state first
-                    newLastSeen = new Date().toISOString(); // Bot has "worked" up to now
-                    setLastSeenTimestamp(newLastSeen);
-                    
-                    await setDoc(userDocRef, { unclaimedBotCoins: actualCoinsEarned, lastSeenTimestamp: newLastSeen, lastUpdated: serverTimestamp() }, { merge: true });
-                    
-                    toast({
-                        title: <div className="flex items-center gap-2"><Bot className="h-5 w-5 text-primary" /><span className="font-semibold text-foreground">Бот Помог!</span></div>,
-                        description: `Ваш оффлайн бот готов передать вам ${actualCoinsEarned.toLocaleString()} монет.`,
-                        duration: 30000,
-                        action: ( <ToastAction altText="Забрать" onClick={() => handleClaimBotCoins(actualCoinsEarned)}>Забрать</ToastAction> ) as ToastActionElement,
-                    });
-                } else {
-                    // No new coins earned, just update last seen
-                    newLastSeen = new Date().toISOString();
-                    setLastSeenTimestamp(newLastSeen);
-                    await setDoc(userDocRef, { lastSeenTimestamp: newLastSeen, lastUpdated: serverTimestamp() }, { merge: true });
-                }
-            } else {
-                 // Not offline long enough, just update last seen
-                newLastSeen = new Date().toISOString();
-                setLastSeenTimestamp(newLastSeen);
-                await setDoc(userDocRef, { lastSeenTimestamp: newLastSeen, lastUpdated: serverTimestamp() }, { merge: true });
-            }
-        }
+      // 1. Offline Energy Regeneration
+      if (timeOfflineInSeconds > 0) {
+        const calculatedMaxEnergy = INITIAL_MAX_ENERGY_BASE + (stateToSet.maxEnergyLevel * MAX_ENERGY_INCREMENT_PER_LEVEL);
+        const calculatedEnergyRegenRate = INITIAL_ENERGY_REGEN_RATE_BASE + (stateToSet.energyRegenLevel * ENERGY_REGEN_INCREMENT_PER_LEVEL);
+        const energyRegenerated = timeOfflineInSeconds * calculatedEnergyRegenRate;
+        const newEnergy = Math.min(calculatedMaxEnergy, stateToSet.energy + energyRegenerated);
+        setEnergy(newEnergy);
       } else {
-          // Bot not owned, just update last seen if user exists
-          const newSeen = new Date().toISOString();
-          setLastSeenTimestamp(newSeen);
-          if (docSnap.exists()) { // Only save if doc existed, otherwise initial save handles it
-            await setDoc(userDocRef, { lastSeenTimestamp: newSeen, lastUpdated: serverTimestamp() }, { merge: true });
-          }
+        setEnergy(stateToSet.energy);
       }
 
+      // 2. Bot Offline Earnings
+      if (stateToSet.isBotOwned) {
+        const savedUnclaimedBotCoins = stateToSet.unclaimedBotCoins || 0;
+        let newlyEarnedBotCoins = 0;
+
+        if (timeOfflineInSeconds > BOT_CLICK_INTERVAL_SECONDS) {
+          const botBaseClickPower = INITIAL_CLICK_POWER_BASE + (stateToSet.clickPowerLevel * CLICK_POWER_INCREMENT_PER_LEVEL);
+          const botClicksCount = Math.floor(timeOfflineInSeconds / BOT_CLICK_INTERVAL_SECONDS);
+          newlyEarnedBotCoins = botClicksCount * botBaseClickPower;
+        }
+
+        const totalPotentialCoins = savedUnclaimedBotCoins + newlyEarnedBotCoins;
+        const totalUnclaimedCoins = Math.min(totalPotentialCoins, BOT_MAX_OFFLINE_COINS);
+
+        if (totalUnclaimedCoins > 0) {
+          setUnclaimedBotCoins(totalUnclaimedCoins);
+          
+          if (totalUnclaimedCoins > savedUnclaimedBotCoins) {
+              await setDoc(userDocRef, { unclaimedBotCoins: totalUnclaimedCoins, lastUpdated: serverTimestamp() }, { merge: true });
+          }
+
+          toast({
+            title: <div className="flex items-center gap-2"><Bot className="h-5 w-5 text-primary" /><span className="font-semibold text-foreground">Бот ждет!</span></div>,
+            description: `Ваш бот накопил ${totalUnclaimedCoins.toLocaleString()} монет. Заберите их!`,
+            duration: 30000,
+            action: ( <ToastAction altText="Забрать" onClick={() => handleClaimBotCoins(totalUnclaimedCoins)}>Забрать</ToastAction> ) as ToastActionElement,
+          });
+        }
+      }
+
+      // 3. Update Last Seen Timestamp for all users
+      const newSeen = new Date().toISOString();
+      setLastSeenTimestamp(newSeen);
+      if (docSnap.exists()) {
+        await setDoc(userDocRef, { lastSeenTimestamp: newSeen, lastUpdated: serverTimestamp() }, { merge: true });
+      }
 
       // Unclaimed rewards toast
       if (stateToSet.completedUnclaimedTaskTierIds.length > 0 && !sessionStorage.getItem('newRewardsToastShownThisSession')) {
@@ -436,22 +447,17 @@ export default function HomePage() {
     } catch (error) {
       console.error("Error loading game state:", error);
       toast({ variant: "destructive", title: "Ошибка загрузки", description: "Не удалось загрузить прогресс игры." });
-      // Fallback to local initial state if Firestore fails critically
-        setGameStartTime(new Date(initialGameState.gameStartTime!));
-        setScore(initialGameState.score);
-        setMaxEnergyLevel(initialGameState.maxEnergyLevel);
-        // ... set all other states from initialGameState
     } finally {
       setIsGameDataLoading(false);
       gameDataLoadedRef.current = true;
     }
-  }, [toast]); // Removed saveGameState from dependencies to avoid loops
+  }, [toast, handleClaimBotCoins]);
 
 
   useEffect(() => {
     if (!authLoading && !currentUser) {
       router.push('/login');
-      gameDataLoadedRef.current = false; // Reset loading flag on logout
+      gameDataLoadedRef.current = false;
     } else if (currentUser && !gameDataLoadedRef.current && !authLoading) {
       loadGameState(currentUser.uid);
     }
@@ -483,7 +489,6 @@ export default function HomePage() {
     };
   }, [dailyClicks, dailyCoinsCollected, dailyTimePlayedSeconds, score, ownedSkins]);
 
-  // Check for task completion when relevant states change
    useEffect(() => {
     if (currentUser && !isGameDataLoading) {
         const { newCompletedUnclaimedTierIds, newRewardsWereAdded } = checkAndNotifyTaskCompletion(
@@ -494,9 +499,7 @@ export default function HomePage() {
             toast
         );
         if (newRewardsWereAdded) {
-            setCompletedUnclaimedTaskTierIds(newCompletedUnclaimedTierIds); // Update local state for UI
-            // The saveGameState will be triggered by other actions or a dedicated save mechanism
-            // For now, let's ensure this critical task state is saved.
+            setCompletedUnclaimedTaskTierIds(newCompletedUnclaimedTierIds);
             saveGameState(currentUser.uid); 
         }
     }
@@ -511,21 +514,15 @@ export default function HomePage() {
         setIsBoostActive(false);
         setBoostEndTime(0);
         toast({ title: "⚙️ Буст Завершён", description: "Действие буста x2 силы клика закончилось.", duration: 4000 });
-        // The saveGameState call is removed from here to prevent stale closure issues.
-        // Another effect will handle saving.
       }
     }, 1000);
     return () => clearInterval(timer);
   }, [isBoostActive, boostEndTime, toast, currentUser]);
 
-  // Effect to save state when boost ends to avoid stale closures in setInterval
   useEffect(() => {
-      // This effect runs after every render.
-      // We check if the boost has just transitioned from active to inactive.
       if (prevIsBoostActiveRef.current === true && isBoostActive === false && currentUser) {
           saveGameState(currentUser.uid);
       }
-      // Update the ref to the current value for the next render.
       prevIsBoostActiveRef.current = isBoostActive;
   }, [isBoostActive, currentUser, saveGameState]);
 
@@ -573,55 +570,6 @@ export default function HomePage() {
     return () => clearInterval(dailyTimeUpdateTimer);
   }, [currentUser, isGameDataLoading]);
   
-  // Listener for skin changes from SkinsPage (which will eventually write to Firestore)
-  // For now, this keeps HomePage skin consistent if localStorage is changed by SkinsPage.
-  // This will be removed/refactored when SkinsPage uses Firestore.
-  useEffect(() => {
-    if (!currentUser || isGameDataLoading) return;
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'selectedSkinId' && event.newValue) {
-        const skinToApply = initialSkins.find(s => s.id === event.newValue) || defaultSkin;
-        setCurrentSkin(skinToApply);
-        // If HomePage is authoritative for currentSkin, it should save this change.
-        // saveGameState(currentUser.uid); // This might be too aggressive for just skin change via localStorage.
-      }
-      // Similar listeners for other localStorage items if needed during transition.
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [currentUser, isGameDataLoading, saveGameState]); // saveGameState if it needs to react to this.
-
-  const handleClaimBotCoins = useCallback(async (coinsToClaim: number) => {
-    if (!currentUser || coinsToClaim <= 0) return;
-
-    setScore(prevScore => prevScore + coinsToClaim);
-    setUnclaimedBotCoins(0);
-    const newSeen = new Date().toISOString();
-    setLastSeenTimestamp(newSeen); // Update last seen now that coins are claimed
-
-    // Directly save after claiming
-    // Construct the partial state to save specifically for bot claim
-    const gameStateUpdate = {
-      score: score + coinsToClaim, // Use the updated score
-      unclaimedBotCoins: 0,
-      lastSeenTimestamp: newSeen,
-      lastUpdated: serverTimestamp(),
-    };
-    try {
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userDocRef, gameStateUpdate, { merge: true });
-      toast({
-          title: "💰 Монеты зачислены!",
-          description: `${coinsToClaim.toLocaleString()} монет добавлено на ваш баланс.`,
-          duration: 3000,
-      });
-    } catch (error) {
-        console.error("Error saving after claiming bot coins:", error);
-        // Revert optimistic updates if save fails? Or retry? For now, log and toast.
-        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось сохранить сбор монет." });
-    }
-  }, [currentUser, score, toast]);
-
 
   const toggleShop = () => setIsShopOpen(prev => !prev);
 
@@ -684,7 +632,16 @@ export default function HomePage() {
       setClickPowerLevel(newClickPowerLevel);
       setEnergyRegenLevel(newEnergyRegenLevel);
       setIsBotOwned(newIsBotOwned);
-      await saveGameState(currentUser.uid); // Save after purchase
+      
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      await setDoc(userDocRef, {
+        score: newScore,
+        maxEnergyLevel: newMaxEnergyLevel,
+        clickPowerLevel: newClickPowerLevel,
+        energyRegenLevel: newEnergyRegenLevel,
+        isBotOwned: newIsBotOwned,
+        lastUpdated: serverTimestamp()
+      }, { merge: true });
     }
     return canPurchase;
   };
@@ -694,58 +651,58 @@ export default function HomePage() {
     
     setDailyClickBoostsAvailable(prev => prev - 1);
     setIsBoostActive(true);
-    setBoostEndTime(Date.now() + BOOST_DURATION_MS);
-    setLastClickBoostResetDate(getCurrentDateString()); // Ensure reset date is current
+    const newBoostEndTime = Date.now() + BOOST_DURATION_MS;
+    setBoostEndTime(newBoostEndTime);
+    const newResetDate = getCurrentDateString();
+    setLastClickBoostResetDate(newResetDate);
 
     toast({ title: "🚀 Буст Активирован!", description: "x2 сила клика на 1 минуту.", duration: 4000 });
-    await saveGameState(currentUser.uid);
-  }, [currentUser, isGameDataLoading, dailyClickBoostsAvailable, isBoostActive, toast, saveGameState]);
+    
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    await setDoc(userDocRef, {
+      daily_clickBoostsAvailable: dailyClickBoostsAvailable - 1,
+      isBoostActive: true,
+      boostEndTime: newBoostEndTime,
+      daily_lastClickBoostResetDate: newResetDate,
+      lastUpdated: serverTimestamp()
+    }, { merge: true });
+  }, [currentUser, isGameDataLoading, dailyClickBoostsAvailable, isBoostActive, toast]);
 
   const handleActivateFullEnergyBoost = useCallback(async () => {
     if (!currentUser || isGameDataLoading || dailyFullEnergyBoostsAvailable <= 0 || energy >= maxEnergy) return;
 
     setEnergy(maxEnergy);
     setDailyFullEnergyBoostsAvailable(prev => prev - 1);
-    setLastFullEnergyBoostResetDate(getCurrentDateString()); // Ensure reset date is current
+    const newResetDate = getCurrentDateString();
+    setLastFullEnergyBoostResetDate(newResetDate);
 
     toast({ title: "⚡ Энергия Восстановлена!", description: "Ваша энергия полностью заполнена.", duration: 4000 });
-    await saveGameState(currentUser.uid);
-  }, [currentUser, isGameDataLoading, dailyFullEnergyBoostsAvailable, maxEnergy, toast, saveGameState, energy]);
-
-  const handleNavigation = (path: string) => router.push(path);
-
-  // Effect to save game state on unmount or page visibility change (Best effort)
-  useEffect(() => {
-    const handleBeforeUnload = async () => {
-      if (currentUser && gameDataLoadedRef.current) {
-        // Update lastSeenTimestamp before saving on unload
-        const updatedGameState = { lastSeenTimestamp: new Date().toISOString() };
-         try {
-            const userDocRef = doc(db, 'users', currentUser.uid);
-            // Use a non-merged setDoc or updateDoc if you only want to update specific fields and not the whole state
-            // For simplicity here, we're assuming saveGameState handles the full state or is smart enough.
-            // A more targeted update for `lastSeenTimestamp` might be better for `beforeunload`.
-            await setDoc(userDocRef, { ...updatedGameState, lastUpdated: serverTimestamp() }, { merge: true });
-        } catch (error) {
-            console.error("Error saving lastSeenTimestamp on unload:", error);
-        }
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
     
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [currentUser]);
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    await setDoc(userDocRef, {
+      energy: maxEnergy, // Save the full energy
+      daily_fullEnergyBoostsAvailable: dailyFullEnergyBoostsAvailable - 1,
+      daily_lastFullEnergyBoostResetDate: newResetDate,
+      lastUpdated: serverTimestamp()
+    }, { merge: true });
+  }, [currentUser, isGameDataLoading, dailyFullEnergyBoostsAvailable, maxEnergy, toast, energy]);
 
-  // Effect to save game state when navigating away from the page
+  const handleNavigation = (path: string) => {
+    if (currentUser) {
+      saveGameState(currentUser.uid);
+    }
+    router.push(path);
+  };
+
   useEffect(() => {
-    return () => {
-      // This function runs when the component is about to unmount.
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (currentUser && gameDataLoadedRef.current) {
         saveGameState(currentUser.uid);
       }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [currentUser, saveGameState]);
 
