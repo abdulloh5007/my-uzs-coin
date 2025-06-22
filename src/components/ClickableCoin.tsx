@@ -28,7 +28,7 @@ const ClickableCoin: React.FC<ClickableCoinProps> = ({
       aria-label="Click coin"
       className={cn(
         "w-48 h-48 md:w-64 md:h-64 p-0 shadow-xl active:shadow-inner",
-        "flex items-center justify-center transition-all duration-150 ease-in-out",
+        "flex items-center justify-center transition-all duration-1000 ease-in-out",
         coinColorClass,
         isAnimating ? 'animate-coin-click' : '',
         'rounded-full',

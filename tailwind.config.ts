@@ -102,10 +102,10 @@ export default {
         },
       },
       animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
-        'coin-click': 'coin-click-effect 0.2s ease-out', /* Added for completeness */
-        'boost-pulse': 'boost-pulse 10s ease-in-out infinite',
+        'accordion-down': 'accordion-down 4s ease-out',
+        'accordion-up': 'accordion-up 4s ease-out',
+        'coin-click': 'coin-click-effect 0.3s ease-out', /* Added for completeness */
+        'boost-pulse': 'boost-pulse 12s ease-in-out infinite',
       },
     },
   },
