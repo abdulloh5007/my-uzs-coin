@@ -16,12 +16,13 @@ import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils.tsx';
 import type { Skin } from '@/types/skins';
 import { initialSkins, defaultSkin } from '@/data/skins';
 import { cn } from '@/lib/utils';
-import { Bot, Coins as CoinsIcon, Sparkles } from 'lucide-react';
+import { Bot, Coins as CoinsIcon, Sparkles, ShoppingCart } from 'lucide-react';
 import type { ToastActionElement } from "@/components/ui/toast";
 import { ToastAction } from "@/components/ui/toast";
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { Button } from '@/components/ui/button';
 
 // --- Game Balance Constants ---
 const INITIAL_MAX_ENERGY_BASE = 500;
@@ -227,31 +228,31 @@ export default function HomePage() {
   const saveGameState = useCallback(async (userId: string) => {
     if (!userId) return;
     const gameStateToSave: UserGameState = {
-      score,
-      energy,
-      maxEnergyLevel,
-      clickPowerLevel,
-      energyRegenLevel,
-      totalClicks,
+      score: score,
+      energy: energy,
+      maxEnergyLevel: maxEnergyLevel,
+      clickPowerLevel: clickPowerLevel,
+      energyRegenLevel: energyRegenLevel,
+      totalClicks: totalClicks,
       gameStartTime: gameStartTime ? gameStartTime.toISOString() : new Date().toISOString(),
       daily_clicks: dailyClicks,
       daily_coinsCollected: dailyCoinsCollected,
       daily_timePlayedSeconds: dailyTimePlayedSeconds,
       daily_lastResetDate: lastResetDate,
-      isBoostActive,
-      boostEndTime,
+      isBoostActive: isBoostActive,
+      boostEndTime: boostEndTime,
       daily_clickBoostsAvailable: dailyClickBoostsAvailable,
       daily_lastClickBoostResetDate: lastClickBoostResetDate,
       daily_fullEnergyBoostsAvailable: dailyFullEnergyBoostsAvailable,
       daily_lastFullEnergyBoostResetDate: lastFullEnergyBoostResetDate,
-      isBotOwned,
-      lastSeenTimestamp,
-      unclaimedBotCoins,
-      ownedSkins,
+      isBotOwned: isBotOwned,
+      lastSeenTimestamp: lastSeenTimestamp,
+      unclaimedBotCoins: unclaimedBotCoins,
+      ownedSkins: ownedSkins,
       selectedSkinId: currentSkin.id,
-      completedUnclaimedTaskTierIds,
-      claimedTaskTierIds,
-      ownedNfts,
+      completedUnclaimedTaskTierIds: completedUnclaimedTaskTierIds,
+      claimedTaskTierIds: claimedTaskTierIds,
+      ownedNfts: ownedNfts,
       lastUpdated: serverTimestamp(),
     };
     try {
@@ -729,15 +730,10 @@ export default function HomePage() {
         currentSkin.pageGradientFromClass,
         currentSkin.pageGradientToClass
       )}>
-      <TopBar onShopClick={toggleShop} />
+      <TopBar score={score} />
       
       <main className="flex flex-col flex-grow pt-16 pb-20 md:pb-24 px-4">
         <div className="flex-grow flex flex-col items-center justify-center gap-6 pb-10">
-          <div className="text-center">
-            <h2 className="text-5xl md:text-6xl font-bold text-primary tracking-tighter">{score.toLocaleString()}</h2>
-            <p className="text-muted-foreground -mt-1">монет</p>
-          </div>
-          
           <ClickableCoin
             onClick={handleCoinClick}
             isAnimating={isAnimatingClick}
@@ -747,8 +743,16 @@ export default function HomePage() {
           />
         </div>
         
-        <div>
-          <EnergyBar currentEnergy={energy} maxEnergy={maxEnergy} className="w-full max-w-md mx-auto" />
+        <div className="w-full max-w-md mx-auto flex items-center gap-4">
+          <EnergyBar currentEnergy={energy} maxEnergy={maxEnergy} className="flex-grow" />
+           <Button 
+            size="icon"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-12 h-12 flex-shrink-0"
+            onClick={toggleShop}
+            aria-label="Открыть магазин"
+          >
+            <ShoppingCart className="h-6 w-6" />
+          </Button>
         </div>
       </main>
 
