@@ -183,7 +183,6 @@ export default function HomePage() {
 
   const [isBoostActive, setIsBoostActive] = useState(false);
   const [boostEndTime, setBoostEndTime] = useState(0);
-  const [boostTimeLeft, setBoostTimeLeft] = useState(0);
   const [originalClickPowerBeforeBoost, setOriginalClickPowerBeforeBoost] = useState(INITIAL_CLICK_POWER_BASE);
   
   const prevIsBoostActiveRef = useRef<boolean>();
@@ -235,32 +234,32 @@ export default function HomePage() {
   const saveGameState = useCallback(async (userId: string) => {
     if (!userId) return;
     const gameStateToSave: UserGameState = {
-      score: score,
-      totalScoreCollected: totalScoreCollected,
-      energy: energy,
-      maxEnergyLevel: maxEnergyLevel,
-      clickPowerLevel: clickPowerLevel,
-      energyRegenLevel: energyRegenLevel,
-      totalClicks: totalClicks,
+      score,
+      totalScoreCollected,
+      energy,
+      maxEnergyLevel,
+      clickPowerLevel,
+      energyRegenLevel,
+      totalClicks,
       gameStartTime: gameStartTime ? gameStartTime.toISOString() : new Date().toISOString(),
       daily_clicks: dailyClicks,
       daily_coinsCollected: dailyCoinsCollected,
       daily_timePlayedSeconds: dailyTimePlayedSeconds,
       daily_lastResetDate: lastResetDate,
-      isBoostActive: isBoostActive,
-      boostEndTime: boostEndTime,
+      isBoostActive,
+      boostEndTime,
       daily_clickBoostsAvailable: dailyClickBoostsAvailable,
       daily_lastClickBoostResetDate: lastClickBoostResetDate,
       daily_fullEnergyBoostsAvailable: dailyFullEnergyBoostsAvailable,
       daily_lastFullEnergyBoostResetDate: lastFullEnergyBoostResetDate,
-      isBotOwned: isBotOwned,
-      lastSeenTimestamp: lastSeenTimestamp,
-      unclaimedBotCoins: unclaimedBotCoins,
-      ownedSkins: ownedSkins,
+      isBotOwned,
+      lastSeenTimestamp,
+      unclaimedBotCoins,
+      ownedSkins,
       selectedSkinId: currentSkin.id,
-      completedUnclaimedTaskTierIds: completedUnclaimedTaskTierIds,
-      claimedTaskTierIds: claimedTaskTierIds,
-      ownedNfts: ownedNfts,
+      completedUnclaimedTaskTierIds,
+      claimedTaskTierIds,
+      ownedNfts,
       lastUpdated: serverTimestamp(),
     };
     try {
@@ -552,24 +551,6 @@ export default function HomePage() {
       prevIsBoostActiveRef.current = isBoostActive;
   }, [isBoostActive, currentUser, saveGameState]);
   
-  // Boost Timer Countdown for UI
-  useEffect(() => {
-      if (!isBoostActive || boostEndTime === 0) {
-          setBoostTimeLeft(0);
-          return;
-      }
-
-      const updateTimer = () => {
-          const remaining = Math.max(0, Math.ceil((boostEndTime - Date.now()) / 1000));
-          setBoostTimeLeft(remaining);
-      };
-
-      updateTimer(); // Initial call
-      const intervalId = setInterval(updateTimer, 1000);
-
-      return () => clearInterval(intervalId);
-  }, [isBoostActive, boostEndTime]);
-
 
   const energyRegenAmountPerInterval = energyRegenRatePerSecond * (ENERGY_REGEN_INTERVAL / 1000);
 
@@ -771,18 +752,17 @@ export default function HomePage() {
       )}>
       <TopBar />
       
-      <main className="flex flex-col flex-grow pt-20 pb-20 md:pb-24 px-4">
+      <main className="flex flex-col flex-grow pt-16 pb-20 md:pb-24 px-4">
         
-        <div className="flex flex-col items-center justify-center mb-4">
+        <div className="flex flex-col items-center justify-center py-4">
           <span className="text-4xl font-bold text-primary tracking-tighter">{score.toLocaleString()}</span>
           <span className="text-xs -mt-1 text-muted-foreground">монет</span>
         </div>
       
-        <div className="flex-grow flex flex-col items-center justify-center gap-4">
-          {isBoostActive && boostTimeLeft > 0 && (
+        <div className="flex-grow flex flex-col items-center justify-center gap-4 pb-12">
+          {isBoostActive && (
             <div className="mb-2 text-center">
               <p className="text-2xl font-bold text-amber-400 animate-pulse">BOOST x2</p>
-              <p className="text-lg font-semibold text-foreground">{boostTimeLeft}с осталось</p>
             </div>
           )}
           <ClickableCoin
@@ -795,7 +775,7 @@ export default function HomePage() {
           />
         </div>
         
-        <div className="w-full max-w-md mx-auto flex items-center gap-4 mt-auto pt-4">
+        <div className="w-full max-w-md mx-auto flex items-center gap-4 mt-auto">
           <EnergyBar currentEnergy={energy} maxEnergy={maxEnergy} className="flex-grow" />
            <Button 
             size="icon"
