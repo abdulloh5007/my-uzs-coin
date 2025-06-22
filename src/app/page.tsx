@@ -774,7 +774,7 @@ export default function HomePage() {
       <main className="flex flex-col flex-grow pt-20 pb-20 md:pb-24 px-4">
         
         <div className="flex flex-col items-center justify-center mb-4">
-          <span className="text-4xl font-bold text-foreground tracking-tighter">{score.toLocaleString()}</span>
+          <span className="text-4xl font-bold text-primary tracking-tighter">{score.toLocaleString()}</span>
           <span className="text-xs -mt-1 text-muted-foreground">монет</span>
         </div>
       
