@@ -12,14 +12,36 @@ import {
   type User,
   type AuthError,
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase'; // Ваш файл инициализации Firebase
+import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
+import { 
+    doc, 
+    getDocs,
+    setDoc,
+    query,
+    collection,
+    where,
+    writeBatch,
+    increment,
+    arrayUnion,
+    serverTimestamp
+} from 'firebase/firestore';
+
+const REFERRAL_BONUS = 25000;
+const INITIAL_MAX_ENERGY_BASE = 500;
+const DAILY_CLICK_BOOST_LIMIT = 3;
+const DAILY_FULL_ENERGY_BOOST_LIMIT = 3;
+
+const getCurrentDateString = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0]; // YYYY-MM-DD
+};
 
 interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<User | AuthError>;
-  register: (email: string, password: string, nickname: string) => Promise<User | AuthError>;
+  register: (email: string, password: string, nickname: string, referralCode?: string) => Promise<User | AuthError>;
   logout: () => Promise<void>;
 }
 
@@ -47,17 +69,83 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string, nickname: string): Promise<User | AuthError> => {
+  const register = async (email: string, password: string, nickname: string, referralCode?: string): Promise<User | AuthError> => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      // After creating the user, update their profile with the nickname
-      await updateProfile(userCredential.user, {
+      const user = userCredential.user;
+      
+      await updateProfile(user, {
         displayName: nickname,
       });
-      // We need to reload the user to get the updated displayName
-      // However, onAuthStateChanged will trigger automatically with the updated user,
-      // so we can just return the user from the credential.
-      return userCredential.user;
+
+      const batch = writeBatch(db);
+      const newUserDocRef = doc(db, 'users', user.uid);
+      const newReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      let initialScore = 0;
+      let referredBy = '';
+
+      if (referralCode) {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where("referralCode", "==", referralCode.trim().toUpperCase()));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const referrerDoc = querySnapshot.docs[0];
+          if (referrerDoc.id !== user.uid) { // Prevent self-referral
+            initialScore = REFERRAL_BONUS;
+            referredBy = referrerDoc.id;
+
+            const referrerRef = doc(db, 'users', referrerDoc.id);
+            batch.update(referrerRef, {
+              score: increment(REFERRAL_BONUS),
+              totalScoreCollected: increment(REFERRAL_BONUS),
+              totalReferralBonus: increment(REFERRAL_BONUS),
+              referredUsers: arrayUnion({ uid: user.uid, nickname: nickname }),
+            });
+          }
+        }
+      }
+
+      // Define initial game state for the new user
+      const newUserInitialData = {
+          score: initialScore,
+          totalScoreCollected: initialScore,
+          energy: INITIAL_MAX_ENERGY_BASE,
+          maxEnergyLevel: 0,
+          clickPowerLevel: 0,
+          energyRegenLevel: 0,
+          totalClicks: 0,
+          gameStartTime: new Date().toISOString(),
+          daily_clicks: 0,
+          daily_coinsCollected: 0,
+          daily_timePlayedSeconds: 0,
+          daily_lastResetDate: getCurrentDateString(),
+          isBoostActive: false,
+          boostEndTime: 0,
+          daily_clickBoostsAvailable: DAILY_CLICK_BOOST_LIMIT,
+          daily_lastClickBoostResetDate: getCurrentDateString(),
+          daily_fullEnergyBoostsAvailable: DAILY_FULL_ENERGY_BOOST_LIMIT,
+          daily_lastFullEnergyBoostResetDate: getCurrentDateString(),
+          isBotOwned: false,
+          lastSeenTimestamp: new Date().toISOString(),
+          unclaimedBotCoins: 0,
+          ownedSkins: ['classic'],
+          selectedSkinId: 'classic',
+          completedUnclaimedTaskTierIds: [],
+          claimedTaskTierIds: [],
+          ownedNfts: [],
+          referralCode: newReferralCode,
+          referredBy: referredBy,
+          referredUsers: [],
+          totalReferralBonus: 0,
+          lastUpdated: serverTimestamp(),
+      };
+
+      batch.set(newUserDocRef, newUserInitialData);
+      await batch.commit();
+
+      return user;
     } catch (error) {
       return error as AuthError;
     }

@@ -1,7 +1,7 @@
 
 import type React from 'react';
 import { useState, useEffect } from 'react'; 
-import { User, MousePointerClick, ListChecks, Gift, Sparkles, Palette } from 'lucide-react';
+import { User, MousePointerClick, Gift, Sparkles, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { usePathname, useRouter } from 'next/navigation';
@@ -70,10 +70,11 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
 
 
   const navItems: Omit<NavItemProps, 'isActive' | 'onClick' | 'hasNotification'>[] = [
-    { icon: User, label: 'Профиль', path: '/profile' },
     { icon: MousePointerClick, label: 'Кликер', path: '/' }, 
+    { icon: Users, label: 'Друзья', path: '/friends' },
     { icon: Gift, label: 'Награды', path: '/rewards' },
     { icon: Sparkles, label: 'Mint', path: '/mint' },
+    { icon: User, label: 'Профиль', path: '/profile' },
   ];
 
   const handleItemClick = (path: string) => {

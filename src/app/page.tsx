@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { formatDistanceStrict } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/data/tasks';
-import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils.tsx';
+import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
 import type { Skin } from '@/types/skins';
 import { initialSkins, defaultSkin } from '@/data/skins';
 import { cn } from '@/lib/utils';
@@ -90,6 +90,12 @@ interface UserGameState {
   
   ownedNfts: string[]; // For mint page
 
+  // Referral System Fields
+  referralCode?: string;
+  referredBy?: string;
+  referredUsers?: Array<{ uid: string; nickname: string }>;
+  totalReferralBonus?: number;
+
   lastUpdated?: any; // Firestore ServerTimestamp
 }
 
@@ -130,6 +136,11 @@ const initialGameState: UserGameState = {
   completedUnclaimedTaskTierIds: [],
   claimedTaskTierIds: [],
   ownedNfts: [],
+  
+  referralCode: '',
+  referredBy: '',
+  referredUsers: [],
+  totalReferralBonus: 0,
 };
 
 
@@ -192,6 +203,11 @@ export default function HomePage() {
   
   // NFTs
   const [ownedNfts, setOwnedNfts] = useState<string[]>([]);
+
+  // Referral
+  const [referralCode, setReferralCode] = useState('');
+  const [referredUsers, setReferredUsers] = useState<Array<{ uid: string; nickname: string }>>([]);
+  const [totalReferralBonus, setTotalReferralBonus] = useState(0);
 
 
   const allTasksForNotification = useMemo(() => [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks], []);
@@ -259,6 +275,9 @@ export default function HomePage() {
       completedUnclaimedTaskTierIds,
       claimedTaskTierIds,
       ownedNfts,
+      referralCode,
+      referredUsers,
+      totalReferralBonus,
       lastUpdated: serverTimestamp(),
     };
     try {
@@ -275,7 +294,8 @@ export default function HomePage() {
     dailyFullEnergyBoostsAvailable, lastFullEnergyBoostResetDate,
     isBotOwned, lastSeenTimestamp, unclaimedBotCoins,
     ownedSkins, currentSkin.id,
-    completedUnclaimedTaskTierIds, claimedTaskTierIds, ownedNfts, toast
+    completedUnclaimedTaskTierIds, claimedTaskTierIds, ownedNfts, 
+    referralCode, referredUsers, totalReferralBonus, toast
   ]);
 
   const loadGameState = useCallback(async (userId: string) => {
@@ -365,6 +385,10 @@ export default function HomePage() {
         setCompletedUnclaimedTaskTierIds(stateToSet.completedUnclaimedTaskTierIds);
         setClaimedTaskTierIds(stateToSet.claimedTaskTierIds);
         setOwnedNfts(stateToSet.ownedNfts || []);
+        
+        setReferralCode(stateToSet.referralCode || '');
+        setReferredUsers(stateToSet.referredUsers || []);
+        setTotalReferralBonus(stateToSet.totalReferralBonus || 0);
 
          // --- OFFLINE & POST-LOAD CALCULATIONS ---
         const updatesToPersist: Partial<UserGameState> = {};
@@ -425,7 +449,8 @@ export default function HomePage() {
 
 
       } else {
-        // New user: set from initial and save
+        // New user: set from initial and save. This path should now rarely be taken,
+        // as the user doc is created on registration in AuthContext.
         stateToSet = initialGameState;
         setGameStartTime(new Date(initialGameState.gameStartTime!));
         setScore(initialGameState.score);
@@ -453,6 +478,9 @@ export default function HomePage() {
         setCompletedUnclaimedTaskTierIds(initialGameState.completedUnclaimedTaskTierIds);
         setClaimedTaskTierIds(initialGameState.claimedTaskTierIds);
         setOwnedNfts(initialGameState.ownedNfts);
+        setReferralCode(initialGameState.referralCode || '');
+        setReferredUsers(initialGameState.referredUsers || []);
+        setTotalReferralBonus(initialGameState.totalReferralBonus || 0);
         
         await setDoc(userDocRef, { ...initialGameState, gameStartTime: initialGameState.gameStartTime, lastUpdated: serverTimestamp() });
       }

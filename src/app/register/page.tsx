@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { AuthError } from 'firebase/auth';
@@ -22,6 +22,7 @@ const registerSchema = z.object({
   email: z.string().email({ message: "Некорректный email." }),
   password: z.string().min(6, { message: "Пароль должен быть не менее 6 символов." }),
   confirmPassword: z.string().min(6, { message: "Подтверждение пароля должно быть не менее 6 символов." }),
+  referralCode: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Пароли не совпадают.",
   path: ["confirmPassword"], // a path to the field that will be blamed
@@ -29,10 +30,12 @@ const registerSchema = z.object({
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
   const { register, currentUser, loading } = useAuth();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const refCode = searchParams.get('ref');
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -41,8 +44,15 @@ export default function RegisterPage() {
       email: '',
       password: '',
       confirmPassword: '',
+      referralCode: '',
     },
   });
+
+  useEffect(() => {
+    if (refCode) {
+      form.setValue('referralCode', refCode);
+    }
+  }, [refCode, form]);
 
   useEffect(() => {
     if (!loading && currentUser) {
@@ -51,7 +61,7 @@ export default function RegisterPage() {
   }, [currentUser, loading, router]);
 
   const onSubmit = async (data: RegisterFormValues) => {
-    const result = await register(data.email, data.password, data.nickname);
+    const result = await register(data.email, data.password, data.nickname, data.referralCode);
     if ('code' in result) { // AuthError
       const firebaseError = result as AuthError;
       let errorMessage = "Ошибка регистрации. Пожалуйста, попробуйте еще раз.";
@@ -154,6 +164,19 @@ export default function RegisterPage() {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="referralCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-foreground">Реферальный код (необязательно)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="ABCXYZ" {...field} className="bg-input/80 border-border text-foreground placeholder:text-muted-foreground" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground pt-2" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? "Регистрация..." : "Зарегистрироваться"}
               </Button>
@@ -170,5 +193,14 @@ export default function RegisterPage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div>Загрузка...</div>}>
+      <RegisterForm />
+    </Suspense>
   );
 }
