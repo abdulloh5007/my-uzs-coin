@@ -44,7 +44,7 @@ const LeagueInfoCard: React.FC<LeagueInfoCardProps> = ({
               <span>Прогресс до {nextLeague.name}</span>
               <span>{progressPercentage.toFixed(1)}%</span>
             </div>
-            <Progress value={progressPercentage} className={`h-2 ${currentLeague.color.replace('text-','bg-').replace('-400','/30')}`} indicatorClassName={`${currentLeague.color.replace('text-','bg-')}`} />
+            <Progress value={progressPercentage} className={`h-2 ${currentLeague.color.replace('text-','bg-')}/30`} indicatorClassName={`${currentLeague.color.replace('text-','bg-')}`} />
             <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
               <span>{isClient ? leagueScore.toLocaleString() : leagueScore} монет</span>
               <span>{isClient && nextLeague ? nextLeague.threshold.toLocaleString() : nextLeague?.threshold} монет</span>
