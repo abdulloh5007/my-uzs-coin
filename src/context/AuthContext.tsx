@@ -85,11 +85,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let initialScore = 0;
       let referredBy = '';
       
-      const trimmedCode = referralCode ? referralCode.trim() : '';
+      const trimmedCode = referralCode ? referralCode.trim().toUpperCase() : '';
 
       if (trimmedCode) {
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, where("referralCode", "==", trimmedCode.toUpperCase()));
+        const q = query(usersRef, where("referralCode", "==", trimmedCode));
         const querySnapshot = await getDocs(q);
 
         if (!querySnapshot.empty) {
@@ -98,12 +98,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             initialScore = REFERRAL_BONUS;
             referredBy = referrerDoc.id;
 
-            const referrerRef = doc(db, 'users', referrerDoc.id);
-            batch.update(referrerRef, {
-              score: increment(REFERRAL_BONUS),
-              totalScoreCollected: increment(REFERRAL_BONUS),
-              totalReferralBonus: increment(REFERRAL_BONUS),
-              referredUsers: arrayUnion({ uid: user.uid, nickname: nickname }),
+            // Create a pending referral document instead of updating the referrer directly
+            const referralRef = doc(collection(db, "referrals"));
+            batch.set(referralRef, {
+              referrerId: referrerDoc.id,
+              newUserId: user.uid,
+              newUserName: nickname,
+              awarded: false,
+              createdAt: serverTimestamp(),
+              bonusAmount: REFERRAL_BONUS
             });
           }
         }

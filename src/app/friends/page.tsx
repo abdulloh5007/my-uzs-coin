@@ -10,9 +10,11 @@ import { Copy, Users, Gift, Check, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, where, writeBatch, increment, arrayUnion } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+
+const REFERRAL_BONUS = 25000;
 
 interface FriendsPageState {
   referralCode: string;
@@ -61,13 +63,61 @@ export default function FriendsPage() {
     }
   }, [toast]);
 
+  const claimPendingReferrals = useCallback(async (userId: string) => {
+    try {
+        const referralsRef = collection(db, 'referrals');
+        const q = query(referralsRef, where('referrerId', '==', userId), where('awarded', '==', false));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            return false;
+        }
+
+        const batch = writeBatch(db);
+        let totalBonus = 0;
+        const newFriends: { uid: string; nickname: string }[] = [];
+
+        querySnapshot.forEach(docSnap => {
+            const referralData = docSnap.data();
+            totalBonus += referralData.bonusAmount || REFERRAL_BONUS;
+            newFriends.push({ uid: referralData.newUserId, nickname: referralData.newUserName });
+            batch.update(docSnap.ref, { awarded: true });
+        });
+
+        if (totalBonus > 0) {
+            const userDocRef = doc(db, 'users', userId);
+            batch.update(userDocRef, {
+                score: increment(totalBonus),
+                totalScoreCollected: increment(totalBonus),
+                totalReferralBonus: increment(totalBonus),
+                referredUsers: arrayUnion(...newFriends),
+            });
+
+            await batch.commit();
+
+            toast({
+                title: `🎉 Получен бонус за ${newFriends.length} друзей!`,
+                description: `Вам начислено ${totalBonus.toLocaleString()} монет.`,
+            });
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error("Error claiming referrals:", error);
+        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось получить реферальный бонус." });
+        return false;
+    }
+  }, [toast]);
+
   useEffect(() => {
     if (!authLoading && !currentUser) {
       router.push('/login');
     } else if (currentUser) {
-      loadFriendsData(currentUser.uid);
+      claimPendingReferrals(currentUser.uid).finally(() => {
+        loadFriendsData(currentUser.uid);
+      });
     }
-  }, [currentUser, authLoading, router, loadFriendsData]);
+  }, [currentUser, authLoading, router, loadFriendsData, claimPendingReferrals]);
 
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(referralLink).then(() => {
