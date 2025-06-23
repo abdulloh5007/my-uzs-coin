@@ -84,10 +84,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       let initialScore = 0;
       let referredBy = '';
+      
+      const trimmedCode = referralCode ? referralCode.trim() : '';
 
-      if (referralCode) {
+      if (trimmedCode) {
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, where("referralCode", "==", referralCode.trim().toUpperCase()));
+        const q = query(usersRef, where("referralCode", "==", trimmedCode.toUpperCase()));
         const querySnapshot = await getDocs(q);
 
         if (!querySnapshot.empty) {
@@ -145,8 +147,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       batch.set(newUserDocRef, newUserInitialData);
       await batch.commit();
 
-      return user;
+      // Manually update the user object with the new display name to ensure it's available immediately
+      // This helps prevent issues where the rest of the app might see the old (null) displayName
+      await user.reload();
+      const updatedUser = auth.currentUser;
+
+      return updatedUser || user;
+
     } catch (error) {
+      console.error("Registration Error:", error);
       return error as AuthError;
     }
   };
