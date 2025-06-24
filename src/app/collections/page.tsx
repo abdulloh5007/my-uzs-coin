@@ -65,8 +65,10 @@ interface NftTransfer {
   instanceId: string;
   senderId: string;
   senderNickname: string;
+  senderPhotoURL?: string | null;
   recipientId?: string;
   recipientUsername: string;
+  recipientPhotoURL?: string | null;
   status: 'pending' | 'claimed';
   sentAt: Date;
 }
@@ -196,8 +198,10 @@ const SendNftDialog: React.FC<{
               instanceId: selectedNft.instanceId,
               senderId: currentUser.uid,
               senderNickname: currentUser.displayName || 'Аноним',
+              senderPhotoURL: currentUser.photoURL || null,
               recipientId: selectedRecipient.uid,
               recipientUsername: selectedRecipient.username,
+              recipientPhotoURL: selectedRecipient.photoURL || null,
               status: 'pending',
               sentAt: serverTimestamp()
           });
@@ -525,10 +529,17 @@ export default function CollectionsPage() {
                     {mailbox.map(transfer => {
                         const nft = nftItems.find(n => n.id === transfer.nftId);
                         if (!nft) return null;
-                        const Icon = nft.icon;
                         return (<Card key={transfer.id} className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3"><div className={cn("p-2 rounded-lg", nft.iconBgClass)}>{nft.imageUrl ? <Image src={nft.imageUrl} alt={nft.name} width={20} height={20} unoptimized /> : (Icon && <Icon className={cn("w-5 h-5", nft.iconColorClass)} />)}</div>
-                            <div><p className="text-sm font-semibold">{nft.name}</p><p className="text-xs text-muted-foreground">от {transfer.senderNickname}</p></div></div>
+                            <div className="flex items-center gap-3">
+                               <Avatar>
+                                    <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
+                                    <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="text-sm font-semibold">{nft.name}</p>
+                                  <p className="text-xs text-muted-foreground">от {transfer.senderNickname}</p>
+                                </div>
+                            </div>
                             <Button size="sm" onClick={() => handleClaimNft(transfer)}>Получить</Button>
                         </CardContent></Card>);
                     })}
@@ -539,10 +550,17 @@ export default function CollectionsPage() {
                     {sentHistory.map(transfer => {
                         const nft = nftItems.find(n => n.id === transfer.nftId);
                         if (!nft) return null;
-                        const Icon = nft.icon;
                         return (<Card key={transfer.id} className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
-                           <div className="flex items-center gap-3"><div className={cn("p-2 rounded-lg", nft.iconBgClass)}>{nft.imageUrl ? <Image src={nft.imageUrl} alt={nft.name} width={20} height={20} unoptimized /> : (Icon && <Icon className={cn("w-5 h-5", nft.iconColorClass)} />)}</div>
-                           <div><p className="text-sm font-semibold">{nft.name}</p><p className="text-xs text-muted-foreground">Отправлено {transfer.recipientUsername} • {formatDistanceToNow(transfer.sentAt, { addSuffix: true, locale: ru })}</p></div></div>
+                           <div className="flex items-center gap-3">
+                               <Avatar>
+                                    <AvatarImage src={transfer.recipientPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.recipientId}`} alt={transfer.recipientUsername}/>
+                                    <AvatarFallback>{transfer.recipientUsername?.charAt(1) || '?'}</AvatarFallback>
+                               </Avatar>
+                               <div>
+                                   <p className="text-sm font-semibold">{nft.name}</p>
+                                   <p className="text-xs text-muted-foreground">Отправлено {transfer.recipientUsername} • {formatDistanceToNow(transfer.sentAt, { addSuffix: true, locale: ru })}</p>
+                               </div>
+                           </div>
                            <Badge variant={transfer.status === 'claimed' ? 'default' : 'secondary'} className={cn(transfer.status === 'claimed' ? 'bg-green-500/80' : 'bg-yellow-500/80')}>{transfer.status === 'claimed' ? 'Получено' : 'В ожидании'}</Badge>
                         </CardContent></Card>);
                     })}
@@ -577,3 +595,6 @@ export default function CollectionsPage() {
     
 
 
+
+
+    
