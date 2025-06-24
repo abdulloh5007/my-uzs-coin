@@ -362,11 +362,11 @@ const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - left) / width - 0.5;
     const y = (e.clientY - top) / height - 0.5;
-    e.currentTarget.style.transform = `perspective(1000px) rotateX(${-y * 25}deg) rotateY(${x * 25}deg) scale3d(1.1, 1.1, 1.1)`;
+    iconRef.current.style.transform = `perspective(1000px) rotateX(${-y * 25}deg) rotateY(${x * 25}deg) scale3d(1.1, 1.1, 1.1)`;
   };
   const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!iconRef.current) return;
-    e.currentTarget.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+    iconRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
   };
   const Icon = nft.icon;
   return (
@@ -562,3 +562,5 @@ export default function CollectionsPage() {
     </div>
   );
 }
+
+    
