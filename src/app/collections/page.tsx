@@ -147,7 +147,7 @@ const SendNftDialog: React.FC<{
             querySnapshot.forEach(doc => {
                 if (doc.id !== currentUser?.uid) {
                     const data = doc.data();
-                    if(data.username){
+                    if(data.username && data.nickname){
                         users.push({
                             uid: doc.id,
                             username: data.username,
@@ -231,11 +231,11 @@ const SendNftDialog: React.FC<{
                            <CardContent className="p-3 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <Avatar>
-                                        <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${selectedRecipient.uid}`} alt={selectedRecipient.nickname} />
-                                        <AvatarFallback>{selectedRecipient.nickname.charAt(0)}</AvatarFallback>
+                                        <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${selectedRecipient.uid}`} alt={selectedRecipient.nickname || 'Пользователь'} />
+                                        <AvatarFallback>{selectedRecipient.nickname?.charAt(0) || '?'}</AvatarFallback>
                                     </Avatar>
                                     <div>
-                                        <p className="font-semibold text-foreground">{selectedRecipient.nickname}</p>
+                                        <p className="font-semibold text-foreground">{selectedRecipient.nickname || 'Пользователь'}</p>
                                         <p className="text-sm text-muted-foreground">{selectedRecipient.username}</p>
                                     </div>
                                 </div>
@@ -271,11 +271,11 @@ const SendNftDialog: React.FC<{
                                 <Card key={user.uid} className="cursor-pointer hover:bg-accent transition-colors" onClick={() => onRecipientSelect(user)}>
                                     <CardContent className="p-3 flex items-center gap-3">
                                          <Avatar>
-                                            <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${user.uid}`} alt={user.nickname}/>
-                                            <AvatarFallback>{user.nickname.charAt(0)}</AvatarFallback>
+                                            <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${user.uid}`} alt={user.nickname || 'Пользователь'}/>
+                                            <AvatarFallback>{user.nickname?.charAt(0) || '?'}</AvatarFallback>
                                         </Avatar>
                                         <div>
-                                            <p className="font-semibold text-foreground">{user.nickname}</p>
+                                            <p className="font-semibold text-foreground">{user.nickname || 'Пользователь'}</p>
                                             <p className="text-sm text-muted-foreground">{user.username}</p>
                                         </div>
                                     </CardContent>
