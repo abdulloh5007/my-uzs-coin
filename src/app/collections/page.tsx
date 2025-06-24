@@ -310,45 +310,52 @@ const NftDetailSheet: React.FC<{
     
     return (
       <Sheet open={!!nft} onOpenChange={onOpenChange}>
-          <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
-              <div className="flex flex-col h-full">
-                  <div className="p-6 pt-8 text-center" style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}>
+          <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] lg:max-h-[70vh] lg:max-w-4xl lg:mx-auto lg:mb-8 lg:rounded-2xl text-left">
+              <div className="flex flex-col lg:flex-row h-full">
+                  {/* LEFT PANE (Top on mobile) */}
+                  <div 
+                    className="p-6 pt-8 text-center lg:w-1/2 lg:flex lg:flex-col lg:justify-center lg:items-center lg:border-r lg:border-border/50" 
+                    style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}>
                       <ParallaxIconDisplay nft={nft} />
                       <SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle>
                       <CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription>
                   </div>
-                  <div className="p-6 flex-1 overflow-y-auto">
-                      <div className="space-y-4 text-sm">
-                          <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                              <span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span>
-                              <span className="font-semibold text-foreground">{currentUser?.displayName || 'Вы'}</span>
-                          </div>
-                          <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                              <span className="text-muted-foreground flex items-center gap-2"><Shield className="w-4 h-4"/>Тип</span>
-                              <Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge>
-                          </div>
-                          <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                              <span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span>
-                              <span className="font-semibold text-primary">{nft.rarity}%</span>
-                          </div>
-                          <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                              <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span>
-                              <span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span>
-                          </div>
-                          {nft.purchasedAt && (
+                  
+                  {/* RIGHT PANE (Bottom on mobile) */}
+                  <div className="flex flex-col flex-1 lg:w-1/2">
+                    <div className="p-6 flex-1 overflow-y-auto">
+                        <div className="space-y-4 text-sm">
                             <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                                <span className="text-muted-foreground flex items-center gap-2"><Clock className="w-4 h-4"/>Приобретено</span>
-                                <span className="font-semibold text-foreground">{formatDistanceToNow(nft.purchasedAt.toDate(), { addSuffix: true, locale: ru })}</span>
+                                <span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span>
+                                <span className="font-semibold text-foreground">{currentUser?.displayName || 'Вы'}</span>
                             </div>
-                          )}
-                      </div>
+                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                <span className="text-muted-foreground flex items-center gap-2"><Shield className="w-4 h-4"/>Тип</span>
+                                <Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge>
+                            </div>
+                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                <span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span>
+                                <span className="font-semibold text-primary">{nft.rarity}%</span>
+                            </div>
+                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span>
+                                <span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span>
+                            </div>
+                            {nft.purchasedAt && (
+                              <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                  <span className="text-muted-foreground flex items-center gap-2"><Clock className="w-4 h-4"/>Приобретено</span>
+                                  <span className="font-semibold text-foreground">{formatDistanceToNow(nft.purchasedAt.toDate(), { addSuffix: true, locale: ru })}</span>
+                              </div>
+                            )}
+                        </div>
+                    </div>
+                    <SheetFooter className="p-6 border-t border-border/50 bg-background mt-auto">
+                        <div className="w-full flex flex-col sm:flex-row gap-2">
+                            <Button className="w-full" variant="outline" disabled><Cog className="w-4 h-4 mr-2" /> Использовать</Button>
+                            <Button className="w-full" onClick={() => setIsSendDialogOpen(true)}><Send className="w-4 h-4 mr-2" /> Отправить</Button>
+                        </div>
+                    </SheetFooter>
                   </div>
-                  <SheetFooter className="p-6 border-t border-border/50 bg-background">
-                      <div className="w-full flex flex-col sm:flex-row gap-2">
-                          <Button className="w-full" variant="outline" disabled><Cog className="w-4 h-4 mr-2" /> Использовать</Button>
-                          <Button className="w-full" onClick={() => setIsSendDialogOpen(true)}><Send className="w-4 h-4 mr-2" /> Отправить</Button>
-                      </div>
-                  </SheetFooter>
               </div>
           </SheetContent>
       </Sheet>
