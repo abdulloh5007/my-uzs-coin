@@ -9,7 +9,6 @@ interface LeagueInfoCardProps {
   nextLeague: League | null;
   leagueScore: number;
   progressPercentage: number;
-  onOpenLeaderboard: () => void;
 }
 
 const LeagueInfoCard: React.FC<LeagueInfoCardProps> = ({
@@ -17,7 +16,6 @@ const LeagueInfoCard: React.FC<LeagueInfoCardProps> = ({
   nextLeague,
   leagueScore,
   progressPercentage,
-  onOpenLeaderboard
 }) => {
   const [isClient, setIsClient] = useState(false);
 
@@ -28,7 +26,7 @@ const LeagueInfoCard: React.FC<LeagueInfoCardProps> = ({
   const IconComponent = currentLeague.icon;
 
   return (
-    <Card className="bg-card/80 border-border/50 shadow-lg cursor-pointer hover:bg-card/90 transition-colors" onClick={onOpenLeaderboard}>
+    <Card className="bg-card/80 border-border/50 shadow-lg">
       <CardContent className="p-4 text-left">
         <div className="flex items-center mb-3">
           <IconComponent className={`w-10 h-10 mr-3 ${currentLeague.color}`} />

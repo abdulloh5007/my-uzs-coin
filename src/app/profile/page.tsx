@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp } from 'lucide-react';
+import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp, Globe, Trophy } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
@@ -15,6 +15,7 @@ import { formatDistanceStrict } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+import { Button } from '@/components/ui/button';
 
 const INITIAL_CLICK_POWER_BASE = 1;
 const CLICK_POWER_INCREMENT_PER_LEVEL = 1;
@@ -181,7 +182,6 @@ export default function ProfilePage() {
             nextLeague={nextLeague}
             leagueScore={stats.totalScoreCollected} 
             progressPercentage={progressPercentage}
-            onOpenLeaderboard={handleOpenLeaderboard}
           />
           
           <StatCard icon={Coins} label="Текущий баланс" value={stats.score.toLocaleString()} />
@@ -190,6 +190,15 @@ export default function ProfilePage() {
           <StatCard icon={History} label="Восстановление" value={`+${energyRegenRate}/сек`} />
           <StatCard icon={Star} label="Всего кликов" value={stats.totalClicks.toLocaleString()} />
           <StatCard icon={Clock4} label="Время игры" value={gameTimePlayed} />
+
+          <div className="flex gap-4 pt-4">
+            <Button className="w-full" onClick={handleOpenLeaderboard}>
+              <Globe className="mr-2 h-4 w-4" /> Глобальный рейтинг
+            </Button>
+            <Button className="w-full" variant="secondary" disabled>
+              <Trophy className="mr-2 h-4 w-4" /> Рейтинг лиги
+            </Button>
+          </div>
         </div>
 
       </div>
