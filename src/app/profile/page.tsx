@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp, Trophy, AtSign, KeyRound, Edit, Info } from 'lucide-react';
+import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp, Trophy, AtSign, KeyRound, Edit, Info, Settings, BarChartHorizontal } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
@@ -22,12 +22,8 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
 const INITIAL_CLICK_POWER_BASE = 1;
@@ -329,32 +325,44 @@ export default function ProfilePage() {
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
       <main className="flex-grow container mx-auto px-4 pt-10 md:pt-16 pb-20 md:pb-24">
-        <h1 className="text-4xl font-bold mb-8 text-center md:text-left">Профиль и Настройки</h1>
+        
+        <div className="max-w-2xl mx-auto text-center">
+            {/* --- User Info Header --- */}
+            <div className="flex flex-col items-center text-center">
+                <Avatar className="w-24 h-24 mb-4 shadow-lg ring-2 ring-primary/50">
+                    <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${currentUser.uid}`} alt="User Avatar" />
+                    <AvatarFallback><User className="w-12 h-12 text-muted-foreground" /></AvatarFallback>
+                </Avatar>
+                <h1 className="text-4xl font-bold">{stats.nickname}</h1>
+                <p className="text-muted-foreground flex items-center justify-center gap-1.5 mt-1">
+                    <Mail className="w-4 h-4"/>{currentUser.email}
+                </p>
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 md:gap-8 lg:gap-12">
-            {/* --- Left Column: Stats --- */}
-            <div className="space-y-6">
-                <div className="flex flex-col items-center md:items-start text-center md:text-left">
-                    <Avatar className="w-24 h-24 mx-auto md:mx-0 mb-4 shadow-lg ring-2 ring-primary/50">
-                        <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${currentUser.uid}`} alt="User Avatar" />
-                        <AvatarFallback><User className="w-12 h-12 text-muted-foreground" /></AvatarFallback>
-                    </Avatar>
-                    <h2 className="text-3xl font-bold">{stats.nickname}</h2>
-                    <p className="text-muted-foreground flex items-center justify-center md:justify-start gap-1.5">
-                        <Mail className="w-4 h-4"/>{currentUser.email}
-                    </p>
-                </div>
-
-                <div className="cursor-pointer" onClick={handleOpenLeaderboard}>
-                    <LeagueInfoCard
-                        currentLeague={currentLeague}
-                        nextLeague={nextLeague}
-                        leagueScore={stats.totalScoreCollected} 
-                        progressPercentage={progressPercentage}
-                    />
-                </div>
-
-                <h3 className="text-2xl font-bold text-center md:text-left pt-4">Статистика</h3>
+            {/* --- League Card --- */}
+            <div className="cursor-pointer mt-6" onClick={handleOpenLeaderboard}>
+                <LeagueInfoCard
+                    currentLeague={currentLeague}
+                    nextLeague={nextLeague}
+                    leagueScore={stats.totalScoreCollected} 
+                    progressPercentage={progressPercentage}
+                />
+            </div>
+            
+            {/* --- Tabs for Stats and Settings --- */}
+            <Tabs defaultValue="stats" className="w-full mt-8">
+              <TabsList className="grid w-full grid-cols-2 mb-6 bg-card/80">
+                  <TabsTrigger value="stats">
+                      <BarChartHorizontal className="w-4 h-4 mr-2" />
+                      Статистика
+                  </TabsTrigger>
+                  <TabsTrigger value="settings">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Настройки
+                  </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="stats" className="text-left">
                 <div className="space-y-4">
                     <StatCard icon={Coins} label="Текущий баланс" value={stats.score.toLocaleString()} />
                     <StatCard icon={TrendingUp} label="Всего заработано" value={stats.totalScoreCollected.toLocaleString()} />
@@ -363,11 +371,10 @@ export default function ProfilePage() {
                     <StatCard icon={Star} label="Всего кликов" value={stats.totalClicks.toLocaleString()} />
                     <StatCard icon={Clock4} label="Время игры" value={gameTimePlayed} />
                 </div>
-            </div>
-
-            {/* --- Right Column: Settings --- */}
-            <div className="space-y-6 mt-8 md:mt-0">
-                <Card className="bg-card/80 border-border/50 shadow-lg text-left">
+              </TabsContent>
+              
+              <TabsContent value="settings">
+                 <Card className="bg-card/80 border-border/50 shadow-lg text-left">
                     <CardHeader>
                         <CardTitle className="text-xl flex items-center gap-2"><Sparkles className="w-5 h-5 text-primary"/>Настройки профиля</CardTitle>
                         <CardDescription>Изменение данных вашего аккаунта.</CardDescription>
@@ -422,8 +429,10 @@ export default function ProfilePage() {
                         </div>
                     </CardContent>
                 </Card>
-            </div>
+              </TabsContent>
+            </Tabs>
         </div>
+
       </main>
       
       <BottomNavBar activeItem="/profile" onNavigate={handleNavigation} />
@@ -440,5 +449,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    
