@@ -108,11 +108,11 @@ export default function ProfilePage() {
     
     const usernameWithoutAt = editableUsername.trim();
 
-    if (usernameWithoutAt && (!/^[a-zA-Z0-9_]+$/.test(usernameWithoutAt) || usernameWithoutAt.length < 3)) {
+    if (usernameWithoutAt && (!/^[a-zA-Z0-9_]+$/.test(usernameWithoutAt) || usernameWithoutAt.length < 3 || usernameWithoutAt.length > 22)) {
         toast({
             variant: 'destructive',
             title: 'Неверный формат имени пользователя',
-            description: 'Имя должно быть от 3 символов и содержать только латинские буквы, цифры и _.'
+            description: 'Имя должно быть от 3 до 22 символов и содержать только латинские буквы, цифры и _.'
         });
         return;
     }
@@ -164,11 +164,11 @@ export default function ProfilePage() {
     if (!currentUser) return;
     const newNickname = editableNickname.trim();
 
-    if (newNickname.length < 3 || newNickname.length > 20) {
+    if (newNickname.length < 2 || newNickname.length > 32) {
         toast({
             variant: 'destructive',
             title: 'Неверная длина никнейма',
-            description: 'Никнейм должен содержать от 3 до 20 символов.'
+            description: 'Никнейм должен содержать от 2 до 32 символов.'
         });
         return;
     }
