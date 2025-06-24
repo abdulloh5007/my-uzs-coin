@@ -22,6 +22,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
 
 // --- TYPES ---
 interface NftItem {
@@ -77,6 +78,116 @@ interface FoundUser {
   username: string;
   nickname: string;
 }
+
+interface SendNftDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  selectedNft: SelectedNft | null;
+  searchQuery: string;
+  onSearchQueryChange: (query: string) => void;
+  isSearching: boolean;
+  searchResults: FoundUser[];
+  onRecipientSelect: (user: FoundUser) => void;
+  selectedRecipient: FoundUser | null;
+  onClearRecipient: () => void;
+  onSend: () => void;
+  isSending: boolean;
+}
+
+const SendNftDialog: React.FC<SendNftDialogProps> = ({
+  isOpen,
+  onOpenChange,
+  selectedNft,
+  searchQuery,
+  onSearchQueryChange,
+  isSearching,
+  searchResults,
+  onRecipientSelect,
+  selectedRecipient,
+  onClearRecipient,
+  onSend,
+  isSending
+}) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg bg-background border-border p-0 shadow-2xl flex flex-col max-h-[85vh] md:max-h-[80vh]">
+            <DialogHeader className="p-6 pb-4 border-b border-border/50 text-left">
+              <DialogTitle className="text-xl">Отправить "{selectedNft?.name}"</DialogTitle>
+              <DialogDescription>Найдите пользователя по его @username.</DialogDescription>
+            </DialogHeader>
+            
+            <div className="p-6 border-b border-border/50">
+                {selectedRecipient ? (
+                     <div className="space-y-3">
+                        <Label>Получатель:</Label>
+                        <Card className="bg-card/90">
+                           <CardContent className="p-3 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Avatar>
+                                        <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${selectedRecipient.uid}`} alt={selectedRecipient.nickname} />
+                                        <AvatarFallback>{selectedRecipient.nickname.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="font-semibold text-foreground">{selectedRecipient.nickname}</p>
+                                        <p className="text-sm text-muted-foreground">{selectedRecipient.username}</p>
+                                    </div>
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={onClearRecipient}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
+                ) : (
+                    <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
+                        <Input 
+                            value={searchQuery}
+                            onChange={(e) => onSearchQueryChange(e.target.value)}
+                            placeholder="username" 
+                            className="pl-7 bg-input/80 border-border text-foreground"
+                        />
+                    </div>
+                )}
+            </div>
+
+            <div className="flex-1 p-6 pt-3 overflow-y-auto">
+                {!selectedRecipient && (
+                    isSearching ? (
+                        <div className="space-y-2">
+                            {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+                        </div>
+                    ) : searchResults.length > 0 ? (
+                        <div className="space-y-2">
+                             <p className="text-sm text-muted-foreground mb-2">Результаты поиска:</p>
+                             {searchResults.map(user => (
+                                <Card key={user.uid} className="cursor-pointer hover:bg-accent transition-colors" onClick={() => onRecipientSelect(user)}>
+                                    <CardContent className="p-3 flex items-center gap-3">
+                                         <Avatar>
+                                            <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${user.uid}`} alt={user.nickname}/>
+                                            <AvatarFallback>{user.nickname.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-semibold text-foreground">{user.nickname}</p>
+                                            <p className="text-sm text-muted-foreground">{user.username}</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    ) : searchQuery.length >= 2 && <p className="text-center text-muted-foreground py-4">Пользователь не найден.</p>
+                )}
+            </div>
+            
+            <DialogFooter className="p-6 border-t border-border/50 bg-background mt-auto">
+                <Button className="w-full" onClick={onSend} disabled={!selectedRecipient || isSending}>
+                    {isSending ? 'Отправка...' : 'Отправить'}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+  );
+};
 
 export default function NftShopPage() {
   const router = useRouter();
@@ -387,11 +498,11 @@ export default function NftShopPage() {
         className="relative group/parallax"
         style={{ transformStyle: "preserve-3d" }}
       >
-        <div ref={iconRef} className={cn("p-8 rounded-2xl inline-block transition-transform duration-300 ease-out", nft.iconBgClass)} style={{ transformStyle: "preserve-3d" }}>
+        <div ref={iconRef} className={cn("p-8 rounded-2xl inline-block transition-transform duration-300 ease-out relative overflow-hidden", nft.iconBgClass)} style={{ transformStyle: "preserve-3d" }}>
             {nft.imageUrl ? <Image src={isHovering ? nft.imageUrl : (nft.imageUrl.replace('.gif', '_static.png'))} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain pointer-events-none" unoptimized onError={(e) => { const target = e.target as HTMLImageElement; if (target.src.includes('_static.png')) target.src = nft.imageUrl!; }} /> : (Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass)} />)}
-        </div>
-        <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-            <div className="absolute top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 opacity-0 group-hover/parallax:opacity-100 group-hover/parallax:animate-glare-pass" />
+            <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+              <div className="animate-glare-pass absolute top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12" />
+            </div>
         </div>
       </div>
     );
@@ -410,97 +521,6 @@ export default function NftShopPage() {
       );
   };
   
-  const SendNftDialog = () => (
-    <Dialog open={isSendDialogOpen} onOpenChange={(isOpen) => {
-        if (!isOpen) { // Reset state on close
-            setSelectedRecipient(null);
-            setSearchQuery('');
-            setSearchResults([]);
-        }
-        setIsSendDialogOpen(isOpen);
-    }}>
-        <DialogContent className="sm:max-w-lg bg-background border-border p-0 shadow-2xl flex flex-col max-h-[85vh] md:max-h-[80vh]">
-            <DialogHeader className="p-6 pb-4 border-b border-border/50 text-left">
-              <DialogTitle className="text-xl">Отправить "{selectedNft?.name}"</DialogTitle>
-              <DialogDescription>Найдите пользователя по его @username.</DialogDescription>
-            </DialogHeader>
-            
-            <div className="p-6 border-b border-border/50">
-                {selectedRecipient ? (
-                     <div className="space-y-3">
-                        <Label>Получатель:</Label>
-                        <Card className="bg-card/90">
-                           <CardContent className="p-3 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <Avatar>
-                                        <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${selectedRecipient.uid}`} alt={selectedRecipient.nickname} />
-                                        <AvatarFallback>{selectedRecipient.nickname.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-semibold text-foreground">{selectedRecipient.nickname}</p>
-                                        <p className="text-sm text-muted-foreground">{selectedRecipient.username}</p>
-                                    </div>
-                                </div>
-                                <Button variant="ghost" size="icon" onClick={() => setSelectedRecipient(null)}>
-                                    <X className="w-4 h-4" />
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    </div>
-                ) : (
-                    <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
-                        <Input 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="username" 
-                            className="pl-7 bg-input/80 border-border text-foreground"
-                        />
-                    </div>
-                )}
-            </div>
-
-            <div className="flex-1 p-6 pt-3 overflow-y-auto">
-                {!selectedRecipient && (
-                    isSearching ? (
-                        <div className="space-y-2">
-                            {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
-                        </div>
-                    ) : searchResults.length > 0 ? (
-                        <div className="space-y-2">
-                             <p className="text-sm text-muted-foreground mb-2">Результаты поиска:</p>
-                             {searchResults.map(user => (
-                                <Card key={user.uid} className="cursor-pointer hover:bg-accent transition-colors" onClick={() => {
-                                    setSelectedRecipient(user);
-                                    setSearchResults([]);
-                                    setSearchQuery('');
-                                }}>
-                                    <CardContent className="p-3 flex items-center gap-3">
-                                         <Avatar>
-                                            <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${user.uid}`} alt={user.nickname}/>
-                                            <AvatarFallback>{user.nickname.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <p className="font-semibold text-foreground">{user.nickname}</p>
-                                            <p className="text-sm text-muted-foreground">{user.username}</p>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    ) : searchQuery.length >= 2 && <p className="text-center text-muted-foreground py-4">Пользователь не найден.</p>
-                )}
-            </div>
-            
-            <DialogFooter className="p-6 border-t border-border/50 bg-background mt-auto">
-                <Button className="w-full" onClick={handleSendNft} disabled={!selectedRecipient || isSending}>
-                    {isSending ? 'Отправка...' : 'Отправить'}
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
-  );
-
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased">
       <div className="flex-grow container mx-auto px-4 pt-10 md:pt-16 pb-20 md:pb-24 text-center">
@@ -556,9 +576,34 @@ export default function NftShopPage() {
       </div>
 
        <NftDetailSheet nft={selectedNft} onOpenChange={(isOpen) => !isOpen && setSelectedNft(null)} />
-       <SendNftDialog />
+       <SendNftDialog
+            isOpen={isSendDialogOpen}
+            onOpenChange={(isOpen) => {
+                if (!isOpen) { // Reset state on close
+                    setSelectedRecipient(null);
+                    setSearchQuery('');
+                    setSearchResults([]);
+                }
+                setIsSendDialogOpen(isOpen);
+            }}
+            selectedNft={selectedNft}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
+            isSearching={isSearching}
+            searchResults={searchResults}
+            onRecipientSelect={(user) => {
+                setSelectedRecipient(user);
+                setSearchResults([]);
+                setSearchQuery('');
+            }}
+            selectedRecipient={selectedRecipient}
+            onClearRecipient={() => setSelectedRecipient(null)}
+            onSend={handleSendNft}
+            isSending={isSending}
+        />
 
       <BottomNavBar onNavigate={handleNavigation} activeItem="/mint" />
     </div>
   );
 }
+
