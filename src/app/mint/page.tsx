@@ -13,6 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, arrayUnion, onSnapshot, collection, query, where, writeBatch, getDocs, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -90,7 +91,7 @@ export default function NftShopPage() {
   // States for Send/Receive logic
   const [mailbox, setMailbox] = useState<NftTransfer[]>([]);
   const [sentHistory, setSentHistory] = useState<NftTransfer[]>([]);
-  const [isSendSheetOpen, setIsSendSheetOpen] = useState(false);
+  const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   
   // States for User Search in Send Sheet
@@ -284,7 +285,7 @@ export default function NftShopPage() {
           toast({ title: 'Успешно!', description: `NFT "${selectedNft.name}" отправлен пользователю ${selectedRecipient.username}.` });
           
           // Reset states and close sheets
-          setIsSendSheetOpen(false);
+          setIsSendDialogOpen(false);
           setSelectedNft(null);
           setSelectedRecipient(null);
           setSearchQuery('');
@@ -403,23 +404,26 @@ export default function NftShopPage() {
       return (
         <Sheet open={!!nft} onOpenChange={onOpenChange}>
             <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
-                <div className="flex flex-col h-full"><div className="p-6 pt-8 text-center" style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}><ParallaxIconDisplay nft={nft} /><SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle><CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription></div><div className="p-6 flex-1 overflow-y-auto"><div className="space-y-4 text-sm">{viewSource === 'inventory' && (<div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span><span className="font-semibold text-foreground">{currentUser?.displayName || 'Вы'}</span></div>)}<div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><Shield className="w-4 h-4"/>Тип</span><Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge></div><div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span><span className="font-semibold text-primary">{nft.rarity}%</span></div><div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span><span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span></div></div></div><SheetFooter className="p-6 border-t border-border/50 bg-background">{viewSource === 'inventory' ? (<div className="w-full flex flex-col sm:flex-row gap-2"><Button className="w-full" variant="outline" disabled><Cog className="w-4 h-4 mr-2" /> Использовать</Button><Button className="w-full" onClick={() => setIsSendSheetOpen(true)}><Send className="w-4 h-4 mr-2" /> Отправить</Button></div>) : (<Button className="w-full" disabled={!canAfford} onClick={() => handleBuyNft(nft)}>{canAfford ? (<>Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}</>) : ('Недостаточно монет')}</Button>)}</SheetFooter></div>
+                <div className="flex flex-col h-full"><div className="p-6 pt-8 text-center" style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}><ParallaxIconDisplay nft={nft} /><SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle><CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription></div><div className="p-6 flex-1 overflow-y-auto"><div className="space-y-4 text-sm">{viewSource === 'inventory' && (<div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span><span className="font-semibold text-foreground">{currentUser?.displayName || 'Вы'}</span></div>)}<div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><Shield className="w-4 h-4"/>Тип</span><Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge></div><div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span><span className="font-semibold text-primary">{nft.rarity}%</span></div><div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span><span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span></div></div></div><SheetFooter className="p-6 border-t border-border/50 bg-background">{viewSource === 'inventory' ? (<div className="w-full flex flex-col sm:flex-row gap-2"><Button className="w-full" variant="outline" disabled><Cog className="w-4 h-4 mr-2" /> Использовать</Button><Button className="w-full" onClick={() => setIsSendDialogOpen(true)}><Send className="w-4 h-4 mr-2" /> Отправить</Button></div>) : (<Button className="w-full" disabled={!canAfford} onClick={() => handleBuyNft(nft)}>{canAfford ? (<>Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}</>) : ('Недостаточно монет')}</Button>)}</SheetFooter></div>
             </SheetContent>
         </Sheet>
       );
   };
   
-  const SendNftSheet = () => (
-    <Sheet open={isSendSheetOpen} onOpenChange={(isOpen) => {
+  const SendNftDialog = () => (
+    <Dialog open={isSendDialogOpen} onOpenChange={(isOpen) => {
         if (!isOpen) { // Reset state on close
             setSelectedRecipient(null);
             setSearchQuery('');
             setSearchResults([]);
         }
-        setIsSendSheetOpen(isOpen);
+        setIsSendDialogOpen(isOpen);
     }}>
-        <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
-            <SheetHeader className="p-6 pb-4 border-b border-border/50"><SheetTitle className="text-xl">Отправить "{selectedNft?.name}"</SheetTitle><CardDescription>Найдите пользователя по его @username.</CardDescription></SheetHeader>
+        <DialogContent className="sm:max-w-lg bg-background border-border p-0 shadow-2xl flex flex-col max-h-[85vh] md:max-h-[80vh]">
+            <DialogHeader className="p-6 pb-4 border-b border-border/50 text-left">
+              <DialogTitle className="text-xl">Отправить "{selectedNft?.name}"</DialogTitle>
+              <DialogDescription>Найдите пользователя по его @username.</DialogDescription>
+            </DialogHeader>
             
             <div className="p-6 border-b border-border/50">
                 {selectedRecipient ? (
@@ -488,13 +492,13 @@ export default function NftShopPage() {
                 )}
             </div>
             
-            <SheetFooter className="p-6 border-t border-border/50 bg-background">
+            <DialogFooter className="p-6 border-t border-border/50 bg-background mt-auto">
                 <Button className="w-full" onClick={handleSendNft} disabled={!selectedRecipient || isSending}>
                     {isSending ? 'Отправка...' : 'Отправить'}
                 </Button>
-            </SheetFooter>
-        </SheetContent>
-    </Sheet>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
   );
 
   return (
@@ -552,7 +556,7 @@ export default function NftShopPage() {
       </div>
 
        <NftDetailSheet nft={selectedNft} onOpenChange={(isOpen) => !isOpen && setSelectedNft(null)} />
-       <SendNftSheet />
+       <SendNftDialog />
 
       <BottomNavBar onNavigate={handleNavigation} activeItem="/mint" />
     </div>
