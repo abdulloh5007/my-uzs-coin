@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp, Trophy } from 'lucide-react';
+import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp, Trophy, AtSign } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
@@ -14,8 +14,13 @@ import { useRouter } from 'next/navigation';
 import { formatDistanceStrict } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+import { doc, getDoc, collection, query, orderBy, limit, getDocs, where, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
 
 const INITIAL_CLICK_POWER_BASE = 1;
 const CLICK_POWER_INCREMENT_PER_LEVEL = 1;
@@ -30,11 +35,13 @@ interface ProfileStats {
   clickPowerLevel: number;
   energyRegenLevel: number;
   nickname: string;
+  username?: string;
 }
 
 export default function ProfilePage() {
   const { currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [isDataLoading, setIsDataLoading] = useState(true);
 
   const [stats, setStats] = useState<ProfileStats>({
@@ -45,8 +52,11 @@ export default function ProfilePage() {
     clickPowerLevel: 0,
     energyRegenLevel: 0,
     nickname: '',
+    username: '',
   });
   
+  const [editableUsername, setEditableUsername] = useState('');
+  const [isSavingUsername, setIsSavingUsername] = useState(false);
   const [clickPower, setClickPower] = useState(INITIAL_CLICK_POWER_BASE);
   const [energyRegenRate, setEnergyRegenRate] = useState(INITIAL_ENERGY_REGEN_RATE_BASE);
   const [gameTimePlayed, setGameTimePlayed] = useState("0s");
@@ -64,7 +74,7 @@ export default function ProfilePage() {
       const docSnap = await getDoc(userDocRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setStats({
+        const profileStats = {
           score: data.score || 0,
           totalScoreCollected: data.totalScoreCollected || data.score || 0,
           totalClicks: data.totalClicks || 0,
@@ -72,7 +82,10 @@ export default function ProfilePage() {
           clickPowerLevel: data.clickPowerLevel || 0,
           energyRegenLevel: data.energyRegenLevel || 0,
           nickname: data.nickname || currentUser?.displayName || 'Игрок',
-        });
+          username: data.username || '',
+        };
+        setStats(profileStats);
+        setEditableUsername(profileStats.username);
       }
     } catch (error) {
       console.error("Error loading profile data:", error);
@@ -80,6 +93,40 @@ export default function ProfilePage() {
       setIsDataLoading(false);
     }
   }, [currentUser]);
+
+  const handleSaveUsername = useCallback(async () => {
+    if (!currentUser) return;
+    
+    const sanitizedUsername = editableUsername.trim();
+
+    if (sanitizedUsername.length > 0 && (!sanitizedUsername.startsWith('@') || sanitizedUsername.length < 4 || /\s/.test(sanitizedUsername))) {
+      toast({
+        variant: 'destructive',
+        title: 'Неверный формат имени пользователя',
+        description: 'Имя должно начинаться с @, быть не короче 4 символов и не содержать пробелов.'
+      });
+      return;
+    }
+    
+    // Check for uniqueness would be a good next step (requires backend logic)
+
+    setIsSavingUsername(true);
+    try {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      await setDoc(userDocRef, { username: sanitizedUsername }, { merge: true });
+
+      setStats(prev => ({ ...prev, username: sanitizedUsername }));
+      toast({
+        title: 'Успешно!',
+        description: 'Ваше имя пользователя сохранено.'
+      });
+    } catch (error) {
+      console.error("Error saving username:", error);
+      toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось сохранить имя пользователя.' });
+    } finally {
+      setIsSavingUsername(false);
+    }
+  }, [currentUser, editableUsername, toast]);
   
   useEffect(() => {
     setClickPower(INITIAL_CLICK_POWER_BASE + (stats.clickPowerLevel * CLICK_POWER_INCREMENT_PER_LEVEL));
@@ -122,7 +169,6 @@ export default function ProfilePage() {
     try {
         const usersRef = collection(db, 'users');
 
-        // --- Fetch Global Top 100 Players ---
         const qTop = query(usersRef, orderBy('totalScoreCollected', 'desc'), limit(100));
         const topSnapshot = await getDocs(qTop);
         const topPlayersData: Player[] = topSnapshot.docs.map((doc, index) => ({
@@ -133,7 +179,6 @@ export default function ProfilePage() {
         }));
         setTopPlayers(topPlayersData);
 
-        // --- Fetch Current Player's Global Rank ---
         const qRank = query(usersRef, where('totalScoreCollected', '>', stats.totalScoreCollected));
         const rankSnapshot = await getDocs(qRank);
         const rank = rankSnapshot.size + 1;
@@ -145,7 +190,6 @@ export default function ProfilePage() {
             uid: currentUser.uid
         });
 
-        // --- Fetch League Players ---
         let qLeague;
         if (nextLeague) {
             qLeague = query(
@@ -156,7 +200,6 @@ export default function ProfilePage() {
                 limit(100)
             );
         } else {
-            // This is the highest league, no upper bound
             qLeague = query(
                 usersRef,
                 where('totalScoreCollected', '>=', currentLeague.threshold),
@@ -166,7 +209,7 @@ export default function ProfilePage() {
         }
         const leagueSnapshot = await getDocs(qLeague);
         const leaguePlayersData: Player[] = leagueSnapshot.docs.map((doc, index) => ({
-            rank: index + 1, // Rank within the league
+            rank: index + 1, 
             name: doc.data().nickname || `Player ${doc.id.substring(0, 5)}`,
             score: doc.data().totalScoreCollected,
             uid: doc.id,
@@ -194,7 +237,7 @@ export default function ProfilePage() {
     );
   }
   
-  if (!currentUser) return null; // Should be redirected, but as a fallback
+  if (!currentUser) return null;
   
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
@@ -208,12 +251,35 @@ export default function ProfilePage() {
         </Avatar>
         
         <h1 className="text-3xl font-bold">{stats.nickname}</h1>
-        <p className="text-muted-foreground mb-8 flex items-center justify-center gap-1.5">
+        <p className="text-muted-foreground mb-6 flex items-center justify-center gap-1.5">
           <Mail className="w-4 h-4"/>
           {currentUser.email}
         </p>
 
         <div className="max-w-md mx-auto space-y-4">
+            <Card className="bg-card/80 border-border/50 shadow-lg text-left">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <AtSign className="w-5 h-5 text-primary" /> Имя пользователя
+                </CardTitle>
+                <CardDescription className="text-xs">Используется для взаимодействия с другими игроками.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    value={editableUsername}
+                    onChange={(e) => setEditableUsername(e.target.value)}
+                    placeholder="@username"
+                    className="bg-input/80 border-border text-foreground"
+                    disabled={isSavingUsername}
+                  />
+                  <Button onClick={handleSaveUsername} disabled={isSavingUsername || editableUsername === stats.username}>
+                    {isSavingUsername ? 'Сохранение...' : 'Сохранить'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="cursor-pointer" onClick={handleOpenLeaderboard}>
                 <LeagueInfoCard
                     currentLeague={currentLeague}

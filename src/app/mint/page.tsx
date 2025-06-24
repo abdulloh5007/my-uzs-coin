@@ -6,7 +6,7 @@ import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Sparkles, Cpu, Wand2, Egg, ShoppingCart, Check, Info, User, Shield, BarChart, Package } from 'lucide-react';
+import { Coins, Sparkles, Cpu, Wand2, Egg, ShoppingCart, Check, Info, User, Shield, BarChart, Package, Send, Cog } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -102,6 +102,7 @@ export default function NftShopPage() {
     score: 0,
     ownedNfts: [],
   });
+  const [viewSource, setViewSource] = useState<'shop' | 'inventory'>('shop');
 
   const loadShopData = useCallback(async (userId: string) => {
     setIsLoading(true);
@@ -230,7 +231,7 @@ export default function NftShopPage() {
                 </div>
                 
                 <Button
-                    onClick={() => setSelectedNft(nft)}
+                    onClick={() => { setSelectedNft(nft); setViewSource('shop'); }}
                     variant="outline"
                     className="w-full mt-4"
                 >
@@ -250,8 +251,7 @@ export default function NftShopPage() {
   const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
     const iconContainerRef = useRef<HTMLDivElement>(null);
     const [isHovering, setIsHovering] = useState(false);
-    const [isGif, setIsGif] = useState(false);
-
+  
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
       if (!iconContainerRef.current || nft.type !== 'Анимированный') return;
       const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -266,22 +266,11 @@ export default function NftShopPage() {
       if (!iconContainerRef.current) return;
       iconContainerRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
       setIsHovering(false);
-      if (nft.imageUrl?.endsWith('.gif')) {
-        setIsGif(false);
-      }
     };
   
     const handleMouseEnter = () => {
-        setIsHovering(true);
-        if (nft.imageUrl?.endsWith('.gif')) {
-            setIsGif(true);
-        }
+      setIsHovering(true);
     };
-
-    useEffect(() => {
-        // Reset GIF state when NFT changes
-        setIsGif(false);
-    }, [nft]);
   
     const Icon = nft.icon;
   
@@ -292,14 +281,14 @@ export default function NftShopPage() {
         onMouseLeave={handleMouseLeave}
         onMouseEnter={handleMouseEnter}
         className={cn(
-          "p-8 rounded-2xl inline-block transition-transform duration-150 ease-out glare-container",
+          "p-8 rounded-2xl inline-block transition-transform duration-300 ease-out glare-container",
           nft.iconBgClass
         )}
         style={{ transformStyle: "preserve-3d" }}
       >
         {nft.imageUrl ? (
           <Image
-            src={isGif ? nft.imageUrl : nft.imageUrl.replace('.gif', '_static.png')}
+            src={isHovering && nft.imageUrl.endsWith('.gif') ? nft.imageUrl : (nft.imageUrl.endsWith('.gif') ? nft.imageUrl.replace('.gif', '_static.png') : nft.imageUrl)}
             alt={nft.name}
             width={96}
             height={96}
@@ -307,7 +296,7 @@ export default function NftShopPage() {
             unoptimized
             onError={(e) => {
               const target = e.target as HTMLImageElement;
-              if (!target.src.endsWith('.gif')) {
+              if (target.src.includes('_static.png')) {
                   target.src = nft.imageUrl!;
               }
             }}
@@ -318,7 +307,7 @@ export default function NftShopPage() {
       </div>
     );
   };
-  
+
   const NftDetailSheet: React.FC<{
       nft: NftItem | null;
       onOpenChange: (open: boolean) => void;
@@ -326,7 +315,8 @@ export default function NftShopPage() {
       ownedNfts: string[];
       onBuyNft: (nft: NftItem) => void;
       nickname: string;
-  }> = ({ nft, onOpenChange, userScore, ownedNfts, onBuyNft, nickname }) => {
+      viewSource: 'shop' | 'inventory';
+  }> = ({ nft, onOpenChange, userScore, ownedNfts, onBuyNft, nickname, viewSource }) => {
       if (!nft) return null;
 
       const isOwned = ownedNfts.includes(nft.id);
@@ -347,7 +337,7 @@ export default function NftShopPage() {
 
                     <div className="p-6 flex-1 overflow-y-auto">
                         <div className="space-y-4 text-sm">
-                            {isOwned && (
+                            {viewSource === 'inventory' && (
                                 <div className="flex justify-between items-center border-b border-border/30 pb-3">
                                     <span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span>
                                     <span className="font-semibold text-foreground">{nickname}</span>
@@ -369,7 +359,16 @@ export default function NftShopPage() {
                     </div>
 
                     <SheetFooter className="p-6 border-t border-border/50 bg-background">
-                        {isOwned ? (
+                        {viewSource === 'inventory' ? (
+                            <div className="w-full flex flex-col sm:flex-row gap-2">
+                                <Button className="w-full" variant="outline" disabled>
+                                    <Cog className="w-4 h-4 mr-2" /> Использовать
+                                </Button>
+                                <Button className="w-full" onClick={() => toast({ title: "Скоро!", description: "Функция отправки NFT в разработке."})}>
+                                    <Send className="w-4 h-4 mr-2" /> Отправить
+                                </Button>
+                            </div>
+                        ) : isOwned ? (
                              <Button className="w-full bg-green-600/80 hover:bg-green-600/90 text-white" disabled>
                                <Check className="w-5 h-5 mr-2"/> Уже в коллекции
                              </Button>
@@ -426,7 +425,17 @@ export default function NftShopPage() {
                     if (!foundNft) return null;
                     const IconComponent = foundNft.icon;
                     return (
-                      <div key={nftId} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center", foundNft.iconBgClass.replace('/20', '/30'))}>
+                      <button
+                        key={nftId}
+                        onClick={() => {
+                            setSelectedNft(foundNft);
+                            setViewSource('inventory');
+                        }}
+                        className={cn(
+                            "p-3 rounded-lg shadow-md flex flex-col items-center text-center transition-colors hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary",
+                             foundNft.iconBgClass.replace('/20', '/30')
+                        )}
+                       >
                         <div className={cn("p-2 rounded-full mb-2", foundNft.iconBgClass)}>
                           {foundNft.imageUrl ? (
                             <Image src={foundNft.imageUrl} alt={foundNft.name} width={24} height={24} unoptimized />
@@ -435,7 +444,7 @@ export default function NftShopPage() {
                           )}
                         </div>
                         <span className="text-xs font-medium text-foreground truncate w-full">{foundNft.name}</span>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -456,6 +465,7 @@ export default function NftShopPage() {
           ownedNfts={pageState.ownedNfts}
           onBuyNft={handleBuyNft}
           nickname={currentUser?.displayName || 'Пользователь'}
+          viewSource={viewSource}
         />
 
       <BottomNavBar onNavigate={handleNavigation} activeItem="/mint" />
