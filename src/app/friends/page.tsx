@@ -153,8 +153,7 @@ export default function FriendsPage() {
         <div className="mx-auto flex justify-center items-center mb-4 h-20 w-20 rounded-full bg-primary/20">
             <Users className="w-10 h-10 text-primary" />
         </div>
-        <h1 className="text-4xl font-bold mb-2">Пригласить друзей</h1>
-        <p className="text-muted-foreground mb-8">Пригласите друга и получите по 25,000 монет каждый!</p>
+        <h1 className="text-4xl font-bold mb-8">Пригласить друзей</h1>
 
         <div className="max-w-md mx-auto space-y-6">
           <Card className="bg-card/80 border-border/50 shadow-lg text-left">
