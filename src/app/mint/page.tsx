@@ -147,9 +147,30 @@ const NftDetailSheet: React.FC<NftDetailSheetProps> = ({
 
 const NftCard: React.FC<{nft: NftItem, onClick: () => void}> = ({ nft, onClick }) => {
     const Icon = nft.icon;
+    const cardRef = useRef<HTMLDivElement>(null);
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!cardRef.current) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        e.currentTarget.style.setProperty('--x', `${x}px`);
+        e.currentTarget.style.setProperty('--y', `${y}px`);
+    };
+
+    const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.currentTarget.style.removeProperty('--x');
+        e.currentTarget.style.removeProperty('--y');
+    };
+
     return (
-        <Card className="bg-card/80 border-border/50 shadow-lg text-left overflow-hidden h-full flex flex-col relative">
-            <CardHeader className="p-4 pb-3 bg-card/90 border-b border-border/30">
+        <Card
+            ref={cardRef}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            className="card-glow-effect border-border/50 text-left h-full flex flex-col"
+        >
+            <CardHeader className="p-4 pb-3 bg-transparent border-b border-border/30 z-10">
                 <div className="flex items-center gap-3">
                     <div className={cn("p-2.5 rounded-lg", nft.iconBgClass)}>
                         {nft.imageUrl ? <Image src={nft.imageUrl} alt={nft.name} width={28} height={28} unoptimized /> : (Icon && <Icon className={cn("w-7 h-7", nft.iconColorClass)} />)}
@@ -160,7 +181,7 @@ const NftCard: React.FC<{nft: NftItem, onClick: () => void}> = ({ nft, onClick }
                     </div>
                 </div>
             </CardHeader>
-            <CardContent className="p-4 space-y-3 flex-grow flex flex-col justify-between">
+            <CardContent className="p-4 space-y-3 flex-grow flex flex-col justify-between bg-transparent z-10">
                 <div>
                     <div className="flex justify-between items-center text-sm mb-1"><span className="text-muted-foreground">Тип:</span><Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn('text-xs', nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50 hover:bg-purple-500/80' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge></div>
                     <div className="flex justify-between items-center text-sm"><span className="text-muted-foreground">Цена:</span><span className="font-semibold text-primary flex items-center gap-1"><Coins className="w-4 h-4"/>{nft.price.toLocaleString()}</span></div>

@@ -82,6 +82,31 @@ body {
   }
 }
 
+@layer components {
+  .card-glow-effect {
+    @apply relative overflow-hidden;
+    background: radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.05), transparent 40%);
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.05);
+  }
+
+  .card-glow-effect::before {
+    content: "";
+    @apply absolute rounded-full pointer-events-none transition-opacity duration-300;
+    top: var(--y);
+    left: var(--x);
+    transform: translate(-50%, -50%);
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, hsl(var(--primary) / 0.1), transparent 70%);
+    opacity: 0;
+  }
+  
+  .card-glow-effect:hover::before {
+    @apply opacity-100;
+  }
+}
+
+
 @layer utilities {
   .animate-coin-click {
     animation: coin-click-effect 0.2s ease-out;
