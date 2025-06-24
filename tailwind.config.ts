@@ -100,18 +100,6 @@ export default {
             filter: 'drop-shadow(0 0 8px hsl(var(--primary))) brightness(1.15)',
           },
         },
-        'rocket-rumble': {
-          '0%': { transform: 'translate(0, 0) rotate(0)' },
-          '25%': { transform: 'translate(1px, -1px) rotate(-0.2deg)' },
-          '50%': { transform: 'translate(-1px, 1px) rotate(0.2deg)' },
-          '75%': { transform: 'translate(1px, 1px) rotate(-0.2deg)' },
-          '100%': { transform: 'translate(0, 0) rotate(0)' },
-        },
-        'rocket-flames': {
-          '0%': { 'box-shadow': '0 0 10px 0 #ffac81, 0 0 15px 5px #ff928b', opacity: '1' },
-          '50%': { 'box-shadow': '0 0 12px 2px #ffac81, 0 0 18px 8px #ff928b', opacity: '0.8' },
-          '100%': { 'box-shadow': '0 0 10px 0 #ffac81, 0 0 15px 5px #ff928b', opacity: '1' },
-        },
         'staff-sway': {
           '0%': { transform: 'rotate(-3deg)' },
           '50%': { transform: 'rotate(3deg)' },
@@ -128,8 +116,6 @@ export default {
         'accordion-up': 'accordion-up 4s ease-out',
         'coin-click': 'coin-click-effect 0.3s ease-out', /* Added for completeness */
         'boost-pulse': 'boost-pulse 12s ease-in-out infinite',
-        'rocket-rumble': 'rocket-rumble 0.2s infinite linear',
-        'rocket-flames': 'rocket-flames 0.4s infinite linear',
         'staff-sway': 'staff-sway 2.5s infinite ease-in-out',
         'magic-sparkles': 'magic-sparkles 1.5s infinite ease-in-out',
       },

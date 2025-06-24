@@ -91,23 +91,4 @@ body {
     50% { transform: scale(0.92); }
     100% { transform: scale(1); }
   }
-
-  .flame-emitter {
-    position: relative;
-    width: 100%;
-    height: 0;
-  }
-  /* Show flame effect when parent with 'group' is hovered */
-  .group:hover .flame-emitter::after {
-    content: '';
-    position: absolute;
-    bottom: -90px; /* Adjust based on icon size and positioning */
-    left: 50%;
-    transform: translateX(-50%);
-    width: 20px;
-    height: 50px;
-    animation: rocket-flames 0.4s infinite linear;
-    border-radius: 50%;
-    filter: blur(2px);
-  }
 }

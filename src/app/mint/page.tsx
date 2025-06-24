@@ -6,7 +6,7 @@ import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Sparkles, Cpu, Wand2, Egg, Rocket, ShoppingCart, Check, Info, User, Shield, BarChart, Package } from 'lucide-react';
+import { Coins, Sparkles, Cpu, Wand2, Egg, ShoppingCart, Check, Info, User, Shield, BarChart, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -14,12 +14,14 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
+import Image from 'next/image';
 
 interface NftItem {
   id: string;
   name: string;
   description: string;
-  icon: React.ElementType;
+  icon?: React.ElementType;
+  imageUrl?: string;
   type: 'Простой' | 'Анимированный';
   price: number;
   iconColorClass: string;
@@ -73,7 +75,7 @@ const nftItems: NftItem[] = [
     id: 'starship_deed',
     name: 'Документ на корабль',
     description: 'Право собственности на межгалактический звёздолёт класса "Исследователь".',
-    icon: Rocket,
+    imageUrl: '/rocket.gif',
     type: 'Анимированный',
     price: 100000000,
     iconColorClass: 'text-slate-400',
@@ -199,7 +201,11 @@ export default function NftShopPage() {
             <CardHeader className="p-4 pb-3 bg-card/90 border-b border-border/30">
                 <div className="flex items-center gap-3">
                     <div className={cn("p-2.5 rounded-lg", nft.iconBgClass)}>
-                        <Icon className={cn("w-7 h-7", nft.iconColorClass)} />
+                        {nft.imageUrl ? (
+                            <Image src={nft.imageUrl} alt={nft.name} width={28} height={28} unoptimized />
+                        ) : (
+                           Icon && <Icon className={cn("w-7 h-7", nft.iconColorClass)} />
+                        )}
                     </div>
                     <div>
                         <CardTitle className="text-lg font-semibold text-foreground">{nft.name}</CardTitle>
@@ -249,13 +255,15 @@ export default function NftShopPage() {
         <div style={parallaxStyle} className={cn(
           "p-8 rounded-2xl inline-block transition-transform duration-200 ease-out", 
           nft.iconBgClass,
-          nft.id === 'starship_deed' && 'group-hover:animate-rocket-rumble',
           nft.id === 'magic_staff' && 'group-hover:animate-staff-sway'
         )}>
-          <Icon className={cn("w-24 h-24", nft.iconColorClass,
-             nft.id === 'magic_staff' && 'group-hover:animate-magic-sparkles'
-          )} />
-          {nft.id === 'starship_deed' && <div className="flame-emitter"></div>}
+           {nft.imageUrl ? (
+                <Image src={nft.imageUrl} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain" unoptimized />
+            ) : (
+               Icon && <Icon className={cn("w-24 h-24", nft.iconColorClass,
+                nft.id === 'magic_staff' && 'group-hover:animate-magic-sparkles'
+               )} />
+            )}
         </div>
       </div>
     );
@@ -412,7 +420,11 @@ export default function NftShopPage() {
                     return (
                       <div key={nftId} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center", foundNft.iconBgClass.replace('/20', '/30'))}>
                         <div className={cn("p-2 rounded-full mb-2", foundNft.iconBgClass)}>
-                          <IconComponent className={cn("w-6 h-6", foundNft.iconColorClass)} />
+                          {foundNft.imageUrl ? (
+                            <Image src={foundNft.imageUrl} alt={foundNft.name} width={24} height={24} unoptimized />
+                          ) : (
+                            IconComponent && <IconComponent className={cn("w-6 h-6", foundNft.iconColorClass)} />
+                          )}
                         </div>
                         <span className="text-xs font-medium text-foreground truncate w-full">{foundNft.name}</span>
                       </div>
