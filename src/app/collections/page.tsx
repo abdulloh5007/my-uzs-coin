@@ -419,14 +419,14 @@ export default function CollectionsPage() {
     const transfersRef = collection(db, 'nft_transfers');
     const qMailbox = query(transfersRef, where('recipientId', '==', currentUser.uid), where('status', '==', 'pending'), orderBy('sentAt', 'desc'));
     const unsubscribeMailbox = onSnapshot(qMailbox, (snapshot) => {
-      const received: NftTransfer[] = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp).toDate() } as NftTransfer));
+      const received: NftTransfer[] = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp)?.toDate() ?? new Date() } as NftTransfer));
       setMailbox(received);
     }, (error) => console.error("Mailbox listener error:", error));
 
     // Sent history listener
     const qSent = query(transfersRef, where('senderId', '==', currentUser.uid), orderBy('sentAt', 'desc'));
     const unsubscribeSent = onSnapshot(qSent, (snapshot) => {
-      const sent: NftTransfer[] = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp).toDate() } as NftTransfer));
+      const sent: NftTransfer[] = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp)?.toDate() ?? new Date() } as NftTransfer));
       setSentHistory(sent);
     }, (error) => console.error("Sent history listener error:", error));
 
