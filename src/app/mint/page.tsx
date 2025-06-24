@@ -253,7 +253,7 @@ export default function NftShopPage() {
     return (
       <div style={{ perspective: '1000px' }}>
         <div style={parallaxStyle} className={cn(
-          "p-8 rounded-2xl inline-block transition-transform duration-300 ease-out",
+          "p-8 rounded-2xl inline-block transition-transform duration-100 ease-out",
           nft.iconBgClass
         )}>
            {nft.imageUrl ? (
@@ -276,18 +276,18 @@ export default function NftShopPage() {
   }> = ({ nft, onOpenChange, userScore, ownedNfts, onBuyNft, nickname }) => {
       if (!nft) return null;
 
-      const sheetRef = useRef<HTMLDivElement>(null);
-      const [parallaxStyle, setParallaxStyle] = useState({});
-
+      const interactionRef = useRef<HTMLDivElement>(null);
+      const [parallaxStyle, setParallaxStyle] = useState<React.CSSProperties>({});
+      
       useEffect(() => {
-        if (nft.type !== 'Анимированный' || typeof window === 'undefined') {
-            setParallaxStyle({ transform: 'rotateX(0deg) rotateY(0deg)' });
+        if (!nft || nft.type !== 'Анимированный' || typeof window === 'undefined') {
+            setParallaxStyle({});
             return;
         }
 
         const handleMouseMove = (e: MouseEvent) => {
-            if (!sheetRef.current) return;
-            const { left, top, width, height } = sheetRef.current.getBoundingClientRect();
+            if (!interactionRef.current) return;
+            const { left, top, width, height } = interactionRef.current.getBoundingClientRect();
             const x = (e.clientX - left) / width - 0.5;
             const y = (e.clientY - top) / height - 0.5;
 
@@ -304,20 +304,17 @@ export default function NftShopPage() {
             });
         };
 
-        const currentRef = sheetRef.current;
+        const currentRef = interactionRef.current;
         if (currentRef) {
           currentRef.addEventListener('mousemove', handleMouseMove);
           currentRef.addEventListener('mouseleave', handleMouseLeave);
         }
 
-        // Cleanup function
         return () => {
           if (currentRef) {
             currentRef.removeEventListener('mousemove', handleMouseMove);
             currentRef.removeEventListener('mouseleave', handleMouseLeave);
           }
-          // Reset style on close
-          setParallaxStyle({ transform: 'rotateX(0deg) rotateY(0deg)' });
         };
       }, [nft]);
 
@@ -328,55 +325,57 @@ export default function NftShopPage() {
 
       return (
         <Sheet open={!!nft} onOpenChange={onOpenChange}>
-            <SheetContent ref={sheetRef} side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
-                <div 
-                    className="p-6 pt-8 text-center" 
-                    style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}>
-                    <ParallaxIconDisplay nft={nft} parallaxStyle={parallaxStyle} />
-                    <SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle>
-                    <CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription>
-                </div>
+            <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
+                <div ref={interactionRef} className="flex flex-col h-full">
+                    <div 
+                        className="p-6 pt-8 text-center" 
+                        style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}>
+                        <ParallaxIconDisplay nft={nft} parallaxStyle={parallaxStyle} />
+                        <SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle>
+                        <CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription>
+                    </div>
 
-                <div className="p-6 flex-1 overflow-y-auto">
-                    <div className="space-y-4 text-sm">
-                        {isOwned && (
+                    <div className="p-6 flex-1 overflow-y-auto">
+                        <div className="space-y-4 text-sm">
+                            {isOwned && (
+                                <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                    <span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span>
+                                    <span className="font-semibold text-foreground">{nickname}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                                <span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span>
-                                <span className="font-semibold text-foreground">{nickname}</span>
+                                <span className="text-muted-foreground flex items-center gap-2"><Shield className="w-4 h-4"/>Тип</span>
+                                <Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge>
                             </div>
-                        )}
-                        <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                            <span className="text-muted-foreground flex items-center gap-2"><Shield className="w-4 h-4"/>Тип</span>
-                            <Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge>
-                        </div>
-                        <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                            <span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span>
-                            <span className="font-semibold text-primary">{nft.rarity}%</span>
-                        </div>
-                        <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                            <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span>
-                            <span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span>
+                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                <span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span>
+                                <span className="font-semibold text-primary">{nft.rarity}%</span>
+                            </div>
+                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span>
+                                <span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <SheetFooter className="p-6 border-t border-border/50 bg-background">
-                    {isOwned ? (
-                         <Button className="w-full bg-green-600/80 hover:bg-green-600/90 text-white" disabled>
-                           <Check className="w-5 h-5 mr-2"/> Уже в коллекции
-                         </Button>
-                    ) : (
-                         <Button className="w-full" disabled={!canAfford} onClick={() => onBuyNft(nft)}>
-                             {canAfford ? (
-                                <>
-                                  Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}
-                                </>
-                             ) : (
-                                'Недостаточно монет'
-                             )}
-                         </Button>
-                    )}
-                </SheetFooter>
+                    <SheetFooter className="p-6 border-t border-border/50 bg-background">
+                        {isOwned ? (
+                             <Button className="w-full bg-green-600/80 hover:bg-green-600/90 text-white" disabled>
+                               <Check className="w-5 h-5 mr-2"/> Уже в коллекции
+                             </Button>
+                        ) : (
+                             <Button className="w-full" disabled={!canAfford} onClick={() => onBuyNft(nft)}>
+                                 {canAfford ? (
+                                    <>
+                                      Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}
+                                    </>
+                                 ) : (
+                                    'Недостаточно монет'
+                                 )}
+                             </Button>
+                        )}
+                    </SheetFooter>
+                </div>
             </SheetContent>
         </Sheet>
       );
