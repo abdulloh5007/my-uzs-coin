@@ -91,4 +91,24 @@ body {
     50% { transform: scale(0.92); }
     100% { transform: scale(1); }
   }
+  .glare-container {
+    @apply relative overflow-hidden;
+  }
+  .glare-container::after {
+    content: '';
+    @apply absolute top-0 w-1/2 h-full;
+    background: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    transform: skewX(-25deg);
+    pointer-events: none;
+    left: -75%;
+    transition: left 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .glare-container:hover::after {
+    left: 125%;
+  }
 }

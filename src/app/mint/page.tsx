@@ -292,7 +292,7 @@ export default function NftShopPage() {
         onMouseLeave={handleMouseLeave}
         onMouseEnter={handleMouseEnter}
         className={cn(
-          "p-8 rounded-2xl inline-block transition-transform duration-150 ease-out",
+          "p-8 rounded-2xl inline-block transition-transform duration-150 ease-out glare-container",
           nft.iconBgClass
         )}
         style={{ transformStyle: "preserve-3d" }}
