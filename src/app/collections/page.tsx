@@ -79,6 +79,7 @@ interface FoundUser {
   uid: string;
   username: string;
   nickname: string;
+  photoURL?: string | null;
 }
 
 // --- Independent Components to prevent re-rendering issues ---
@@ -154,6 +155,7 @@ const SendNftDialog: React.FC<{
                             uid: doc.id,
                             username: data.username,
                             nickname: data.nickname,
+                            photoURL: data.photoURL || null,
                         });
                     }
                 }
@@ -233,7 +235,7 @@ const SendNftDialog: React.FC<{
                            <CardContent className="p-3 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <Avatar>
-                                        <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${selectedRecipient.uid}`} alt={selectedRecipient.nickname || 'Пользователь'} />
+                                        <AvatarImage src={selectedRecipient.photoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${selectedRecipient.uid}`} alt={selectedRecipient.nickname || 'Пользователь'} />
                                         <AvatarFallback>{selectedRecipient.nickname?.charAt(0) || '?'}</AvatarFallback>
                                     </Avatar>
                                     <div>
@@ -273,7 +275,7 @@ const SendNftDialog: React.FC<{
                                 <Card key={user.uid} className="cursor-pointer hover:bg-accent transition-colors" onClick={() => onRecipientSelect(user)}>
                                     <CardContent className="p-3 flex items-center gap-3">
                                          <Avatar>
-                                            <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${user.uid}`} alt={user.nickname || 'Пользователь'}/>
+                                            <AvatarImage src={user.photoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${user.uid}`} alt={user.nickname || 'Пользователь'}/>
                                             <AvatarFallback>{user.nickname?.charAt(0) || '?'}</AvatarFallback>
                                         </Avatar>
                                         <div>
@@ -573,4 +575,5 @@ export default function CollectionsPage() {
     
 
     
+
 
