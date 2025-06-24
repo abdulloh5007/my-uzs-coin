@@ -302,20 +302,20 @@ const SendNftDialog: React.FC<SendNftDialogProps> = ({
 };
 
 const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
-  const iconContainerRef = useRef<HTMLDivElement>(null);
   const iconRef = useRef<HTMLDivElement>(null);
   const [isHovering, setIsHovering] = useState(false);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!iconRef.current || !iconContainerRef.current || nft.type !== 'Анимированный') return;
-    const { left, top, width, height } = iconContainerRef.current.getBoundingClientRect();
+    if (!iconRef.current || nft.type !== 'Анимированный') return;
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - left) / width - 0.5;
     const y = (e.clientY - top) / height - 0.5;
-    iconRef.current.style.transform = `perspective(1000px) rotateX(${-y * 25}deg) rotateY(${x * 25}deg) scale3d(1.1, 1.1, 1.1)`;
+    e.currentTarget.style.transform = `perspective(1000px) rotateX(${-y * 25}deg) rotateY(${x * 25}deg) scale3d(1.1, 1.1, 1.1)`;
   };
-  const handleMouseLeave = () => {
+  
+  const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!iconRef.current) return;
-    iconRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+    e.currentTarget.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
     setIsHovering(false);
   };
 
@@ -323,18 +323,21 @@ const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
 
   return (
     <div
-      ref={iconContainerRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      onMouseEnter={() => setIsHovering(true)}
       className="relative group/parallax"
-      style={{ transformStyle: "preserve-3d" }}
+      style={{ transformStyle: "preserve-3d", perspective: "1000px" }}
     >
-      <div ref={iconRef} className={cn("p-8 rounded-2xl inline-block transition-transform duration-300 ease-out relative overflow-hidden", nft.iconBgClass)} style={{ transformStyle: "preserve-3d" }}>
-          {nft.imageUrl ? <Image src={isHovering ? nft.imageUrl : (nft.imageUrl.replace('.gif', '_static.png'))} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain pointer-events-none" unoptimized onError={(e) => { const target = e.target as HTMLImageElement; if (target.src.includes('_static.png')) target.src = nft.imageUrl!; }} /> : (Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass)} />)}
-          <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-            <div className="animate-glare-pass absolute top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12" />
-          </div>
+      <div
+        ref={iconRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        onMouseEnter={() => setIsHovering(true)}
+        className={cn("p-8 rounded-2xl inline-block transition-transform duration-300 ease-out relative overflow-hidden", nft.iconBgClass)}
+        style={{ transformStyle: "preserve-3d" }}
+      >
+        {nft.imageUrl ? <Image src={isHovering ? nft.imageUrl : (nft.imageUrl.replace('.gif', '_static.png'))} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain pointer-events-none" unoptimized onError={(e) => { const target = e.target as HTMLImageElement; if (target.src.includes('_static.png')) target.src = nft.imageUrl!; }} /> : (Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass)} />)}
+        <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+          <div className="animate-glare-pass absolute top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12" />
+        </div>
       </div>
     </div>
   );
