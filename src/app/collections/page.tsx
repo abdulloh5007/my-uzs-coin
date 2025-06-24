@@ -6,7 +6,7 @@ import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Sparkles, Cpu, Wand2, Egg, ShoppingCart, Check, Info, User, Shield, BarChart, Package, Send, Cog, Mail, History, Inbox, ArrowRight, X, LayoutGrid } from 'lucide-react';
+import { Coins, Sparkles, Cpu, Wand2, Egg, ShoppingCart, Check, Info, User, Shield, BarChart, Package, Send, Cog, Mail, History, Inbox, ArrowRight, X, LayoutGrid, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -51,10 +51,12 @@ const nftItems: NftItem[] = [
 interface OwnedNft {
   nftId: string;
   instanceId: string;
+  purchasedAt?: Timestamp;
 }
 
 interface SelectedNft extends NftItem {
   instanceId: string;
+  purchasedAt?: Timestamp;
 }
 
 interface NftTransfer {
@@ -333,6 +335,12 @@ const NftDetailSheet: React.FC<{
                               <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span>
                               <span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span>
                           </div>
+                          {nft.purchasedAt && (
+                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                <span className="text-muted-foreground flex items-center gap-2"><Clock className="w-4 h-4"/>Приобретено</span>
+                                <span className="font-semibold text-foreground">{formatDistanceToNow(nft.purchasedAt.toDate(), { addSuffix: true, locale: ru })}</span>
+                            </div>
+                          )}
                       </div>
                   </div>
                   <SheetFooter className="p-6 border-t border-border/50 bg-background">
@@ -451,7 +459,7 @@ export default function CollectionsPage() {
 
       const userDocRef = doc(db, 'users', currentUser.uid);
       batch.update(userDocRef, {
-        ownedNfts: arrayUnion({ nftId: transfer.nftId, instanceId: transfer.instanceId })
+        ownedNfts: arrayUnion({ nftId: transfer.nftId, instanceId: transfer.instanceId, purchasedAt: serverTimestamp() })
       });
       
       const transferDocRef = doc(db, 'nft_transfers', transfer.id);
@@ -495,7 +503,7 @@ export default function CollectionsPage() {
                     if (!foundNft) return null;
                     const IconComponent = foundNft.icon;
                     return (
-                      <button key={ownedNft.instanceId} onClick={() => { setSelectedNft({...foundNft, instanceId: ownedNft.instanceId}) }} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center transition-colors hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary", foundNft.iconBgClass.replace('/20', '/30'))}>
+                      <button key={ownedNft.instanceId} onClick={() => { setSelectedNft({...foundNft, instanceId: ownedNft.instanceId, purchasedAt: ownedNft.purchasedAt}) }} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center transition-colors hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary", foundNft.iconBgClass.replace('/20', '/30'))}>
                         <div className={cn("p-2 rounded-full mb-2", foundNft.iconBgClass)}>{foundNft.imageUrl ? <Image src={foundNft.imageUrl} alt={foundNft.name} width={24} height={24} unoptimized /> : (IconComponent && <IconComponent className={cn("w-6 h-6", foundNft.iconColorClass)} />)}</div>
                         <span className="text-xs font-medium text-foreground truncate w-full">{foundNft.name}</span>
                       </button>

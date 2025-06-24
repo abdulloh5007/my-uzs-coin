@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, type Timestamp } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import Image from 'next/image';
 
@@ -40,7 +40,7 @@ const nftItems: NftItem[] = [
 
 interface NftShopState {
   score: number;
-  ownedNfts: { nftId: string; instanceId: string; }[];
+  ownedNfts: { nftId: string; instanceId: string; purchasedAt?: Timestamp; }[];
 }
 
 const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
@@ -197,9 +197,9 @@ export default function NftShopPage() {
     if (pageState.score >= nft.price) {
       const newBalance = pageState.score - nft.price;
       const newInstanceId = doc(collection(db, "dummy")).id;
-      const newOwnedNft = { nftId: nft.id, instanceId: newInstanceId };
+      const newOwnedNft = { nftId: nft.id, instanceId: newInstanceId, purchasedAt: serverTimestamp() };
 
-      const newOwnedNftsList = [...pageState.ownedNfts, newOwnedNft];
+      const newOwnedNftsList = [...pageState.ownedNfts, newOwnedNft as any];
       
       // Optimistic UI update
       setPageState(prev => ({ ...prev, score: newBalance, ownedNfts: newOwnedNftsList }));
