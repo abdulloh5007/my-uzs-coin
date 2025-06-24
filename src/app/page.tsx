@@ -88,7 +88,7 @@ interface UserGameState {
   completedUnclaimedTaskTierIds: string[];
   claimedTaskTierIds: string[];
   
-  ownedNfts: string[]; // For mint page
+  ownedNfts: Array<{ nftId: string; instanceId: string; }>; // For mint page
 
   // Referral System Fields
   referralCode?: string;
@@ -202,7 +202,7 @@ export default function HomePage() {
   const [claimedTaskTierIds, setClaimedTaskTierIds] = useState<string[]>([]);
   
   // NFTs
-  const [ownedNfts, setOwnedNfts] = useState<string[]>([]);
+  const [ownedNfts, setOwnedNfts] = useState<UserGameState['ownedNfts']>([]);
 
   // Referral
   const [referralCode, setReferralCode] = useState('');
