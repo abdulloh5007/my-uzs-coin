@@ -102,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Define initial game state for the new user
       const newUserInitialData = {
+          nickname: nickname,
           score: initialScore,
           totalScoreCollected: initialScore,
           energy: INITIAL_MAX_ENERGY_BASE,

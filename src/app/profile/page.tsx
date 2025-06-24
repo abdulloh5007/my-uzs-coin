@@ -8,13 +8,13 @@ import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
 import LeaderboardModal from '@/components/profile/LeaderboardModal';
-import type { League } from '@/lib/leagues';
+import type { Player } from '@/components/profile/LeaderboardModal';
 import { getLeagueInfo } from '@/lib/leagues';
 import { useRouter } from 'next/navigation';
 import { formatDistanceStrict } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 
 const INITIAL_CLICK_POWER_BASE = 1;
 const CLICK_POWER_INCREMENT_PER_LEVEL = 1;
@@ -49,7 +49,9 @@ export default function ProfilePage() {
   const [gameTimePlayed, setGameTimePlayed] = useState("0s");
 
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
-  const [selectedLeagueForLeaderboard, setSelectedLeagueForLeaderboard] = useState<League | null>(null);
+  const [topPlayers, setTopPlayers] = useState<Player[]>([]);
+  const [currentPlayerForLeaderboard, setCurrentPlayerForLeaderboard] = useState<Player | null>(null);
+  const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
 
   const loadProfileData = useCallback(async (userId: string) => {
     setIsDataLoading(true);
@@ -105,9 +107,40 @@ export default function ProfilePage() {
 
   const { currentLeague, nextLeague, progressPercentage } = getLeagueInfo(stats.totalScoreCollected);
 
-  const handleOpenLeaderboard = () => {
-    setSelectedLeagueForLeaderboard(currentLeague);
+  const handleOpenLeaderboard = async () => {
+    if (!currentUser) return;
     setIsLeaderboardOpen(true);
+    setIsLeaderboardLoading(true);
+    try {
+      // Fetch top 100 players
+      const usersRef = collection(db, 'users');
+      const qTop = query(usersRef, orderBy('totalScoreCollected', 'desc'), limit(100));
+      const topSnapshot = await getDocs(qTop);
+      const topPlayersData: Player[] = topSnapshot.docs.map((doc, index) => ({
+        rank: index + 1,
+        name: doc.data().nickname || `Player ${doc.id.substring(0, 5)}`,
+        score: doc.data().totalScoreCollected,
+        uid: doc.id,
+      }));
+      setTopPlayers(topPlayersData);
+
+      // Fetch current player's rank
+      const qRank = query(usersRef, where('totalScoreCollected', '>', stats.totalScoreCollected));
+      const rankSnapshot = await getDocs(qRank);
+      const rank = rankSnapshot.size + 1;
+      
+      setCurrentPlayerForLeaderboard({
+        rank: rank,
+        name: currentUser.displayName || 'Вы',
+        score: stats.totalScoreCollected,
+        uid: currentUser.uid
+      });
+
+    } catch (error) {
+      console.error("Error fetching leaderboard data:", error);
+    } finally {
+      setIsLeaderboardLoading(false);
+    }
   };
 
   const handleNavigation = (path: string) => {
@@ -124,9 +157,6 @@ export default function ProfilePage() {
   }
   
   if (!currentUser) return null; // Should be redirected, but as a fallback
-
-  const mockTopPlayers: Array<{ name: string; score: number; rank: number }> = [];
-  const currentPlayerLeaderboardEntry = { name: currentUser.displayName || 'Вы', score: stats.totalScoreCollected, rank: 1 };
   
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
@@ -166,15 +196,14 @@ export default function ProfilePage() {
       
       <BottomNavBar activeItem="/profile" onNavigate={handleNavigation} />
 
-      {selectedLeagueForLeaderboard && (
-        <LeaderboardModal
-          isOpen={isLeaderboardOpen}
-          onOpenChange={setIsLeaderboardOpen}
-          leagueName={selectedLeagueForLeaderboard.name}
-          topPlayers={mockTopPlayers}
-          currentPlayer={currentPlayerLeaderboardEntry}
-        />
-      )}
+      <LeaderboardModal
+        isOpen={isLeaderboardOpen}
+        onOpenChange={setIsLeaderboardOpen}
+        leagueName="Глобальный Рейтинг"
+        topPlayers={topPlayers}
+        currentPlayer={currentPlayerForLeaderboard}
+        isLoading={isLeaderboardLoading}
+      />
     </div>
   );
 }
