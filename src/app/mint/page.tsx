@@ -198,21 +198,21 @@ export default function NftShopPage() {
       const newBalance = pageState.score - nft.price;
       const newInstanceId = doc(collection(db, "dummy")).id;
       
-      const newOwnedNftForFirestore = { nftId: nft.id, instanceId: newInstanceId, purchasedAt: serverTimestamp() };
-      const newOwnedNftForState = { nftId: nft.id, instanceId: newInstanceId, purchasedAt: Timestamp.now() };
+      const purchaseTimestamp = Timestamp.now();
+      const newOwnedNft = { nftId: nft.id, instanceId: newInstanceId, purchasedAt: purchaseTimestamp };
 
       // Optimistic UI update
       setPageState(prev => ({ 
         ...prev, 
         score: newBalance, 
-        ownedNfts: [...prev.ownedNfts, newOwnedNftForState] 
+        ownedNfts: [...prev.ownedNfts, newOwnedNft] 
       }));
 
       try {
         const userDocRef = doc(db, 'users', currentUser.uid);
         await setDoc(userDocRef, { 
             score: newBalance, 
-            ownedNfts: arrayUnion(newOwnedNftForFirestore),
+            ownedNfts: arrayUnion(newOwnedNft),
             lastUpdated: serverTimestamp() 
         }, { merge: true });
 
