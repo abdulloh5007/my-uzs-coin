@@ -22,7 +22,6 @@ const registerSchema = z.object({
   email: z.string().email({ message: "Некорректный email." }),
   password: z.string().min(6, { message: "Пароль должен быть не менее 6 символов." }),
   confirmPassword: z.string().min(6, { message: "Подтверждение пароля должно быть не менее 6 символов." }),
-  referralCode: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Пароли не совпадают.",
   path: ["confirmPassword"], // a path to the field that will be blamed
@@ -35,7 +34,7 @@ function RegisterForm() {
   const { register, currentUser, loading } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const refCode = searchParams.get('ref');
+  const refId = searchParams.get('refId');
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -44,15 +43,8 @@ function RegisterForm() {
       email: '',
       password: '',
       confirmPassword: '',
-      referralCode: '',
     },
   });
-
-  useEffect(() => {
-    if (refCode) {
-      form.setValue('referralCode', refCode);
-    }
-  }, [refCode, form]);
 
   useEffect(() => {
     if (!loading && currentUser) {
@@ -61,7 +53,7 @@ function RegisterForm() {
   }, [currentUser, loading, router]);
 
   const onSubmit = async (data: RegisterFormValues) => {
-    const result = await register(data.email, data.password, data.nickname, data.referralCode);
+    const result = await register(data.email, data.password, data.nickname, refId || undefined);
     if ('code' in result) { // AuthError
       const firebaseError = result as AuthError;
       let errorMessage = "Ошибка регистрации. Пожалуйста, попробуйте еще раз.";
@@ -164,19 +156,11 @@ function RegisterForm() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="referralCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-foreground">Реферальный код (необязательно)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="ABCXYZ" {...field} className="bg-input/80 border-border text-foreground placeholder:text-muted-foreground" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {refId && (
+                <div className="p-3 bg-green-500/20 text-green-300 text-sm rounded-md text-center">
+                  Вы регистрируетесь по приглашению. Бонус будет начислен!
+                </div>
+              )}
               <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground pt-2" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? "Регистрация..." : "Зарегистрироваться"}
               </Button>

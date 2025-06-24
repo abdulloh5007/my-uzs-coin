@@ -17,7 +17,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 const REFERRAL_BONUS = 25000;
 
 interface FriendsPageState {
-  referralCode: string;
   referredUsers: Array<{ uid: string; nickname: string }>;
   totalReferralBonus: number;
 }
@@ -28,7 +27,6 @@ export default function FriendsPage() {
   const { currentUser, loading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [pageState, setPageState] = useState<FriendsPageState>({
-    referralCode: '',
     referredUsers: [],
     totalReferralBonus: 0,
   });
@@ -36,11 +34,11 @@ export default function FriendsPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const link = `${window.location.origin}/register?ref=${pageState.referralCode}`;
+    if (typeof window !== 'undefined' && currentUser?.uid) {
+      const link = `${window.location.origin}/register?refId=${currentUser.uid}`;
       setReferralLink(link);
     }
-  }, [pageState.referralCode]);
+  }, [currentUser]);
 
   const loadFriendsData = useCallback(async (userId: string) => {
     setIsLoading(true);
@@ -50,7 +48,6 @@ export default function FriendsPage() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setPageState({
-          referralCode: data.referralCode || '',
           referredUsers: data.referredUsers || [],
           totalReferralBonus: data.totalReferralBonus || 0,
         });

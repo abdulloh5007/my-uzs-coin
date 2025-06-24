@@ -41,7 +41,7 @@ interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<User | AuthError>;
-  register: (email: string, password: string, nickname: string, referralCode?: string) => Promise<User | AuthError>;
+  register: (email: string, password: string, nickname: string, referrerId?: string) => Promise<User | AuthError>;
   logout: () => Promise<void>;
 }
 
@@ -69,7 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string, nickname: string, referralCode?: string): Promise<User | AuthError> => {
+  const register = async (email: string, password: string, nickname: string, referrerId?: string): Promise<User | AuthError> => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
@@ -85,31 +85,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let initialScore = 0;
       let referredBy = '';
       
-      const trimmedCode = referralCode ? referralCode.trim().toUpperCase() : '';
+      if (referrerId && referrerId.trim() !== '' && referrerId !== user.uid) {
+        initialScore = REFERRAL_BONUS;
+        referredBy = referrerId;
 
-      if (trimmedCode) {
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where("referralCode", "==", trimmedCode));
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          const referrerDoc = querySnapshot.docs[0];
-          if (referrerDoc.id !== user.uid) { // Prevent self-referral
-            initialScore = REFERRAL_BONUS;
-            referredBy = referrerDoc.id;
-
-            // Create a pending referral document instead of updating the referrer directly
-            const referralRef = doc(collection(db, "referrals"));
-            batch.set(referralRef, {
-              referrerId: referrerDoc.id,
-              newUserId: user.uid,
-              newUserName: nickname,
-              awarded: false,
-              createdAt: serverTimestamp(),
-              bonusAmount: REFERRAL_BONUS
-            });
-          }
-        }
+        const referralRef = doc(collection(db, "referrals"));
+        batch.set(referralRef, {
+          referrerId: referrerId,
+          newUserId: user.uid,
+          newUserName: nickname,
+          awarded: false,
+          createdAt: serverTimestamp(),
+          bonusAmount: REFERRAL_BONUS
+        });
       }
 
       // Define initial game state for the new user
