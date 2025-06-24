@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -6,13 +5,19 @@ import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Copy, Users, Gift, Check, Sparkles } from 'lucide-react';
+import { Copy, Users, Gift, Check, Sparkles, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, getDocs, collection, query, where, writeBatch, increment, arrayUnion } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const REFERRAL_BONUS = 25000;
 
@@ -154,8 +159,21 @@ export default function FriendsPage() {
         <div className="max-w-md mx-auto space-y-6">
           <Card className="bg-card/80 border-border/50 shadow-lg text-left">
             <CardHeader>
-              <CardTitle className="text-xl">Ваша реферальная ссылка</CardTitle>
-              <CardDescription>Поделитесь этой ссылкой с друзьями, чтобы они присоединились к игре.</CardDescription>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-xl">Ваша реферальная ссылка</CardTitle>
+                <TooltipProvider delayDuration={0}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 p-0">
+                        <Info className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" align="start" className="max-w-xs text-sm p-3">
+                      <p>Поделитесь этой ссылкой с друзьями, чтобы они присоединились к игре. от каждого приглашенного вы и приглашенный пользователь получаете по 25.000 UZSCOIN в качестве бонуса.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </CardHeader>
             <CardContent>
                 {isLoading ? (
