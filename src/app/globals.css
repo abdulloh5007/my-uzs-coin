@@ -91,27 +91,17 @@ body {
     50% { transform: scale(0.92); }
     100% { transform: scale(1); }
   }
-  .glare-container {
-    @apply relative overflow-hidden;
+
+  @keyframes glare-pass {
+    0% {
+      transform: translateX(-150%) skewX(-25deg);
+    }
+    100% {
+      transform: translateX(150%) skewX(-25deg);
+    }
   }
-  .glare-container::after {
-    content: '';
-    @apply absolute top-0 w-1/2 h-full;
-    background: linear-gradient(
-      to right,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.2) 50%,
-      rgba(255, 255, 255, 0) 100%
-    );
-    transform: skewX(-25deg);
-    pointer-events: none;
-    /* New animation that runs every 5 seconds */
-    animation: glare-animation 5s infinite cubic-bezier(0.23, 1, 0.32, 1);
-  }
-  
-  @keyframes glare-animation {
-    0% { left: -75%; }
-    33% { left: 125%; } /* Animation takes ~1.65s of the 5s duration */
-    100% { left: 125%; } /* Stays off-screen for the remaining ~3.35s */
+
+  .animate-glare-pass {
+    animation: glare-pass 1s ease-in-out;
   }
 }

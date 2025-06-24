@@ -6,12 +6,12 @@ import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Sparkles, Cpu, Wand2, Egg, ShoppingCart, Check, Info, User, Shield, BarChart, Package, Send, Cog, Mail, History, Inbox, ArrowRight } from 'lucide-react';
+import { Coins, Sparkles, Cpu, Wand2, Egg, ShoppingCart, Check, Info, User, Shield, BarChart, Package, Send, Cog, Mail, History, Inbox, ArrowRight, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, arrayUnion, onSnapshot, collection, query, where, writeBatch, getDocs, Timestamp, orderBy } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, arrayUnion, onSnapshot, collection, query, where, writeBatch, getDocs, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
@@ -19,6 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // --- TYPES ---
 interface NftItem {
@@ -69,6 +71,12 @@ interface NftShopState {
   ownedNfts: OwnedNft[];
 }
 
+interface FoundUser {
+  uid: string;
+  username: string;
+  nickname: string;
+}
+
 export default function NftShopPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -83,8 +91,14 @@ export default function NftShopPage() {
   const [mailbox, setMailbox] = useState<NftTransfer[]>([]);
   const [sentHistory, setSentHistory] = useState<NftTransfer[]>([]);
   const [isSendSheetOpen, setIsSendSheetOpen] = useState(false);
-  const [recipientUsername, setRecipientUsername] = useState('');
   const [isSending, setIsSending] = useState(false);
+  
+  // States for User Search in Send Sheet
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<FoundUser[]>([]);
+  const [selectedRecipient, setSelectedRecipient] = useState<FoundUser | null>(null);
+
 
   // Load user's score and owned NFTs
   const loadShopData = useCallback(async (userId: string) => {
@@ -118,6 +132,8 @@ export default function NftShopPage() {
     const unsubscribeMailbox = onSnapshot(qMailbox, (snapshot) => {
       const received: NftTransfer[] = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp).toDate() } as NftTransfer));
       setMailbox(received);
+    }, (error) => {
+      console.error("Mailbox listener error:", error);
     });
 
     // Sent history listener
@@ -125,6 +141,8 @@ export default function NftShopPage() {
     const unsubscribeSent = onSnapshot(qSent, (snapshot) => {
       const sent: NftTransfer[] = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp).toDate() } as NftTransfer));
       setSentHistory(sent);
+    }, (error) => {
+        console.error("Sent history listener error:", error);
     });
 
     return () => {
@@ -132,6 +150,56 @@ export default function NftShopPage() {
       unsubscribeSent();
     };
   }, [currentUser]);
+
+  // Debounced User Search Effect
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    const searchUsers = async () => {
+        setIsSearching(true);
+        try {
+            const usersRef = collection(db, 'users');
+            // Using a standard prefix search trick for Firestore
+            const q = query(
+                usersRef,
+                where('username', '>=', `@${searchQuery}`),
+                where('username', '<=', `@${searchQuery}\uf8ff`),
+                limit(5)
+            );
+            const querySnapshot = await getDocs(q);
+            const users: FoundUser[] = [];
+            querySnapshot.forEach(doc => {
+                // Exclude the current user from search results
+                if (doc.id !== currentUser?.uid) {
+                    const data = doc.data();
+                    if(data.username){ // Ensure user has a username
+                        users.push({
+                            uid: doc.id,
+                            username: data.username,
+                            nickname: data.nickname,
+                        });
+                    }
+                }
+            });
+            setSearchResults(users);
+        } catch (error) {
+            console.error("Error searching for users:", error);
+            toast({ variant: "destructive", title: "Ошибка", description: "Не удалось выполнить поиск." });
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const debounceTimeout = setTimeout(() => {
+        searchUsers();
+    }, 300);
+
+    return () => clearTimeout(debounceTimeout);
+  }, [searchQuery, currentUser?.uid, toast]);
 
 
   useEffect(() => {
@@ -151,16 +219,14 @@ export default function NftShopPage() {
       const newInstanceId = doc(collection(db, "dummy")).id;
       const newOwnedNft: OwnedNft = { nftId: nft.id, instanceId: newInstanceId };
 
-      setPageState(prev => ({
-        score: newBalance,
-        ownedNfts: [...prev.ownedNfts, newOwnedNft],
-      }));
+      const newOwnedNftsList = [...pageState.ownedNfts, newOwnedNft];
+      setPageState(prev => ({ ...prev, score: newBalance, ownedNfts: newOwnedNftsList }));
 
       try {
         const userDocRef = doc(db, 'users', currentUser.uid);
         await setDoc(userDocRef, { 
             score: newBalance, 
-            ownedNfts: arrayUnion(newOwnedNft),
+            ownedNfts: newOwnedNftsList, // Use the full list to avoid race conditions with arrayUnion
             lastUpdated: serverTimestamp() 
         }, { merge: true });
 
@@ -187,36 +253,14 @@ export default function NftShopPage() {
   };
 
   const handleSendNft = async () => {
-      if (!currentUser || !selectedNft || isSending) return;
-
-      const finalUsername = recipientUsername.startsWith('@') ? recipientUsername : `@${recipientUsername}`;
-
-      if (finalUsername.length < 2) {
-          toast({ variant: 'destructive', title: 'Введите имя пользователя' });
-          return;
-      }
-      if (finalUsername === (currentUser.displayName || '')) {
-          toast({ variant: 'destructive', title: 'Ошибка', description: 'Вы не можете отправить NFT самому себе.' });
-          return;
-      }
+      if (!currentUser || !selectedNft || !selectedRecipient || isSending) return;
 
       setIsSending(true);
       try {
-          const usersRef = collection(db, 'users');
-          const q = query(usersRef, where('username', '==', finalUsername));
-          const querySnapshot = await getDocs(q);
-
-          if (querySnapshot.empty) {
-              toast({ variant: 'destructive', title: 'Пользователь не найден', description: `Игрок с именем ${finalUsername} не найден.` });
-              return;
-          }
-          
-          const recipientDoc = querySnapshot.docs[0];
-          const recipientId = recipientDoc.id;
-
           const batch = writeBatch(db);
           
           const senderDocRef = doc(db, 'users', currentUser.uid);
+          // Remove the specific instance of the NFT from the sender's collection
           const newOwnedNfts = pageState.ownedNfts.filter(item => item.instanceId !== selectedNft.instanceId);
 
           batch.update(senderDocRef, { ownedNfts: newOwnedNfts });
@@ -227,18 +271,23 @@ export default function NftShopPage() {
               instanceId: selectedNft.instanceId,
               senderId: currentUser.uid,
               senderNickname: currentUser.displayName || 'Аноним',
-              recipientId: recipientId,
-              recipientUsername: finalUsername,
+              recipientId: selectedRecipient.uid,
+              recipientUsername: selectedRecipient.username,
               status: 'pending',
               sentAt: serverTimestamp()
           });
 
           await batch.commit();
           
-          toast({ title: 'Успешно!', description: `NFT "${selectedNft.name}" отправлен пользователю ${finalUsername}.` });
+          setPageState(prev => ({ ...prev, ownedNfts: newOwnedNfts })); // Update local state after successful send
+          
+          toast({ title: 'Успешно!', description: `NFT "${selectedNft.name}" отправлен пользователю ${selectedRecipient.username}.` });
+          
+          // Reset states and close sheets
           setIsSendSheetOpen(false);
           setSelectedNft(null);
-          setRecipientUsername('');
+          setSelectedRecipient(null);
+          setSearchQuery('');
 
       } catch (error) {
           console.error("Error sending NFT:", error);
@@ -309,50 +358,141 @@ export default function NftShopPage() {
   }
   
   const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
+    const iconContainerRef = useRef<HTMLDivElement>(null);
     const iconRef = useRef<HTMLDivElement>(null);
     const [isHovering, setIsHovering] = useState(false);
   
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!iconRef.current || nft.type !== 'Анимированный') return;
-      const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+      if (!iconRef.current || !iconContainerRef.current || nft.type !== 'Анимированный') return;
+      const { left, top, width, height } = iconContainerRef.current.getBoundingClientRect();
       const x = (e.clientX - left) / width - 0.5;
       const y = (e.clientY - top) / height - 0.5;
-      iconRef.current.style.transform = `perspective(1000px) rotateX(${-y * 25}deg) rotateY(${x * 25}deg) scale3d(1.05, 1.05, 1.05)`;
+      iconRef.current.style.transform = `perspective(1000px) rotateX(${-y * 25}deg) rotateY(${x * 25}deg) scale3d(1.1, 1.1, 1.1)`;
     };
     const handleMouseLeave = () => {
       if (!iconRef.current) return;
       iconRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
       setIsHovering(false);
     };
+  
     const Icon = nft.icon;
+  
     return (
-      <div onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave} onMouseEnter={() => setIsHovering(true)} className="glare-container" style={{ transformStyle: "preserve-3d" }}>
+      <div
+        ref={iconContainerRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        onMouseEnter={() => setIsHovering(true)}
+        className="relative group/parallax"
+        style={{ transformStyle: "preserve-3d" }}
+      >
         <div ref={iconRef} className={cn("p-8 rounded-2xl inline-block transition-transform duration-300 ease-out", nft.iconBgClass)} style={{ transformStyle: "preserve-3d" }}>
             {nft.imageUrl ? <Image src={isHovering ? nft.imageUrl : (nft.imageUrl.replace('.gif', '_static.png'))} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain pointer-events-none" unoptimized onError={(e) => { const target = e.target as HTMLImageElement; if (target.src.includes('_static.png')) target.src = nft.imageUrl!; }} /> : (Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass)} />)}
+        </div>
+        <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+            <div className="absolute top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 opacity-0 group-hover/parallax:opacity-100 group-hover/parallax:animate-glare-pass" />
         </div>
       </div>
     );
   };
   
-  const NftDetailSheet = ({ nft, onOpenChange, onBuyNft, nickname }: { nft: SelectedNft | null; onOpenChange: (open: boolean) => void; userScore: number; onBuyNft: (nft: NftItem) => void; nickname: string; viewSource: 'shop' | 'inventory'; }) => {
+  const NftDetailSheet = ({ nft, onOpenChange }: { nft: SelectedNft | null; onOpenChange: (open: boolean) => void; }) => {
       if (!nft) return null;
       const canAfford = pageState.score >= nft.price;
       const bgPattern = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2L10.5 6H6.5L8 10.5L7 14H17L16 10.5L17.5 6H13.5L12 2Z' fill='hsl(var(--primary))' opacity='0.1'/></svg>`);
       return (
         <Sheet open={!!nft} onOpenChange={onOpenChange}>
             <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
-                <div className="flex flex-col h-full"><div className="p-6 pt-8 text-center" style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}><ParallaxIconDisplay nft={nft} /><SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle><CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription></div><div className="p-6 flex-1 overflow-y-auto"><div className="space-y-4 text-sm">{viewSource === 'inventory' && (<div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span><span className="font-semibold text-foreground">{nickname}</span></div>)}<div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><Shield className="w-4 h-4"/>Тип</span><Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge></div><div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span><span className="font-semibold text-primary">{nft.rarity}%</span></div><div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span><span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span></div></div></div><SheetFooter className="p-6 border-t border-border/50 bg-background">{viewSource === 'inventory' ? (<div className="w-full flex flex-col sm:flex-row gap-2"><Button className="w-full" variant="outline" disabled><Cog className="w-4 h-4 mr-2" /> Использовать</Button><Button className="w-full" onClick={() => setIsSendSheetOpen(true)}><Send className="w-4 h-4 mr-2" /> Отправить</Button></div>) : (<Button className="w-full" disabled={!canAfford} onClick={() => onBuyNft(nft)}>{canAfford ? (<>Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}</>) : ('Недостаточно монет')}</Button>)}</SheetFooter></div>
+                <div className="flex flex-col h-full"><div className="p-6 pt-8 text-center" style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}><ParallaxIconDisplay nft={nft} /><SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle><CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription></div><div className="p-6 flex-1 overflow-y-auto"><div className="space-y-4 text-sm">{viewSource === 'inventory' && (<div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span><span className="font-semibold text-foreground">{currentUser?.displayName || 'Вы'}</span></div>)}<div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><Shield className="w-4 h-4"/>Тип</span><Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge></div><div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span><span className="font-semibold text-primary">{nft.rarity}%</span></div><div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span><span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span></div></div></div><SheetFooter className="p-6 border-t border-border/50 bg-background">{viewSource === 'inventory' ? (<div className="w-full flex flex-col sm:flex-row gap-2"><Button className="w-full" variant="outline" disabled><Cog className="w-4 h-4 mr-2" /> Использовать</Button><Button className="w-full" onClick={() => setIsSendSheetOpen(true)}><Send className="w-4 h-4 mr-2" /> Отправить</Button></div>) : (<Button className="w-full" disabled={!canAfford} onClick={() => handleBuyNft(nft)}>{canAfford ? (<>Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}</>) : ('Недостаточно монет')}</Button>)}</SheetFooter></div>
             </SheetContent>
         </Sheet>
       );
   };
   
   const SendNftSheet = () => (
-    <Sheet open={isSendSheetOpen} onOpenChange={setIsSendSheetOpen}>
+    <Sheet open={isSendSheetOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) { // Reset state on close
+            setSelectedRecipient(null);
+            setSearchQuery('');
+            setSearchResults([]);
+        }
+        setIsSendSheetOpen(isOpen);
+    }}>
         <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
-            <SheetHeader className="p-6 pb-4 border-b border-border/50"><SheetTitle className="text-xl">Отправить NFT</SheetTitle><CardDescription>Введите имя пользователя, которому хотите отправить "{selectedNft?.name}".</CardDescription></SheetHeader>
-            <div className="p-6 flex-1"><Input value={recipientUsername} onChange={(e) => setRecipientUsername(e.target.value)} placeholder="@username" className="bg-input/80 border-border text-foreground"/></div>
-            <SheetFooter className="p-6 border-t border-border/50 bg-background"><Button className="w-full" onClick={handleSendNft} disabled={isSending}>{isSending ? 'Отправка...' : 'Отправить'}</Button></SheetFooter>
+            <SheetHeader className="p-6 pb-4 border-b border-border/50"><SheetTitle className="text-xl">Отправить "{selectedNft?.name}"</SheetTitle><CardDescription>Найдите пользователя по его @username.</CardDescription></SheetHeader>
+            
+            <div className="p-6 border-b border-border/50">
+                {selectedRecipient ? (
+                     <div className="space-y-3">
+                        <Label>Получатель:</Label>
+                        <Card className="bg-card/90">
+                           <CardContent className="p-3 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Avatar>
+                                        <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${selectedRecipient.uid}`} alt={selectedRecipient.nickname} />
+                                        <AvatarFallback>{selectedRecipient.nickname.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="font-semibold text-foreground">{selectedRecipient.nickname}</p>
+                                        <p className="text-sm text-muted-foreground">{selectedRecipient.username}</p>
+                                    </div>
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => setSelectedRecipient(null)}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
+                ) : (
+                    <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
+                        <Input 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="username" 
+                            className="pl-7 bg-input/80 border-border text-foreground"
+                        />
+                    </div>
+                )}
+            </div>
+
+            <div className="flex-1 p-6 pt-3 overflow-y-auto">
+                {!selectedRecipient && (
+                    isSearching ? (
+                        <div className="space-y-2">
+                            {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+                        </div>
+                    ) : searchResults.length > 0 ? (
+                        <div className="space-y-2">
+                             <p className="text-sm text-muted-foreground mb-2">Результаты поиска:</p>
+                             {searchResults.map(user => (
+                                <Card key={user.uid} className="cursor-pointer hover:bg-accent transition-colors" onClick={() => {
+                                    setSelectedRecipient(user);
+                                    setSearchResults([]);
+                                    setSearchQuery('');
+                                }}>
+                                    <CardContent className="p-3 flex items-center gap-3">
+                                         <Avatar>
+                                            <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${user.uid}`} alt={user.nickname}/>
+                                            <AvatarFallback>{user.nickname.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-semibold text-foreground">{user.nickname}</p>
+                                            <p className="text-sm text-muted-foreground">{user.username}</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    ) : searchQuery.length >= 2 && <p className="text-center text-muted-foreground py-4">Пользователь не найден.</p>
+                )}
+            </div>
+            
+            <SheetFooter className="p-6 border-t border-border/50 bg-background">
+                <Button className="w-full" onClick={handleSendNft} disabled={!selectedRecipient || isSending}>
+                    {isSending ? 'Отправка...' : 'Отправить'}
+                </Button>
+            </SheetFooter>
         </SheetContent>
     </Sheet>
   );
@@ -411,7 +551,7 @@ export default function NftShopPage() {
         </Tabs>
       </div>
 
-       <NftDetailSheet nft={selectedNft} onOpenChange={(isOpen) => !isOpen && setSelectedNft(null)} userScore={pageState.score} onBuyNft={handleBuyNft} nickname={currentUser?.displayName || 'Пользователь'} viewSource={viewSource} />
+       <NftDetailSheet nft={selectedNft} onOpenChange={(isOpen) => !isOpen && setSelectedNft(null)} />
        <SendNftSheet />
 
       <BottomNavBar onNavigate={handleNavigation} activeItem="/mint" />
