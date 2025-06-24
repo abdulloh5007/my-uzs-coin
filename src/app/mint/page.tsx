@@ -312,6 +312,9 @@ const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
     // Only apply the effect for animated NFTs
     if (!iconRef.current || nft.type !== 'Анимированный') return;
 
+    // This ensures smooth hover effect without lag
+    e.currentTarget.style.transition = 'none';
+
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - left) / width - 0.5;
     const y = (e.clientY - top) / height - 0.5;
@@ -323,6 +326,8 @@ const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
   const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!iconRef.current) return;
     
+    // Add transition for a smooth return to the original state
+    e.currentTarget.style.transition = 'transform 0.3s ease-out';
     // Reset the transform
     e.currentTarget.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
     
@@ -338,7 +343,6 @@ const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onMouseEnter={() => setIsHovering(true)}
-      // NOTE: Removed transition-transform and duration classes to prevent "lag"
       className={cn("p-8 rounded-2xl inline-block relative overflow-hidden", nft.iconBgClass)}
       style={{ transformStyle: "preserve-3d" }}
     >
