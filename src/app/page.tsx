@@ -451,6 +451,7 @@ export default function HomePage() {
       } else {
         // New user: set from initial and save. This path should now rarely be taken,
         // as the user doc is created on registration in AuthContext.
+        // This is a fallback to prevent a soft-lock if the doc creation fails.
         stateToSet = initialGameState;
         setGameStartTime(new Date(initialGameState.gameStartTime!));
         setScore(initialGameState.score);
@@ -482,7 +483,14 @@ export default function HomePage() {
         setReferredUsers(initialGameState.referredUsers || []);
         setTotalReferralBonus(initialGameState.totalReferralBonus || 0);
         
-        await setDoc(userDocRef, { ...initialGameState, gameStartTime: initialGameState.gameStartTime, lastUpdated: serverTimestamp() });
+        const docToCreate = { 
+            ...initialGameState,
+            nickname: currentUser?.displayName || 'Игрок',
+            username: '',
+            gameStartTime: initialGameState.gameStartTime, 
+            lastUpdated: serverTimestamp()
+        };
+        await setDoc(userDocRef, docToCreate);
       }
 
 
@@ -499,7 +507,7 @@ export default function HomePage() {
       setIsGameDataLoading(false);
       gameDataLoadedRef.current = true;
     }
-  }, [toast, handleClaimBotCoins]);
+  }, [toast, handleClaimBotCoins, currentUser]);
 
 
   useEffect(() => {
