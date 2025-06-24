@@ -12,8 +12,8 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, arrayUnion, onSnapshot, collection, query, where, writeBatch, getDocs, Timestamp, orderBy, limit } from 'firebase/firestore';
-import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent as DialogModalContent, DialogDescription as DialogModalDescription, DialogFooter as DialogModalFooter, DialogHeader as DialogModalHeader, DialogTitle as DialogModalTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -309,29 +309,16 @@ const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
   const [isHovering, setIsHovering] = useState(false);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Only apply the effect for animated NFTs
-    if (!iconRef.current || nft.type !== 'Анимированный') return;
-
-    // This ensures smooth hover effect without lag
-    e.currentTarget.style.transition = 'none';
-
+    if (nft.type !== 'Анимированный' || !iconRef.current) return;
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - left) / width - 0.5;
     const y = (e.clientY - top) / height - 0.5;
-    
-    // Apply the 3D transform directly via JS
     e.currentTarget.style.transform = `perspective(1000px) rotateX(${-y * 25}deg) rotateY(${x * 25}deg) scale3d(1.1, 1.1, 1.1)`;
   };
   
   const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!iconRef.current) return;
-    
-    // Add transition for a smooth return to the original state
-    e.currentTarget.style.transition = 'transform 0.3s ease-out';
-    // Reset the transform
     e.currentTarget.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
-    
-    // Reset hover state for GIF logic
     setIsHovering(false);
   };
 
@@ -343,7 +330,10 @@ const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onMouseEnter={() => setIsHovering(true)}
-      className={cn("p-8 rounded-2xl inline-block relative overflow-hidden", nft.iconBgClass)}
+      className={cn(
+        "p-8 rounded-2xl inline-block relative overflow-hidden transition-transform duration-150 ease-out", 
+        nft.iconBgClass
+      )}
       style={{ transformStyle: "preserve-3d" }}
     >
       {nft.imageUrl ? <Image src={isHovering ? nft.imageUrl : (nft.imageUrl.replace('.gif', '_static.png'))} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain pointer-events-none" unoptimized onError={(e) => { const target = e.target as HTMLImageElement; if (target.src.includes('_static.png')) target.src = nft.imageUrl!; }} /> : (Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass)} />)}
