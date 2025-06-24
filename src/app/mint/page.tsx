@@ -241,51 +241,21 @@ export default function NftShopPage() {
     );
   }
   
-  const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [style, setStyle] = useState({});
+  const ParallaxIconDisplay: React.FC<{ nft: NftItem, parallaxStyle: React.CSSProperties }> = ({ nft, parallaxStyle }) => {
     const Icon = nft.icon;
 
-    useEffect(() => {
-      if (nft.type !== 'Анимированный' || typeof window === 'undefined') return;
-
-      const handleMouseMove = (e: MouseEvent) => {
-        if (!containerRef.current) return;
-        const { left, top, width, height } = containerRef.current.getBoundingClientRect();
-        const x = (e.clientX - left) / width - 0.5;
-        const y = (e.clientY - top) / height - 0.5;
-
-        const rotateY = x * 30; // Max rotation
-        const rotateX = -y * 30;
-        setStyle({
-          transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`,
-          transition: 'transform 0.1s ease-out'
-        });
-      };
-
-      const handleMouseLeave = () => {
-        setStyle({
-          transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg)',
-          transition: 'transform 0.5s ease-in-out'
-        });
-      };
-      
-      const currentRef = containerRef.current;
-      currentRef.addEventListener('mousemove', handleMouseMove);
-      currentRef.addEventListener('mouseleave', handleMouseLeave);
-
-      return () => {
-        if (currentRef) {
-          currentRef.removeEventListener('mousemove', handleMouseMove);
-          currentRef.removeEventListener('mouseleave', handleMouseLeave);
-        }
-      };
-    }, [nft.type]);
-
     return (
-      <div ref={containerRef} style={style} className="inline-block">
-        <div className={cn("p-8 rounded-2xl inline-block transition-all", nft.iconBgClass)}>
-          <Icon className={cn("w-24 h-24", nft.iconColorClass)} />
+      <div className="group" style={{ perspective: '1000px' }}>
+        <div style={parallaxStyle} className={cn(
+          "p-8 rounded-2xl inline-block transition-transform duration-200 ease-out", 
+          nft.iconBgClass,
+          nft.id === 'starship_deed' && 'group-hover:animate-rocket-rumble',
+          nft.id === 'magic_staff' && 'group-hover:animate-staff-sway'
+        )}>
+          <Icon className={cn("w-24 h-24", nft.iconColorClass,
+             nft.id === 'magic_staff' && 'group-hover:animate-magic-sparkles'
+          )} />
+          {nft.id === 'starship_deed' && <div className="flame-emitter"></div>}
         </div>
       </div>
     );
@@ -301,27 +271,73 @@ export default function NftShopPage() {
   }> = ({ nft, onOpenChange, userScore, ownedNfts, onBuyNft, nickname }) => {
       if (!nft) return null;
 
+      const sheetRef = useRef<HTMLDivElement>(null);
+      const [parallaxStyle, setParallaxStyle] = useState({});
+
+      useEffect(() => {
+        if (nft.type !== 'Анимированный' || typeof window === 'undefined') {
+            setParallaxStyle({ transform: '' }); // Reset style for non-animated
+            return;
+        }
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!sheetRef.current) return;
+            const { left, top, width, height } = sheetRef.current.getBoundingClientRect();
+            const x = (e.clientX - left) / width - 0.5;
+            const y = (e.clientY - top) / height - 0.5;
+
+            const rotateY = x * 25;
+            const rotateX = -y * 25;
+            setParallaxStyle({
+                transform: `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`,
+            });
+        };
+
+        const handleMouseLeave = () => {
+            setParallaxStyle({
+                transform: 'rotateX(0deg) rotateY(0deg)',
+                transition: 'transform 0.5s ease-in-out'
+            });
+        };
+
+        const currentRef = sheetRef.current;
+        if (currentRef) {
+          currentRef.addEventListener('mousemove', handleMouseMove);
+          currentRef.addEventListener('mouseleave', handleMouseLeave);
+        }
+
+        return () => {
+          if (currentRef) {
+            currentRef.removeEventListener('mousemove', handleMouseMove);
+            currentRef.removeEventListener('mouseleave', handleMouseLeave);
+          }
+        };
+      }, [nft]);
+
+
       const isOwned = ownedNfts.includes(nft.id);
       const canAfford = userScore >= nft.price;
       const bgPattern = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2L10.5 6H6.5L8 10.5L7 14H17L16 10.5L17.5 6H13.5L12 2Z' fill='hsl(var(--primary))' opacity='0.05'/></svg>`);
 
       return (
         <Sheet open={!!nft} onOpenChange={onOpenChange}>
-            <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
+            <SheetContent ref={sheetRef} side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
                 <div 
                     className="p-6 pt-8 text-center" 
                     style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}>
-                    <ParallaxIconDisplay nft={nft} />
+                    <ParallaxIconDisplay nft={nft} parallaxStyle={parallaxStyle} />
                     <SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle>
                     <CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription>
                 </div>
 
                 <div className="p-6 flex-1 overflow-y-auto">
                     <div className="space-y-4 text-sm">
-                        <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                            <span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span>
-                            <span className="font-semibold text-foreground">{isOwned ? nickname : '—'}</span>
-                        </div>
+                        {isOwned && (
+                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                <span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span>
+                                <span className="font-semibold text-foreground">{nickname}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between items-center border-b border-border/30 pb-3">
                             <span className="text-muted-foreground flex items-center gap-2"><Shield className="w-4 h-4"/>Тип</span>
                             <Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge>
