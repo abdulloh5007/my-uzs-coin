@@ -254,17 +254,17 @@ export default function NftShopPage() {
 
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
       if (!iconContainerRef.current || nft.type !== 'Анимированный') return;
-      const { left, top, width, height } = iconContainerRef.current.getBoundingClientRect();
+      const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
       const x = (e.clientX - left) / width - 0.5;
       const y = (e.clientY - top) / height - 0.5;
-      const rotateY = x * 30;
-      const rotateX = -y * 30;
-      iconContainerRef.current.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+      const rotateY = x * 25; // Tilt intensity
+      const rotateX = -y * 25;
+      iconContainerRef.current.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.05, 1.05, 1.05)`;
     };
   
     const handleMouseLeave = () => {
       if (!iconContainerRef.current) return;
-      iconContainerRef.current.style.transform = 'rotateX(0deg) rotateY(0deg)';
+      iconContainerRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
       setIsHovering(false);
       if (nft.imageUrl?.endsWith('.gif')) {
         setIsGif(false);
@@ -287,38 +287,34 @@ export default function NftShopPage() {
   
     return (
       <div 
-        style={{ perspective: '1000px' }}
+        ref={iconContainerRef}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onMouseEnter={handleMouseEnter}
+        className={cn(
+          "p-8 rounded-2xl inline-block transition-transform duration-150 ease-out",
+          nft.iconBgClass
+        )}
+        style={{ transformStyle: "preserve-3d" }}
       >
-        <div
-          ref={iconContainerRef}
-          className={cn(
-            "p-8 rounded-2xl inline-block transition-transform duration-100 ease-out",
-            nft.iconBgClass
-          )}
-        >
-          {nft.imageUrl ? (
-            <Image
-              src={isGif ? nft.imageUrl : nft.imageUrl.replace('.gif', '_static.png')}
-              alt={nft.name}
-              width={96}
-              height={96}
-              className="w-24 h-24 object-contain"
-              unoptimized
-              onError={(e) => {
-                // Fallback to gif if static png doesn't exist
-                const target = e.target as HTMLImageElement;
-                if (!target.src.endsWith('.gif')) {
-                    target.src = nft.imageUrl!;
-                }
-              }}
-            />
-          ) : (
-            Icon && <Icon className={cn("w-24 h-24", nft.iconColorClass)} />
-          )}
-        </div>
+        {nft.imageUrl ? (
+          <Image
+            src={isGif ? nft.imageUrl : nft.imageUrl.replace('.gif', '_static.png')}
+            alt={nft.name}
+            width={96}
+            height={96}
+            className="w-24 h-24 object-contain pointer-events-none"
+            unoptimized
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              if (!target.src.endsWith('.gif')) {
+                  target.src = nft.imageUrl!;
+              }
+            }}
+          />
+        ) : (
+          Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass)} />
+        )}
       </div>
     );
   };
@@ -466,4 +462,3 @@ export default function NftShopPage() {
     </div>
   );
 }
-
