@@ -13,10 +13,9 @@ import { getLeagueInfo } from '@/lib/leagues';
 import { useRouter } from 'next/navigation';
 import { formatDistanceStrict } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
-import { auth, db, storage } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, collection, query, orderBy, limit, getDocs, where, setDoc } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -123,27 +122,31 @@ export default function ProfilePage() {
         toast({ variant: 'destructive', title: 'Неверный тип файла', description: 'Пожалуйста, выберите PNG, JPG или WEBP.' });
         return;
     }
-
+    
     setIsUploadingAvatar(true);
     try {
-        const avatarRef = ref(storage, `avatars/${currentUser.uid}`);
-        
-        await uploadBytes(avatarRef, file);
-        const downloadURL = await getDownloadURL(avatarRef);
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const dataUrl = reader.result as string;
 
-        await updateProfile(currentUser, { photoURL: downloadURL });
-        
+        // No need to update Firebase Auth profile, only our Firestore doc
         const userDocRef = doc(db, 'users', currentUser.uid);
-        await setDoc(userDocRef, { photoURL: downloadURL }, { merge: true });
+        await setDoc(userDocRef, { photoURL: dataUrl }, { merge: true });
 
-        setStats(prev => ({ ...prev, photoURL: downloadURL }));
+        setStats(prev => ({ ...prev, photoURL: dataUrl }));
 
         toast({ title: 'Успешно!', description: 'Аватар обновлен.' });
-
+        setIsUploadingAvatar(false);
+      };
+      reader.onerror = (error) => {
+          console.error("Error reading file:", error);
+          toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось прочитать файл.' });
+          setIsUploadingAvatar(false);
+      }
     } catch (error) {
-        console.error("Error uploading avatar:", error);
-        toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось загрузить аватар.' });
-    } finally {
+        console.error("Error processing avatar:", error);
+        toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось обработать аватар.' });
         setIsUploadingAvatar(false);
     }
   };
