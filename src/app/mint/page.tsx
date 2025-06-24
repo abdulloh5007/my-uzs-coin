@@ -73,7 +73,7 @@ const nftItems: NftItem[] = [
   },
   {
     id: 'starship_deed',
-    name: 'Документ на корабль',
+    name: 'Документ на ракету',
     description: 'Право собственности на межгалактический звёздолёт класса "Исследователь".',
     imageUrl: '/rocket.gif',
     type: 'Анимированный',
@@ -253,7 +253,7 @@ export default function NftShopPage() {
     return (
       <div className="group" style={{ perspective: '1000px' }}>
         <div style={parallaxStyle} className={cn(
-          "p-8 rounded-2xl inline-block transition-transform duration-200 ease-out", 
+          "p-8 rounded-2xl inline-block transition-transform duration-500 ease-out", 
           nft.iconBgClass,
           nft.id === 'magic_staff' && 'group-hover:animate-staff-sway'
         )}>
@@ -284,7 +284,7 @@ export default function NftShopPage() {
 
       useEffect(() => {
         if (nft.type !== 'Анимированный' || typeof window === 'undefined') {
-            setParallaxStyle({ transform: '' }); // Reset style for non-animated
+            setParallaxStyle({ transform: '' });
             return;
         }
 
@@ -304,7 +304,6 @@ export default function NftShopPage() {
         const handleMouseLeave = () => {
             setParallaxStyle({
                 transform: 'rotateX(0deg) rotateY(0deg)',
-                transition: 'transform 0.5s ease-in-out'
             });
         };
 
@@ -325,7 +324,7 @@ export default function NftShopPage() {
 
       const isOwned = ownedNfts.includes(nft.id);
       const canAfford = userScore >= nft.price;
-      const bgPattern = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2L10.5 6H6.5L8 10.5L7 14H17L16 10.5L17.5 6H13.5L12 2Z' fill='hsl(var(--primary))' opacity='0.05'/></svg>`);
+      const bgPattern = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2L10.5 6H6.5L8 10.5L7 14H17L16 10.5L17.5 6H13.5L12 2Z' fill='hsl(var(--primary))' opacity='0.1'/></svg>`);
 
       return (
         <Sheet open={!!nft} onOpenChange={onOpenChange}>
