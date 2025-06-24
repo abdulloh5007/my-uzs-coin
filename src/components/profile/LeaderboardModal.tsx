@@ -23,18 +23,21 @@ interface LeaderboardModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   topPlayers: Player[];
+  leaguePlayers: Player[];
   currentPlayer: Player | null;
   isLoading: boolean;
+  currentLeagueName: string;
 }
 
 const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   isOpen,
   onOpenChange,
   topPlayers = [],
+  leaguePlayers = [],
   currentPlayer,
   isLoading,
+  currentLeagueName,
 }) => {
-  const isCurrentPlayerInTop = currentPlayer && topPlayers.some(p => p.uid === currentPlayer.uid);
 
   const renderSkeletons = () => (
     Array.from({ length: 10 }).map((_, i) => (
@@ -45,6 +48,57 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
       </TableRow>
     ))
   );
+
+  const renderPlayerTable = (players: Player[], isGlobal: boolean) => {
+    const isCurrentPlayerInList = currentPlayer && players.some(p => p.uid === currentPlayer.uid);
+
+    return (
+        <>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[50px]">#</TableHead>
+                        <TableHead>Игрок</TableHead>
+                        <TableHead className="text-right">Счет</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {isLoading ? renderSkeletons() : (
+                        players.length > 0 ? (
+                            players.map((player) => (
+                                <TableRow key={player.uid} className={currentPlayer?.uid === player.uid ? "bg-primary/10" : ""}>
+                                    <TableCell className="font-medium">{player.rank}</TableCell>
+                                    <TableCell>{player.name}</TableCell>
+                                    <TableCell className="text-right">{player.score.toLocaleString()}</TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={3} className="h-24 text-center">В этом рейтинге пока нет игроков.</TableCell>
+                            </TableRow>
+                        )
+                    )}
+                </TableBody>
+            </Table>
+
+            {currentPlayer && !isCurrentPlayerInList && isGlobal && !isLoading && (
+                <div className="mt-6 pt-4 border-t border-border/50">
+                    <h4 className="text-md font-semibold mb-2 text-foreground">Ваша позиция</h4>
+                    <Table>
+                        <TableBody>
+                            <TableRow className="bg-primary/20">
+                                <TableCell className="font-medium">{currentPlayer.rank}</TableCell>
+                                <TableCell>{currentPlayer.name}</TableCell>
+                                <TableCell className="text-right">{currentPlayer.score.toLocaleString()}</TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                </div>
+            )}
+        </>
+    );
+  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -63,57 +117,16 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
             <Tabs defaultValue="global" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-4 bg-card/80">
                     <TabsTrigger value="global" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Глобальный</TabsTrigger>
-                    <TabsTrigger value="league" disabled className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Рейтинг лиги</TabsTrigger>
+                    <TabsTrigger value="league" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Рейтинг лиги</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="global">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                            <TableHead className="w-[50px]">#</TableHead>
-                            <TableHead>Игрок</TableHead>
-                            <TableHead className="text-right">Счет</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? renderSkeletons() : (
-                            topPlayers.length > 0 ? (
-                                topPlayers.map((player) => (
-                                <TableRow key={player.uid} className={currentPlayer?.uid === player.uid ? "bg-primary/10" : ""}>
-                                    <TableCell className="font-medium">{player.rank}</TableCell>
-                                    <TableCell>{player.name}</TableCell>
-                                    <TableCell className="text-right">{player.score.toLocaleString()}</TableCell>
-                                </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                <TableCell colSpan={3} className="h-24 text-center">В рейтинге пока нет игроков.</TableCell>
-                                </TableRow>
-                            )
-                            )}
-                        </TableBody>
-                    </Table>
-
-                    {currentPlayer && !isCurrentPlayerInTop && !isLoading && (
-                        <div className="mt-6 pt-4 border-t border-border/50">
-                        <h4 className="text-md font-semibold mb-2 text-foreground">Ваша позиция</h4>
-                        <Table>
-                            <TableBody>
-                                <TableRow className="bg-primary/20">
-                                    <TableCell className="font-medium">{currentPlayer.rank}</TableCell>
-                                    <TableCell>{currentPlayer.name}</TableCell>
-                                    <TableCell className="text-right">{currentPlayer.score.toLocaleString()}</TableCell>
-                                </TableRow>
-                            </TableBody>
-                        </Table>
-                        </div>
-                    )}
+                    {renderPlayerTable(topPlayers, true)}
                 </TabsContent>
                 
                 <TabsContent value="league">
-                    <div className="flex items-center justify-center h-48 text-center text-muted-foreground">
-                        <p>Рейтинг лиги скоро появится!</p>
-                    </div>
+                    <div className="text-sm text-center text-muted-foreground mb-4">Рейтинг для лиги: <span className="font-semibold text-primary">{currentLeagueName}</span></div>
+                    {renderPlayerTable(leaguePlayers, false)}
                 </TabsContent>
             </Tabs>
         </div>

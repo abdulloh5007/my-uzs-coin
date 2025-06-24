@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp } from 'lucide-react';
+import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp, Trophy } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
@@ -15,6 +15,7 @@ import { formatDistanceStrict } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+import { Button } from '@/components/ui/button';
 
 const INITIAL_CLICK_POWER_BASE = 1;
 const CLICK_POWER_INCREMENT_PER_LEVEL = 1;
@@ -28,6 +29,7 @@ interface ProfileStats {
   gameStartTime: string | null;
   clickPowerLevel: number;
   energyRegenLevel: number;
+  nickname: string;
 }
 
 export default function ProfilePage() {
@@ -42,6 +44,7 @@ export default function ProfilePage() {
     gameStartTime: null,
     clickPowerLevel: 0,
     energyRegenLevel: 0,
+    nickname: '',
   });
   
   const [clickPower, setClickPower] = useState(INITIAL_CLICK_POWER_BASE);
@@ -50,6 +53,7 @@ export default function ProfilePage() {
 
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [topPlayers, setTopPlayers] = useState<Player[]>([]);
+  const [leaguePlayers, setLeaguePlayers] = useState<Player[]>([]);
   const [currentPlayerForLeaderboard, setCurrentPlayerForLeaderboard] = useState<Player | null>(null);
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
 
@@ -67,6 +71,7 @@ export default function ProfilePage() {
           gameStartTime: data.gameStartTime || null,
           clickPowerLevel: data.clickPowerLevel || 0,
           energyRegenLevel: data.energyRegenLevel || 0,
+          nickname: data.nickname || currentUser?.displayName || 'Игрок',
         });
       }
     } catch (error) {
@@ -74,7 +79,7 @@ export default function ProfilePage() {
     } finally {
       setIsDataLoading(false);
     }
-  }, []);
+  }, [currentUser]);
   
   useEffect(() => {
     setClickPower(INITIAL_CLICK_POWER_BASE + (stats.clickPowerLevel * CLICK_POWER_INCREMENT_PER_LEVEL));
@@ -111,30 +116,62 @@ export default function ProfilePage() {
     if (!currentUser) return;
     setIsLeaderboardOpen(true);
     setIsLeaderboardLoading(true);
-    try {
-      // Fetch top 100 players
-      const usersRef = collection(db, 'users');
-      const qTop = query(usersRef, orderBy('totalScoreCollected', 'desc'), limit(100));
-      const topSnapshot = await getDocs(qTop);
-      const topPlayersData: Player[] = topSnapshot.docs.map((doc, index) => ({
-        rank: index + 1,
-        name: doc.data().nickname || `Player ${doc.id.substring(0, 5)}`,
-        score: doc.data().totalScoreCollected,
-        uid: doc.id,
-      }));
-      setTopPlayers(topPlayersData);
+    setTopPlayers([]);
+    setLeaguePlayers([]);
 
-      // Fetch current player's rank
-      const qRank = query(usersRef, where('totalScoreCollected', '>', stats.totalScoreCollected));
-      const rankSnapshot = await getDocs(qRank);
-      const rank = rankSnapshot.size + 1;
-      
-      setCurrentPlayerForLeaderboard({
-        rank: rank,
-        name: currentUser.displayName || 'Вы',
-        score: stats.totalScoreCollected,
-        uid: currentUser.uid
-      });
+    try {
+        const usersRef = collection(db, 'users');
+
+        // --- Fetch Global Top 100 Players ---
+        const qTop = query(usersRef, orderBy('totalScoreCollected', 'desc'), limit(100));
+        const topSnapshot = await getDocs(qTop);
+        const topPlayersData: Player[] = topSnapshot.docs.map((doc, index) => ({
+            rank: index + 1,
+            name: doc.data().nickname || `Player ${doc.id.substring(0, 5)}`,
+            score: doc.data().totalScoreCollected,
+            uid: doc.id,
+        }));
+        setTopPlayers(topPlayersData);
+
+        // --- Fetch Current Player's Global Rank ---
+        const qRank = query(usersRef, where('totalScoreCollected', '>', stats.totalScoreCollected));
+        const rankSnapshot = await getDocs(qRank);
+        const rank = rankSnapshot.size + 1;
+        
+        setCurrentPlayerForLeaderboard({
+            rank: rank,
+            name: stats.nickname,
+            score: stats.totalScoreCollected,
+            uid: currentUser.uid
+        });
+
+        // --- Fetch League Players ---
+        let qLeague;
+        if (nextLeague) {
+            qLeague = query(
+                usersRef,
+                where('totalScoreCollected', '>=', currentLeague.threshold),
+                where('totalScoreCollected', '<', nextLeague.threshold),
+                orderBy('totalScoreCollected', 'desc'),
+                limit(100)
+            );
+        } else {
+            // This is the highest league, no upper bound
+            qLeague = query(
+                usersRef,
+                where('totalScoreCollected', '>=', currentLeague.threshold),
+                orderBy('totalScoreCollected', 'desc'),
+                limit(100)
+            );
+        }
+        const leagueSnapshot = await getDocs(qLeague);
+        const leaguePlayersData: Player[] = leagueSnapshot.docs.map((doc, index) => ({
+            rank: index + 1, // Rank within the league
+            name: doc.data().nickname || `Player ${doc.id.substring(0, 5)}`,
+            score: doc.data().totalScoreCollected,
+            uid: doc.id,
+        }));
+        setLeaguePlayers(leaguePlayersData);
 
     } catch (error) {
       console.error("Error fetching leaderboard data:", error);
@@ -142,6 +179,7 @@ export default function ProfilePage() {
       setIsLeaderboardLoading(false);
     }
   };
+
 
   const handleNavigation = (path: string) => {
     router.push(path);
@@ -169,21 +207,21 @@ export default function ProfilePage() {
           </AvatarFallback>
         </Avatar>
         
-        <h1 className="text-3xl font-bold">{currentUser.displayName || 'Игрок'}</h1>
+        <h1 className="text-3xl font-bold">{stats.nickname}</h1>
         <p className="text-muted-foreground mb-8 flex items-center justify-center gap-1.5">
           <Mail className="w-4 h-4"/>
           {currentUser.email}
         </p>
 
         <div className="max-w-md mx-auto space-y-4">
-          <div className="cursor-pointer" onClick={handleOpenLeaderboard}>
-            <LeagueInfoCard
-              currentLeague={currentLeague}
-              nextLeague={nextLeague}
-              leagueScore={stats.totalScoreCollected} 
-              progressPercentage={progressPercentage}
-            />
-          </div>
+            <div className="cursor-pointer" onClick={handleOpenLeaderboard}>
+                <LeagueInfoCard
+                    currentLeague={currentLeague}
+                    nextLeague={nextLeague}
+                    leagueScore={stats.totalScoreCollected} 
+                    progressPercentage={progressPercentage}
+                />
+            </div>
           
           <StatCard icon={Coins} label="Текущий баланс" value={stats.score.toLocaleString()} />
           <StatCard icon={TrendingUp} label="Всего заработано" value={stats.totalScoreCollected.toLocaleString()} />
@@ -202,8 +240,10 @@ export default function ProfilePage() {
         isOpen={isLeaderboardOpen}
         onOpenChange={setIsLeaderboardOpen}
         topPlayers={topPlayers}
+        leaguePlayers={leaguePlayers}
         currentPlayer={currentPlayerForLeaderboard}
         isLoading={isLeaderboardLoading}
+        currentLeagueName={currentLeague.name}
       />
     </div>
   );
