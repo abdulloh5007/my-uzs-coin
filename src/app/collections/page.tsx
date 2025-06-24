@@ -310,7 +310,7 @@ const NftDetailSheet: React.FC<{
     
     return (
       <Sheet open={!!nft} onOpenChange={onOpenChange}>
-          <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] lg:max-h-[70vh] lg:max-w-4xl lg:mx-auto lg:mb-8 lg:rounded-2xl text-left">
+          <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] lg:max-h-[70vh] text-left">
               <div className="flex flex-col lg:flex-row h-full">
                   {/* LEFT PANE (Top on mobile) */}
                   <div 
@@ -569,5 +569,7 @@ export default function CollectionsPage() {
     </div>
   );
 }
+
+    
 
     
