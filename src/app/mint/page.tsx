@@ -1,17 +1,19 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Sparkles, Cpu, Wand2, Egg, Rocket, ShoppingCart, Check, Shield, Star, Crown } from 'lucide-react';
+import { Coins, Sparkles, Cpu, Wand2, Egg, Rocket, ShoppingCart, Check, Info, User, Shield, BarChart, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Badge } from '@/components/ui/badge';
 
 interface NftItem {
   id: string;
@@ -22,48 +24,63 @@ interface NftItem {
   price: number;
   iconColorClass: string;
   iconBgClass: string;
+  category: string;
+  rarity: number; // as a percentage
+  edition: number;
 }
 
 const nftItems: NftItem[] = [
   {
     id: 'cyberpunk_mask',
     name: 'Маска Киберпанка',
-    description: 'Стильная маска из будущего.',
+    description: 'Стильная маска из будущего, улучшающая нейроинтерфейс.',
     icon: Cpu,
     type: 'Простой',
     price: 15000000,
     iconColorClass: 'text-cyan-400',
     iconBgClass: 'bg-cyan-500/20',
+    category: 'Киберпанк',
+    rarity: 5,
+    edition: 5000,
   },
   {
     id: 'magic_staff',
     name: 'Магический Посох',
-    description: 'Древний посох, наполненный магией.',
+    description: 'Древний посох, наполненный магией первоэлементов.',
     icon: Wand2,
     type: 'Анимированный',
     price: 80000000,
     iconColorClass: 'text-purple-400',
     iconBgClass: 'bg-purple-500/20',
+    category: 'Магия',
+    rarity: 1.5,
+    edition: 1000,
   },
   {
     id: 'dragon_egg',
     name: 'Яйцо Дракона',
-    description: 'Кто знает, что из него вылупится?',
+    description: 'Кто знает, что из него вылупится? Ходят слухи о бонусах.',
     icon: Egg,
     type: 'Простой',
     price: 20000000,
     iconColorClass: 'text-red-400',
     iconBgClass: 'bg-red-500/20',
+    category: 'Фэнтези',
+    rarity: 3.2,
+    edition: 2500,
   },
   {
     id: 'starship_deed',
     name: 'Документ на корабль',
-    description: 'Право собственности на звёздолёт.',
+    description: 'Право собственности на межгалактический звёздолёт класса "Исследователь".',
     icon: Rocket,
     type: 'Анимированный',
     price: 100000000,
     iconColorClass: 'text-slate-400',
     iconBgClass: 'bg-slate-500/20',
+    category: 'Sci-Fi',
+    rarity: 0.8,
+    edition: 500,
   },
 ];
 
@@ -78,6 +95,7 @@ export default function NftShopPage() {
   const { toast } = useToast();
   const { currentUser, loading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedNft, setSelectedNft] = useState<NftItem | null>(null);
   const [pageState, setPageState] = useState<NftShopState>({
     score: 0,
     ownedNfts: [],
@@ -141,6 +159,7 @@ export default function NftShopPage() {
           description: `NFT добавлен в вашу коллекцию "Мои NFT".`,
           duration: 5000,
         });
+        setSelectedNft(null); // Close the sheet on successful purchase
 
       } catch (error) {
         console.error("Error buying NFT:", error);
@@ -170,14 +189,13 @@ export default function NftShopPage() {
       </div>
     );
   }
-
+  
   const NftCard: React.FC<{nft: NftItem}> = ({ nft }) => {
     const isOwned = pageState.ownedNfts.includes(nft.id);
-    const canAfford = pageState.score >= nft.price;
     const Icon = nft.icon;
 
     return (
-        <Card className="bg-card/80 border-border/50 shadow-lg text-left overflow-hidden h-full flex flex-col">
+        <Card className="bg-card/80 border-border/50 shadow-lg text-left overflow-hidden h-full flex flex-col relative">
             <CardHeader className="p-4 pb-3 bg-card/90 border-b border-border/30">
                 <div className="flex items-center gap-3">
                     <div className={cn("p-2.5 rounded-lg", nft.iconBgClass)}>
@@ -185,7 +203,7 @@ export default function NftShopPage() {
                     </div>
                     <div>
                         <CardTitle className="text-lg font-semibold text-foreground">{nft.name}</CardTitle>
-                        <CardDescription className="text-xs text-muted-foreground mt-0.5">{nft.description}</CardDescription>
+                        <CardDescription className="text-xs text-muted-foreground mt-0.5">{nft.category}</CardDescription>
                     </div>
                 </div>
             </CardHeader>
@@ -206,27 +224,141 @@ export default function NftShopPage() {
                 </div>
                 
                 <Button
-                    onClick={() => handleBuyNft(nft)}
-                    disabled={isOwned || !canAfford}
-                    className={cn(
-                        "w-full mt-4",
-                        isOwned 
-                            ? "bg-green-600/80 hover:bg-green-600/80 text-white cursor-default"
-                            : canAfford
-                                ? "bg-primary hover:bg-primary/90 text-primary-foreground"
-                                : "bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed"
-                    )}
+                    onClick={() => setSelectedNft(nft)}
+                    variant="outline"
+                    className="w-full mt-4"
                 >
-                    {isOwned 
-                        ? <><Check className="w-4 h-4 mr-2"/>В коллекции</>
-                        : canAfford 
-                            ? <><ShoppingCart className="w-4 h-4 mr-2"/>Купить</>
-                            : 'Недостаточно монет'}
+                  <Info className="w-4 h-4 mr-2" />
+                  Подробнее
                 </Button>
             </CardContent>
+            {isOwned && (
+                <div className="absolute top-2 right-2 p-1 bg-green-600/30 rounded-full flex items-center justify-center">
+                    <Check className="w-4 h-4 text-green-300" />
+                </div>
+            )}
         </Card>
     );
   }
+  
+  const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [style, setStyle] = useState({});
+    const Icon = nft.icon;
+
+    useEffect(() => {
+      if (nft.type !== 'Анимированный' || typeof window === 'undefined') return;
+
+      const handleMouseMove = (e: MouseEvent) => {
+        if (!containerRef.current) return;
+        const { left, top, width, height } = containerRef.current.getBoundingClientRect();
+        const x = (e.clientX - left) / width - 0.5;
+        const y = (e.clientY - top) / height - 0.5;
+
+        const rotateY = x * 30; // Max rotation
+        const rotateX = -y * 30;
+        setStyle({
+          transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`,
+          transition: 'transform 0.1s ease-out'
+        });
+      };
+
+      const handleMouseLeave = () => {
+        setStyle({
+          transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg)',
+          transition: 'transform 0.5s ease-in-out'
+        });
+      };
+      
+      const currentRef = containerRef.current;
+      currentRef.addEventListener('mousemove', handleMouseMove);
+      currentRef.addEventListener('mouseleave', handleMouseLeave);
+
+      return () => {
+        if (currentRef) {
+          currentRef.removeEventListener('mousemove', handleMouseMove);
+          currentRef.removeEventListener('mouseleave', handleMouseLeave);
+        }
+      };
+    }, [nft.type]);
+
+    return (
+      <div ref={containerRef} style={style} className="inline-block">
+        <div className={cn("p-8 rounded-2xl inline-block transition-all", nft.iconBgClass)}>
+          <Icon className={cn("w-24 h-24", nft.iconColorClass)} />
+        </div>
+      </div>
+    );
+  };
+  
+  const NftDetailSheet: React.FC<{
+      nft: NftItem | null;
+      onOpenChange: (open: boolean) => void;
+      userScore: number;
+      ownedNfts: string[];
+      onBuyNft: (nft: NftItem) => void;
+      nickname: string;
+  }> = ({ nft, onOpenChange, userScore, ownedNfts, onBuyNft, nickname }) => {
+      if (!nft) return null;
+
+      const isOwned = ownedNfts.includes(nft.id);
+      const canAfford = userScore >= nft.price;
+      const bgPattern = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2L10.5 6H6.5L8 10.5L7 14H17L16 10.5L17.5 6H13.5L12 2Z' fill='hsl(var(--primary))' opacity='0.05'/></svg>`);
+
+      return (
+        <Sheet open={!!nft} onOpenChange={onOpenChange}>
+            <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
+                <div 
+                    className="p-6 pt-8 text-center" 
+                    style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}>
+                    <ParallaxIconDisplay nft={nft} />
+                    <SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle>
+                    <CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription>
+                </div>
+
+                <div className="p-6 flex-1 overflow-y-auto">
+                    <div className="space-y-4 text-sm">
+                        <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                            <span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span>
+                            <span className="font-semibold text-foreground">{isOwned ? nickname : '—'}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                            <span className="text-muted-foreground flex items-center gap-2"><Shield className="w-4 h-4"/>Тип</span>
+                            <Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                            <span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span>
+                            <span className="font-semibold text-primary">{nft.rarity}%</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                            <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span>
+                            <span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <SheetFooter className="p-6 border-t border-border/50 bg-background">
+                    {isOwned ? (
+                         <Button className="w-full bg-green-600/80 hover:bg-green-600/90 text-white" disabled>
+                           <Check className="w-5 h-5 mr-2"/> Уже в коллекции
+                         </Button>
+                    ) : (
+                         <Button className="w-full" disabled={!canAfford} onClick={() => onBuyNft(nft)}>
+                             {canAfford ? (
+                                <>
+                                  Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}
+                                </>
+                             ) : (
+                                'Недостаточно монет'
+                             )}
+                         </Button>
+                    )}
+                </SheetFooter>
+            </SheetContent>
+        </Sheet>
+      );
+  };
+
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
@@ -280,6 +412,16 @@ export default function NftShopPage() {
             </CardContent>
           </Card>
       </div>
+
+       <NftDetailSheet
+          nft={selectedNft}
+          onOpenChange={(isOpen) => !isOpen && setSelectedNft(null)}
+          userScore={pageState.score}
+          ownedNfts={pageState.ownedNfts}
+          onBuyNft={handleBuyNft}
+          nickname={currentUser?.displayName || 'Пользователь'}
+        />
+
       <BottomNavBar onNavigate={handleNavigation} activeItem="/mint" />
     </div>
   );
