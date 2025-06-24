@@ -104,6 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const newUserInitialData = {
           nickname: nickname,
           username: '', // Explicitly initialize username to prevent errors
+          photoURL: null,
           score: initialScore,
           totalScoreCollected: initialScore,
           energy: INITIAL_MAX_ENERGY_BASE,

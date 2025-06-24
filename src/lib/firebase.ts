@@ -2,6 +2,7 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 // import { getAnalytics, type Analytics } from "firebase/analytics"; // Uncomment if you need Analytics
 
 const firebaseConfig = {
@@ -24,9 +25,10 @@ if (!getApps().length) {
 
 const auth: Auth = getAuth(app);
 const db: Firestore = getFirestore(app);
+const storage: FirebaseStorage = getStorage(app);
 // let analytics: Analytics | undefined; // Uncomment if you need Analytics
 // if (typeof window !== 'undefined') { // Ensure Analytics is initialized only on client-side
 //   analytics = getAnalytics(app);
 // }
 
-export { app, auth, db /*, analytics */ }; // Uncomment analytics if needed
+export { app, auth, db, storage /*, analytics */ }; // Uncomment analytics if needed
