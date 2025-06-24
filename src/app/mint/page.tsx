@@ -6,7 +6,7 @@ import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Sparkles, Cpu, Wand2, Egg, Info } from 'lucide-react';
+import { Coins, Sparkles, Cpu, Wand2, Egg, Info, BarChart, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -14,6 +14,7 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, collection, arrayUnion, Timestamp } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import Image from 'next/image';
+import { Badge } from '@/components/ui/badge';
 
 // --- TYPES ---
 interface NftItem {
@@ -50,11 +51,11 @@ const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - left) / width - 0.5;
     const y = (e.clientY - top) / height - 0.5;
-    e.currentTarget.style.transform = `perspective(1000px) rotateX(${-y * 25}deg) rotateY(${x * 25}deg) scale3d(1.1, 1.1, 1.1)`;
+    iconRef.current.style.transform = `perspective(1000px) rotateX(${-y * 25}deg) rotateY(${x * 25}deg) scale3d(1.1, 1.1, 1.1)`;
   };
   const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!iconRef.current) return;
-    e.currentTarget.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+    iconRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
   };
   const Icon = nft.icon;
   return (
@@ -96,30 +97,45 @@ const NftDetailSheet: React.FC<NftDetailSheetProps> = ({
     
     return (
       <Sheet open={!!nft} onOpenChange={onOpenChange}>
-          <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
-              <div className="flex flex-col h-full">
-                  <div className="p-6 pt-8 text-center" style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}>
+          <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] lg:max-h-[70vh] lg:max-w-4xl lg:mx-auto lg:mb-8 lg:rounded-2xl text-left">
+               <div className="flex flex-col lg:flex-row h-full">
+                  {/* LEFT PANE (Top on mobile) */}
+                  <div 
+                    className="p-6 pt-8 text-center lg:w-1/2 lg:flex lg:flex-col lg:justify-center lg:items-center lg:border-r lg:border-border/50" 
+                    style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}>
                       <ParallaxIconDisplay nft={nft} />
                       <SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle>
                       <CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription>
                   </div>
-                  <div className="p-6 flex-1 overflow-y-auto">
-                      <div className="space-y-4 text-sm">
-                          <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                              <span className="text-muted-foreground">Цена</span>
-                              <span className="font-semibold text-primary flex items-center gap-1.5"><Coins className="w-4 h-4"/>{nft.price.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                              <span className="text-muted-foreground">Категория</span>
-                              <span className="font-semibold text-foreground">{nft.category}</span>
-                          </div>
-                      </div>
+                  
+                  {/* RIGHT PANE (Bottom on mobile) */}
+                  <div className="flex flex-col flex-1 lg:w-1/2">
+                    <div className="p-6 flex-1 overflow-y-auto">
+                        <div className="space-y-4 text-sm">
+                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                <span className="text-muted-foreground flex items-center gap-2"><Coins className="w-4 h-4"/>Цена</span>
+                                <span className="font-semibold text-primary flex items-center gap-1.5">{nft.price.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                <span className="text-muted-foreground flex items-center gap-2"><Info className="w-4 h-4"/>Категория</span>
+                                <span className="font-semibold text-foreground">{nft.category}</span>
+                            </div>
+                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                <span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span>
+                                <span className="font-semibold text-primary">{nft.rarity}%</span>
+                            </div>
+                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span>
+                                <span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <SheetFooter className="p-6 border-t border-border/50 bg-background mt-auto">
+                        <Button className="w-full" disabled={!canAfford} onClick={() => handleBuyNft(nft)}>
+                            {canAfford ? (<>Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}</>) : ('Недостаточно монет')}
+                        </Button>
+                    </SheetFooter>
                   </div>
-                  <SheetFooter className="p-6 border-t border-border/50 bg-background">
-                      <Button className="w-full" disabled={!canAfford} onClick={() => handleBuyNft(nft)}>
-                          {canAfford ? (<>Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}</>) : ('Недостаточно монет')}
-                      </Button>
-                  </SheetFooter>
               </div>
           </SheetContent>
       </Sheet>
@@ -144,7 +160,7 @@ const NftCard: React.FC<{nft: NftItem, onClick: () => void}> = ({ nft, onClick }
             </CardHeader>
             <CardContent className="p-4 space-y-3 flex-grow flex flex-col justify-between">
                 <div>
-                    <div className="flex justify-between items-center text-sm mb-1"><span className="text-muted-foreground">Тип:</span><span className={cn("font-semibold", nft.type === 'Анимированный' ? 'text-purple-400' : 'text-cyan-400')}>{nft.type}</span></div>
+                    <div className="flex justify-between items-center text-sm mb-1"><span className="text-muted-foreground">Тип:</span><Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn('text-xs', nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge></div>
                     <div className="flex justify-between items-center text-sm"><span className="text-muted-foreground">Цена:</span><span className="font-semibold text-primary flex items-center gap-1"><Coins className="w-4 h-4"/>{nft.price.toLocaleString()}</span></div>
                 </div>
                 <Button onClick={onClick} variant="outline" className="w-full mt-4"><Info className="w-4 h-4 mr-2" />Подробнее</Button>
