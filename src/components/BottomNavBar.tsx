@@ -73,7 +73,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
     { icon: MousePointerClick, label: 'Кликер', path: '/' }, 
     { icon: Users, label: 'Друзья', path: '/friends' },
     { icon: Gift, label: 'Награды', path: '/rewards' },
-    { icon: Sparkles, label: 'Mint', path: '/mint' },
+    { icon: Sparkles, label: 'NFT', path: '/mint' },
     { icon: User, label: 'Профиль', path: '/profile' },
   ];
 
