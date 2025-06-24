@@ -85,7 +85,7 @@ export default function ProfilePage() {
           username: data.username || '',
         };
         setStats(profileStats);
-        setEditableUsername(profileStats.username);
+        setEditableUsername(profileStats.username ? profileStats.username.substring(1) : '');
       }
     } catch (error) {
       console.error("Error loading profile data:", error);
@@ -97,25 +97,48 @@ export default function ProfilePage() {
   const handleSaveUsername = useCallback(async () => {
     if (!currentUser) return;
     
-    const sanitizedUsername = editableUsername.trim();
+    const usernameWithoutAt = editableUsername.trim();
 
-    if (sanitizedUsername.length > 0 && (!sanitizedUsername.startsWith('@') || sanitizedUsername.length < 4 || /\s/.test(sanitizedUsername))) {
-      toast({
-        variant: 'destructive',
-        title: 'Неверный формат имени пользователя',
-        description: 'Имя должно начинаться с @, быть не короче 4 символов и не содержать пробелов.'
-      });
-      return;
+    if (usernameWithoutAt && (usernameWithoutAt.length < 3 || !/^[a-zA-Z0-9_]+$/.test(usernameWithoutAt))) {
+        toast({
+            variant: 'destructive',
+            title: 'Неверный формат имени пользователя',
+            description: 'Имя должно быть не короче 3 символов и содержать только латинские буквы, цифры и нижнее подчеркивание.'
+        });
+        return;
     }
+
+    const finalUsername = usernameWithoutAt ? `@${usernameWithoutAt}` : '';
     
-    // Check for uniqueness would be a good next step (requires backend logic)
+    if (finalUsername === stats.username) {
+        return; 
+    }
 
     setIsSavingUsername(true);
     try {
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userDocRef, { username: sanitizedUsername }, { merge: true });
+        if (finalUsername) {
+            const usersRef = collection(db, 'users');
+            const q = query(usersRef, where('username', '==', finalUsername));
+            const querySnapshot = await getDocs(q);
 
-      setStats(prev => ({ ...prev, username: sanitizedUsername }));
+            if (!querySnapshot.empty) {
+                const isTakenByOther = querySnapshot.docs.some(doc => doc.id !== currentUser.uid);
+                if (isTakenByOther) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Имя пользователя занято',
+                        description: 'Это имя пользователя уже используется. Попробуйте другое.'
+                    });
+                    setIsSavingUsername(false);
+                    return;
+                }
+            }
+        }
+      
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      await setDoc(userDocRef, { username: finalUsername }, { merge: true });
+
+      setStats(prev => ({ ...prev, username: finalUsername }));
       toast({
         title: 'Успешно!',
         description: 'Ваше имя пользователя сохранено.'
@@ -126,7 +149,7 @@ export default function ProfilePage() {
     } finally {
       setIsSavingUsername(false);
     }
-  }, [currentUser, editableUsername, toast]);
+  }, [currentUser, editableUsername, toast, stats.username]);
   
   useEffect(() => {
     setClickPower(INITIAL_CLICK_POWER_BASE + (stats.clickPowerLevel * CLICK_POWER_INCREMENT_PER_LEVEL));
@@ -266,16 +289,19 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
-                  <Input 
-                    value={editableUsername}
-                    onChange={(e) => setEditableUsername(e.target.value)}
-                    placeholder="@username"
-                    className="bg-input/80 border-border text-foreground"
-                    disabled={isSavingUsername}
-                  />
-                  <Button onClick={handleSaveUsername} disabled={isSavingUsername || editableUsername === stats.username}>
-                    {isSavingUsername ? 'Сохранение...' : 'Сохранить'}
-                  </Button>
+                    <div className="flex items-center w-full rounded-md border border-input bg-input/80 ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                        <span className="pl-3 text-muted-foreground">@</span>
+                        <Input 
+                            value={editableUsername}
+                            onChange={(e) => setEditableUsername(e.target.value)}
+                            placeholder="username"
+                            className="bg-transparent border-0 h-9 focus-visible:ring-transparent focus-visible:ring-offset-0 flex-1"
+                            disabled={isSavingUsername}
+                        />
+                    </div>
+                    <Button onClick={handleSaveUsername} disabled={isSavingUsername || editableUsername.trim() === (stats.username ? stats.username.substring(1) : '')}>
+                        {isSavingUsername ? 'Сохранение...' : 'Сохранить'}
+                    </Button>
                 </div>
               </CardContent>
             </Card>
