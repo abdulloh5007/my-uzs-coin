@@ -310,7 +310,7 @@ const NftDetailSheet: React.FC<{
     
     return (
       <Sheet open={!!nft} onOpenChange={onOpenChange}>
-          <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] lg:max-h-[70vh] text-left">
+          <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] text-left w-full">
               <div className="flex flex-col lg:flex-row h-full">
                   {/* LEFT PANE (Top on mobile) */}
                   <div 
@@ -331,7 +331,7 @@ const NftDetailSheet: React.FC<{
                             </div>
                             <div className="flex justify-between items-center border-b border-border/30 pb-3">
                                 <span className="text-muted-foreground flex items-center gap-2"><Shield className="w-4 h-4"/>Тип</span>
-                                <Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge>
+                                <Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50 hover:bg-purple-500/80' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge>
                             </div>
                             <div className="flex justify-between items-center border-b border-border/30 pb-3">
                                 <span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span>
@@ -466,7 +466,7 @@ export default function CollectionsPage() {
 
       const userDocRef = doc(db, 'users', currentUser.uid);
       batch.update(userDocRef, {
-        ownedNfts: arrayUnion({ nftId: transfer.nftId, instanceId: transfer.instanceId, purchasedAt: serverTimestamp() })
+        ownedNfts: arrayUnion({ nftId: transfer.nftId, instanceId: transfer.instanceId, purchasedAt: Timestamp.now() })
       });
       
       const transferDocRef = doc(db, 'nft_transfers', transfer.id);

@@ -97,7 +97,7 @@ const NftDetailSheet: React.FC<NftDetailSheetProps> = ({
     
     return (
       <Sheet open={!!nft} onOpenChange={onOpenChange}>
-          <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] lg:max-h-[70vh] text-left">
+          <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] text-left w-full">
                <div className="flex flex-col lg:flex-row h-full">
                   {/* LEFT PANE (Top on mobile) */}
                   <div 
@@ -160,7 +160,7 @@ const NftCard: React.FC<{nft: NftItem, onClick: () => void}> = ({ nft, onClick }
             </CardHeader>
             <CardContent className="p-4 space-y-3 flex-grow flex flex-col justify-between">
                 <div>
-                    <div className="flex justify-between items-center text-sm mb-1"><span className="text-muted-foreground">Тип:</span><Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn('text-xs', nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge></div>
+                    <div className="flex justify-between items-center text-sm mb-1"><span className="text-muted-foreground">Тип:</span><Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn('text-xs', nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50 hover:bg-purple-500/80' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge></div>
                     <div className="flex justify-between items-center text-sm"><span className="text-muted-foreground">Цена:</span><span className="font-semibold text-primary flex items-center gap-1"><Coins className="w-4 h-4"/>{nft.price.toLocaleString()}</span></div>
                 </div>
                 <Button onClick={onClick} variant="outline" className="w-full mt-4"><Info className="w-4 h-4 mr-2" />Подробнее</Button>
