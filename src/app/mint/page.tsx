@@ -251,18 +251,15 @@ export default function NftShopPage() {
     const Icon = nft.icon;
 
     return (
-      <div className="group" style={{ perspective: '1000px' }}>
+      <div style={{ perspective: '1000px' }}>
         <div style={parallaxStyle} className={cn(
-          "p-8 rounded-2xl inline-block transition-transform duration-500 ease-out", 
-          nft.iconBgClass,
-          nft.id === 'magic_staff' && 'group-hover:animate-staff-sway'
+          "p-8 rounded-2xl inline-block transition-transform duration-300 ease-out",
+          nft.iconBgClass
         )}>
            {nft.imageUrl ? (
                 <Image src={nft.imageUrl} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain" unoptimized />
             ) : (
-               Icon && <Icon className={cn("w-24 h-24", nft.iconColorClass,
-                nft.id === 'magic_staff' && 'group-hover:animate-magic-sparkles'
-               )} />
+               Icon && <Icon className={cn("w-24 h-24", nft.iconColorClass)} />
             )}
         </div>
       </div>
@@ -284,7 +281,7 @@ export default function NftShopPage() {
 
       useEffect(() => {
         if (nft.type !== 'Анимированный' || typeof window === 'undefined') {
-            setParallaxStyle({ transform: '' });
+            setParallaxStyle({ transform: 'rotateX(0deg) rotateY(0deg)' });
             return;
         }
 
@@ -313,11 +310,14 @@ export default function NftShopPage() {
           currentRef.addEventListener('mouseleave', handleMouseLeave);
         }
 
+        // Cleanup function
         return () => {
           if (currentRef) {
             currentRef.removeEventListener('mousemove', handleMouseMove);
             currentRef.removeEventListener('mouseleave', handleMouseLeave);
           }
+          // Reset style on close
+          setParallaxStyle({ transform: 'rotateX(0deg) rotateY(0deg)' });
         };
       }, [nft]);
 
