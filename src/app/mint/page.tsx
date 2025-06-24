@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, collection, type Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, arrayUnion, Timestamp } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import Image from 'next/image';
 
@@ -197,18 +197,22 @@ export default function NftShopPage() {
     if (pageState.score >= nft.price) {
       const newBalance = pageState.score - nft.price;
       const newInstanceId = doc(collection(db, "dummy")).id;
-      const newOwnedNft = { nftId: nft.id, instanceId: newInstanceId, purchasedAt: serverTimestamp() };
-
-      const newOwnedNftsList = [...pageState.ownedNfts, newOwnedNft as any];
       
+      const newOwnedNftForFirestore = { nftId: nft.id, instanceId: newInstanceId, purchasedAt: serverTimestamp() };
+      const newOwnedNftForState = { nftId: nft.id, instanceId: newInstanceId, purchasedAt: Timestamp.now() };
+
       // Optimistic UI update
-      setPageState(prev => ({ ...prev, score: newBalance, ownedNfts: newOwnedNftsList }));
+      setPageState(prev => ({ 
+        ...prev, 
+        score: newBalance, 
+        ownedNfts: [...prev.ownedNfts, newOwnedNftForState] 
+      }));
 
       try {
         const userDocRef = doc(db, 'users', currentUser.uid);
         await setDoc(userDocRef, { 
             score: newBalance, 
-            ownedNfts: newOwnedNftsList,
+            ownedNfts: arrayUnion(newOwnedNftForFirestore),
             lastUpdated: serverTimestamp() 
         }, { merge: true });
 
