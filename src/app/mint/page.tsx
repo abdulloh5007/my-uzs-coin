@@ -13,7 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, arrayUnion, onSnapshot, collection, query, where, writeBatch, getDocs, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent as DialogModalContent, DialogDescription as DialogModalDescription, DialogFooter as DialogModalFooter, DialogHeader as DialogModalHeader, DialogTitle as DialogModalTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -182,7 +182,10 @@ const SendNftDialog: React.FC<SendNftDialogProps> = ({
 
   const handleSend = async () => {
       if (!currentUser || !selectedNft || !selectedRecipient || isSending) return;
-
+      if (selectedRecipient.uid === currentUser.uid) {
+        toast({ variant: 'destructive', title: 'Ошибка', description: 'Невозможно отправить NFT самому себе.' });
+        return;
+      }
       setIsSending(true);
       try {
           const batch = writeBatch(db);
@@ -222,11 +225,11 @@ const SendNftDialog: React.FC<SendNftDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg bg-background border-border p-0 shadow-2xl flex flex-col max-h-[85vh] md:max-h-[80vh]">
-            <DialogHeader className="p-6 pb-4 border-b border-border/50 text-left">
-              <DialogTitle className="text-xl">Отправить "{selectedNft?.name}"</DialogTitle>
-              <DialogDescription>Найдите пользователя по его @username.</DialogDescription>
-            </DialogHeader>
+        <DialogModalContent className="sm:max-w-lg bg-background border-border p-0 shadow-2xl flex flex-col max-h-[85vh] md:max-h-[80vh]">
+            <DialogModalHeader className="p-6 pb-4 border-b border-border/50 text-left">
+              <DialogModalTitle className="text-xl">Отправить "{selectedNft?.name}"</DialogModalTitle>
+              <DialogModalDescription>Найдите пользователя по его @username.</DialogModalDescription>
+            </DialogModalHeader>
             
             <div className="p-6 border-b border-border/50">
                 {selectedRecipient ? (
@@ -291,12 +294,12 @@ const SendNftDialog: React.FC<SendNftDialogProps> = ({
                 )}
             </div>
             
-            <DialogFooter className="p-6 border-t border-border/50 bg-background mt-auto">
+            <DialogModalFooter className="p-6 border-t border-border/50 bg-background mt-auto">
                 <Button className="w-full" onClick={handleSend} disabled={!selectedRecipient || isSending}>
                     {isSending ? 'Отправка...' : 'Отправить'}
                 </Button>
-            </DialogFooter>
-        </DialogContent>
+            </DialogModalFooter>
+        </DialogModalContent>
     </Dialog>
   );
 };
@@ -306,16 +309,24 @@ const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
   const [isHovering, setIsHovering] = useState(false);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Only apply the effect for animated NFTs
     if (!iconRef.current || nft.type !== 'Анимированный') return;
+
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - left) / width - 0.5;
     const y = (e.clientY - top) / height - 0.5;
+    
+    // Apply the 3D transform directly via JS
     e.currentTarget.style.transform = `perspective(1000px) rotateX(${-y * 25}deg) rotateY(${x * 25}deg) scale3d(1.1, 1.1, 1.1)`;
   };
   
   const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!iconRef.current) return;
+    
+    // Reset the transform
     e.currentTarget.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+    
+    // Reset hover state for GIF logic
     setIsHovering(false);
   };
 
@@ -323,21 +334,17 @@ const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
 
   return (
     <div
-      className="relative group/parallax"
-      style={{ transformStyle: "preserve-3d", perspective: "1000px" }}
+      ref={iconRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      onMouseEnter={() => setIsHovering(true)}
+      // NOTE: Removed transition-transform and duration classes to prevent "lag"
+      className={cn("p-8 rounded-2xl inline-block relative overflow-hidden", nft.iconBgClass)}
+      style={{ transformStyle: "preserve-3d" }}
     >
-      <div
-        ref={iconRef}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        onMouseEnter={() => setIsHovering(true)}
-        className={cn("p-8 rounded-2xl inline-block transition-transform duration-300 ease-out relative overflow-hidden", nft.iconBgClass)}
-        style={{ transformStyle: "preserve-3d" }}
-      >
-        {nft.imageUrl ? <Image src={isHovering ? nft.imageUrl : (nft.imageUrl.replace('.gif', '_static.png'))} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain pointer-events-none" unoptimized onError={(e) => { const target = e.target as HTMLImageElement; if (target.src.includes('_static.png')) target.src = nft.imageUrl!; }} /> : (Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass)} />)}
-        <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-          <div className="animate-glare-pass absolute top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12" />
-        </div>
+      {nft.imageUrl ? <Image src={isHovering ? nft.imageUrl : (nft.imageUrl.replace('.gif', '_static.png'))} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain pointer-events-none" unoptimized onError={(e) => { const target = e.target as HTMLImageElement; if (target.src.includes('_static.png')) target.src = nft.imageUrl!; }} /> : (Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass)} />)}
+      <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+        <div className="animate-glare-pass absolute top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12" />
       </div>
     </div>
   );
