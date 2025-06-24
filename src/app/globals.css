@@ -102,6 +102,6 @@ body {
   }
 
   .animate-glare-pass {
-    animation: glare-pass 1s ease-in-out;
+    animation: glare-pass 3s ease-in-out infinite;
   }
 }

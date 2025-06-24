@@ -83,31 +83,143 @@ interface SendNftDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   selectedNft: SelectedNft | null;
-  searchQuery: string;
-  onSearchQueryChange: (query: string) => void;
-  isSearching: boolean;
-  searchResults: FoundUser[];
-  onRecipientSelect: (user: FoundUser) => void;
-  selectedRecipient: FoundUser | null;
-  onClearRecipient: () => void;
-  onSend: () => void;
-  isSending: boolean;
+  currentUser: any; // Simplified for brevity
+  pageState: NftShopState;
+  setPageState: React.Dispatch<React.SetStateAction<NftShopState>>;
+  setSelectedNft: React.Dispatch<React.SetStateAction<SelectedNft | null>>;
 }
 
 const SendNftDialog: React.FC<SendNftDialogProps> = ({
   isOpen,
   onOpenChange,
   selectedNft,
-  searchQuery,
-  onSearchQueryChange,
-  isSearching,
-  searchResults,
-  onRecipientSelect,
-  selectedRecipient,
-  onClearRecipient,
-  onSend,
-  isSending
+  currentUser,
+  pageState,
+  setPageState,
+  setSelectedNft,
 }) => {
+  const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<FoundUser[]>([]);
+  const [selectedRecipient, setSelectedRecipient] = useState<FoundUser | null>(null);
+  const [isSending, setIsSending] = useState(false);
+
+  const handleSearchQueryChange = (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
+      setSelectedRecipient(null);
+    }
+  };
+
+  const handleClearRecipient = () => {
+    setSelectedRecipient(null);
+    setSearchQuery('');
+  };
+  
+  const onRecipientSelect = (user: FoundUser) => {
+      setSelectedRecipient(user);
+      setSearchResults([]);
+      setSearchQuery('');
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery('');
+      setSearchResults([]);
+      setSelectedRecipient(null);
+      setIsSending(false);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    const searchUsers = async () => {
+        setIsSearching(true);
+        try {
+            const usersRef = collection(db, 'users');
+            const q = query(
+                usersRef,
+                where('username', '>=', `@${searchQuery}`),
+                where('username', '<=', `@${searchQuery}\uf8ff`),
+                limit(5)
+            );
+            const querySnapshot = await getDocs(q);
+            const users: FoundUser[] = [];
+            querySnapshot.forEach(doc => {
+                if (doc.id !== currentUser?.uid) {
+                    const data = doc.data();
+                    if(data.username){
+                        users.push({
+                            uid: doc.id,
+                            username: data.username,
+                            nickname: data.nickname,
+                        });
+                    }
+                }
+            });
+            setSearchResults(users);
+        } catch (error) {
+            console.error("Error searching for users:", error);
+            toast({ variant: "destructive", title: "Ошибка", description: "Не удалось выполнить поиск." });
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const debounceTimeout = setTimeout(() => {
+        searchUsers();
+    }, 300);
+
+    return () => clearTimeout(debounceTimeout);
+  }, [searchQuery, currentUser?.uid, toast]);
+
+  const handleSend = async () => {
+      if (!currentUser || !selectedNft || !selectedRecipient || isSending) return;
+
+      setIsSending(true);
+      try {
+          const batch = writeBatch(db);
+          const senderDocRef = doc(db, 'users', currentUser.uid);
+          const newOwnedNfts = pageState.ownedNfts.filter(item => item.instanceId !== selectedNft.instanceId);
+
+          batch.update(senderDocRef, { ownedNfts: newOwnedNfts });
+
+          const transferDocRef = doc(collection(db, 'nft_transfers'));
+          batch.set(transferDocRef, {
+              nftId: selectedNft.id,
+              instanceId: selectedNft.instanceId,
+              senderId: currentUser.uid,
+              senderNickname: currentUser.displayName || 'Аноним',
+              recipientId: selectedRecipient.uid,
+              recipientUsername: selectedRecipient.username,
+              status: 'pending',
+              sentAt: serverTimestamp()
+          });
+
+          await batch.commit();
+          
+          setPageState(prev => ({ ...prev, ownedNfts: newOwnedNfts }));
+          
+          toast({ title: 'Успешно!', description: `NFT "${selectedNft.name}" отправлен пользователю ${selectedRecipient.username}.` });
+          
+          onOpenChange(false);
+          setSelectedNft(null);
+
+      } catch (error) {
+          console.error("Error sending NFT:", error);
+          toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось отправить NFT.' });
+      } finally {
+          setIsSending(false);
+      }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-lg bg-background border-border p-0 shadow-2xl flex flex-col max-h-[85vh] md:max-h-[80vh]">
@@ -132,7 +244,7 @@ const SendNftDialog: React.FC<SendNftDialogProps> = ({
                                         <p className="text-sm text-muted-foreground">{selectedRecipient.username}</p>
                                     </div>
                                 </div>
-                                <Button variant="ghost" size="icon" onClick={onClearRecipient}>
+                                <Button variant="ghost" size="icon" onClick={handleClearRecipient}>
                                     <X className="w-4 h-4" />
                                 </Button>
                             </CardContent>
@@ -143,7 +255,7 @@ const SendNftDialog: React.FC<SendNftDialogProps> = ({
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
                         <Input 
                             value={searchQuery}
-                            onChange={(e) => onSearchQueryChange(e.target.value)}
+                            onChange={(e) => handleSearchQueryChange(e.target.value)}
                             placeholder="username" 
                             className="pl-7 bg-input/80 border-border text-foreground"
                         />
@@ -180,7 +292,7 @@ const SendNftDialog: React.FC<SendNftDialogProps> = ({
             </div>
             
             <DialogFooter className="p-6 border-t border-border/50 bg-background mt-auto">
-                <Button className="w-full" onClick={onSend} disabled={!selectedRecipient || isSending}>
+                <Button className="w-full" onClick={handleSend} disabled={!selectedRecipient || isSending}>
                     {isSending ? 'Отправка...' : 'Отправить'}
                 </Button>
             </DialogFooter>
@@ -188,6 +300,151 @@ const SendNftDialog: React.FC<SendNftDialogProps> = ({
     </Dialog>
   );
 };
+
+const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
+  const iconContainerRef = useRef<HTMLDivElement>(null);
+  const iconRef = useRef<HTMLDivElement>(null);
+  const [isHovering, setIsHovering] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!iconRef.current || !iconContainerRef.current || nft.type !== 'Анимированный') return;
+    const { left, top, width, height } = iconContainerRef.current.getBoundingClientRect();
+    const x = (e.clientX - left) / width - 0.5;
+    const y = (e.clientY - top) / height - 0.5;
+    iconRef.current.style.transform = `perspective(1000px) rotateX(${-y * 25}deg) rotateY(${x * 25}deg) scale3d(1.1, 1.1, 1.1)`;
+  };
+  const handleMouseLeave = () => {
+    if (!iconRef.current) return;
+    iconRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+    setIsHovering(false);
+  };
+
+  const Icon = nft.icon;
+
+  return (
+    <div
+      ref={iconContainerRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      onMouseEnter={() => setIsHovering(true)}
+      className="relative group/parallax"
+      style={{ transformStyle: "preserve-3d" }}
+    >
+      <div ref={iconRef} className={cn("p-8 rounded-2xl inline-block transition-transform duration-300 ease-out relative overflow-hidden", nft.iconBgClass)} style={{ transformStyle: "preserve-3d" }}>
+          {nft.imageUrl ? <Image src={isHovering ? nft.imageUrl : (nft.imageUrl.replace('.gif', '_static.png'))} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain pointer-events-none" unoptimized onError={(e) => { const target = e.target as HTMLImageElement; if (target.src.includes('_static.png')) target.src = nft.imageUrl!; }} /> : (Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass)} />)}
+          <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+            <div className="animate-glare-pass absolute top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12" />
+          </div>
+      </div>
+    </div>
+  );
+};
+
+
+interface NftDetailSheetProps {
+    nft: SelectedNft | null;
+    onOpenChange: (open: boolean) => void;
+    pageState: NftShopState;
+    currentUser: any;
+    viewSource: 'shop' | 'inventory';
+    handleBuyNft: (nft: NftItem) => Promise<void>;
+    setIsSendDialogOpen: (open: boolean) => void;
+}
+
+const NftDetailSheet: React.FC<NftDetailSheetProps> = ({ 
+    nft, 
+    onOpenChange, 
+    pageState, 
+    currentUser, 
+    viewSource, 
+    handleBuyNft, 
+    setIsSendDialogOpen 
+}) => {
+    if (!nft) return null;
+    const canAfford = pageState.score >= nft.price;
+    const bgPattern = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2L10.5 6H6.5L8 10.5L7 14H17L16 10.5L17.5 6H13.5L12 2Z' fill='hsl(var(--primary))' opacity='0.1'/></svg>`);
+    
+    return (
+      <Sheet open={!!nft} onOpenChange={onOpenChange}>
+          <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
+              <div className="flex flex-col h-full">
+                  <div className="p-6 pt-8 text-center" style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}>
+                      <ParallaxIconDisplay nft={nft} />
+                      <SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle>
+                      <CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription>
+                  </div>
+                  <div className="p-6 flex-1 overflow-y-auto">
+                      <div className="space-y-4 text-sm">
+                          {viewSource === 'inventory' && (
+                              <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                  <span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span>
+                                  <span className="font-semibold text-foreground">{currentUser?.displayName || 'Вы'}</span>
+                              </div>
+                          )}
+                          <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                              <span className="text-muted-foreground flex items-center gap-2"><Shield className="w-4 h-4"/>Тип</span>
+                              <Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                              <span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span>
+                              <span className="font-semibold text-primary">{nft.rarity}%</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                              <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span>
+                              <span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span>
+                          </div>
+                          {viewSource === 'shop' && (
+                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                  <span className="text-muted-foreground flex items-center gap-2"><Coins className="w-4 h-4"/>Цена</span>
+                                  <span className="font-semibold text-primary">{nft.price.toLocaleString()}</span>
+                            </div>
+                          )}
+                      </div>
+                  </div>
+                  <SheetFooter className="p-6 border-t border-border/50 bg-background">
+                      {viewSource === 'inventory' ? (
+                          <div className="w-full flex flex-col sm:flex-row gap-2">
+                              <Button className="w-full" variant="outline" disabled><Cog className="w-4 h-4 mr-2" /> Использовать</Button>
+                              <Button className="w-full" onClick={() => setIsSendDialogOpen(true)}><Send className="w-4 h-4 mr-2" /> Отправить</Button>
+                          </div>
+                      ) : (
+                          <Button className="w-full" disabled={!canAfford} onClick={() => handleBuyNft(nft)}>
+                              {canAfford ? (<>Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}</>) : ('Недостаточно монет')}
+                          </Button>
+                      )}
+                  </SheetFooter>
+              </div>
+          </SheetContent>
+      </Sheet>
+    );
+};
+
+
+const NftCard: React.FC<{nft: NftItem, onClick: () => void}> = ({ nft, onClick }) => {
+    const Icon = nft.icon;
+    return (
+        <Card className="bg-card/80 border-border/50 shadow-lg text-left overflow-hidden h-full flex flex-col relative">
+            <CardHeader className="p-4 pb-3 bg-card/90 border-b border-border/30">
+                <div className="flex items-center gap-3">
+                    <div className={cn("p-2.5 rounded-lg", nft.iconBgClass)}>
+                        {nft.imageUrl ? <Image src={nft.imageUrl} alt={nft.name} width={28} height={28} unoptimized /> : (Icon && <Icon className={cn("w-7 h-7", nft.iconColorClass)} />)}
+                    </div>
+                    <div>
+                        <CardTitle className="text-lg font-semibold text-foreground">{nft.name}</CardTitle>
+                        <CardDescription className="text-xs text-muted-foreground mt-0.5">{nft.category}</CardDescription>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3 flex-grow flex flex-col justify-between">
+                <div>
+                    <div className="flex justify-between items-center text-sm mb-1"><span className="text-muted-foreground">Тип:</span><span className={cn("font-semibold", nft.type === 'Анимированный' ? 'text-purple-400' : 'text-cyan-400')}>{nft.type}</span></div>
+                    <div className="flex justify-between items-center text-sm"><span className="text-muted-foreground">Цена:</span><span className="font-semibold text-primary flex items-center gap-1"><Coins className="w-4 h-4"/>{nft.price.toLocaleString()}</span></div>
+                </div>
+                <Button onClick={onClick} variant="outline" className="w-full mt-4"><Info className="w-4 h-4 mr-2" />Подробнее</Button>
+            </CardContent>
+        </Card>
+    );
+}
 
 export default function NftShopPage() {
   const router = useRouter();
@@ -199,20 +456,10 @@ export default function NftShopPage() {
   const [pageState, setPageState] = useState<NftShopState>({ score: 0, ownedNfts: [] });
   const [viewSource, setViewSource] = useState<'shop' | 'inventory'>('shop');
   
-  // States for Send/Receive logic
   const [mailbox, setMailbox] = useState<NftTransfer[]>([]);
   const [sentHistory, setSentHistory] = useState<NftTransfer[]>([]);
   const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  
-  // States for User Search in Send Sheet
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<FoundUser[]>([]);
-  const [selectedRecipient, setSelectedRecipient] = useState<FoundUser | null>(null);
 
-
-  // Load user's score and owned NFTs
   const loadShopData = useCallback(async (userId: string) => {
     setIsLoading(true);
     try {
@@ -233,13 +480,11 @@ export default function NftShopPage() {
     }
   }, [toast]);
   
-  // Setup realtime listeners for mailbox and sent history
   useEffect(() => {
     if (!currentUser) return;
 
     const transfersRef = collection(db, 'nft_transfers');
 
-    // Mailbox listener
     const qMailbox = query(transfersRef, where('recipientId', '==', currentUser.uid), where('status', '==', 'pending'), orderBy('sentAt', 'desc'));
     const unsubscribeMailbox = onSnapshot(qMailbox, (snapshot) => {
       const received: NftTransfer[] = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp).toDate() } as NftTransfer));
@@ -248,7 +493,6 @@ export default function NftShopPage() {
       console.error("Mailbox listener error:", error);
     });
 
-    // Sent history listener
     const qSent = query(transfersRef, where('senderId', '==', currentUser.uid), orderBy('sentAt', 'desc'));
     const unsubscribeSent = onSnapshot(qSent, (snapshot) => {
       const sent: NftTransfer[] = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp).toDate() } as NftTransfer));
@@ -263,57 +507,6 @@ export default function NftShopPage() {
     };
   }, [currentUser]);
 
-  // Debounced User Search Effect
-  useEffect(() => {
-    if (searchQuery.trim().length < 2) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
-    
-    const searchUsers = async () => {
-        setIsSearching(true);
-        try {
-            const usersRef = collection(db, 'users');
-            // Using a standard prefix search trick for Firestore
-            const q = query(
-                usersRef,
-                where('username', '>=', `@${searchQuery}`),
-                where('username', '<=', `@${searchQuery}\uf8ff`),
-                limit(5)
-            );
-            const querySnapshot = await getDocs(q);
-            const users: FoundUser[] = [];
-            querySnapshot.forEach(doc => {
-                // Exclude the current user from search results
-                if (doc.id !== currentUser?.uid) {
-                    const data = doc.data();
-                    if(data.username){ // Ensure user has a username
-                        users.push({
-                            uid: doc.id,
-                            username: data.username,
-                            nickname: data.nickname,
-                        });
-                    }
-                }
-            });
-            setSearchResults(users);
-        } catch (error) {
-            console.error("Error searching for users:", error);
-            toast({ variant: "destructive", title: "Ошибка", description: "Не удалось выполнить поиск." });
-        } finally {
-            setIsSearching(false);
-        }
-    };
-
-    const debounceTimeout = setTimeout(() => {
-        searchUsers();
-    }, 300);
-
-    return () => clearTimeout(debounceTimeout);
-  }, [searchQuery, currentUser?.uid, toast]);
-
-
   useEffect(() => {
     if (!authLoading && !currentUser) {
       router.push('/login');
@@ -321,7 +514,6 @@ export default function NftShopPage() {
       loadShopData(currentUser.uid);
     }
   }, [currentUser, authLoading, router, loadShopData]);
-
 
   const handleBuyNft = async (nft: NftItem) => {
     if (!currentUser) return;
@@ -338,7 +530,7 @@ export default function NftShopPage() {
         const userDocRef = doc(db, 'users', currentUser.uid);
         await setDoc(userDocRef, { 
             score: newBalance, 
-            ownedNfts: newOwnedNftsList, // Use the full list to avoid race conditions with arrayUnion
+            ownedNfts: newOwnedNftsList,
             lastUpdated: serverTimestamp() 
         }, { merge: true });
 
@@ -362,51 +554,6 @@ export default function NftShopPage() {
         description: `Вам не хватает ${ (nft.price - pageState.score).toLocaleString()} монет для покупки.`,
       });
     }
-  };
-
-  const handleSendNft = async () => {
-      if (!currentUser || !selectedNft || !selectedRecipient || isSending) return;
-
-      setIsSending(true);
-      try {
-          const batch = writeBatch(db);
-          
-          const senderDocRef = doc(db, 'users', currentUser.uid);
-          // Remove the specific instance of the NFT from the sender's collection
-          const newOwnedNfts = pageState.ownedNfts.filter(item => item.instanceId !== selectedNft.instanceId);
-
-          batch.update(senderDocRef, { ownedNfts: newOwnedNfts });
-
-          const transferDocRef = doc(collection(db, 'nft_transfers'));
-          batch.set(transferDocRef, {
-              nftId: selectedNft.id,
-              instanceId: selectedNft.instanceId,
-              senderId: currentUser.uid,
-              senderNickname: currentUser.displayName || 'Аноним',
-              recipientId: selectedRecipient.uid,
-              recipientUsername: selectedRecipient.username,
-              status: 'pending',
-              sentAt: serverTimestamp()
-          });
-
-          await batch.commit();
-          
-          setPageState(prev => ({ ...prev, ownedNfts: newOwnedNfts })); // Update local state after successful send
-          
-          toast({ title: 'Успешно!', description: `NFT "${selectedNft.name}" отправлен пользователю ${selectedRecipient.username}.` });
-          
-          // Reset states and close sheets
-          setIsSendDialogOpen(false);
-          setSelectedNft(null);
-          setSelectedRecipient(null);
-          setSearchQuery('');
-
-      } catch (error) {
-          console.error("Error sending NFT:", error);
-          toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось отправить NFT.' });
-      } finally {
-          setIsSending(false);
-      }
   };
   
   const handleClaimNft = async (transfer: NftTransfer) => {
@@ -433,7 +580,11 @@ export default function NftShopPage() {
   };
 
   const handleNavigation = (path: string) => router.push(path);
-
+  
+  const handleSendNftClick = () => {
+    setIsSendDialogOpen(true);
+  };
+  
   if (authLoading || isLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body items-center justify-center">
@@ -443,90 +594,12 @@ export default function NftShopPage() {
     );
   }
   
-  const NftCard: React.FC<{nft: NftItem}> = ({ nft }) => {
-    const Icon = nft.icon;
-    return (
-        <Card className="bg-card/80 border-border/50 shadow-lg text-left overflow-hidden h-full flex flex-col relative">
-            <CardHeader className="p-4 pb-3 bg-card/90 border-b border-border/30">
-                <div className="flex items-center gap-3">
-                    <div className={cn("p-2.5 rounded-lg", nft.iconBgClass)}>
-                        {nft.imageUrl ? <Image src={nft.imageUrl} alt={nft.name} width={28} height={28} unoptimized /> : (Icon && <Icon className={cn("w-7 h-7", nft.iconColorClass)} />)}
-                    </div>
-                    <div>
-                        <CardTitle className="text-lg font-semibold text-foreground">{nft.name}</CardTitle>
-                        <CardDescription className="text-xs text-muted-foreground mt-0.5">{nft.category}</CardDescription>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3 flex-grow flex flex-col justify-between">
-                <div>
-                    <div className="flex justify-between items-center text-sm mb-1"><span className="text-muted-foreground">Тип:</span><span className={cn("font-semibold", nft.type === 'Анимированный' ? 'text-purple-400' : 'text-cyan-400')}>{nft.type}</span></div>
-                    <div className="flex justify-between items-center text-sm"><span className="text-muted-foreground">Цена:</span><span className="font-semibold text-primary flex items-center gap-1"><Coins className="w-4 h-4"/>{nft.price.toLocaleString()}</span></div>
-                </div>
-                <Button onClick={() => { setSelectedNft({...nft, instanceId: ''}); setViewSource('shop'); }} variant="outline" className="w-full mt-4"><Info className="w-4 h-4 mr-2" />Подробнее</Button>
-            </CardContent>
-        </Card>
-    );
-  }
-  
-  const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
-    const iconContainerRef = useRef<HTMLDivElement>(null);
-    const iconRef = useRef<HTMLDivElement>(null);
-    const [isHovering, setIsHovering] = useState(false);
-  
-    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!iconRef.current || !iconContainerRef.current || nft.type !== 'Анимированный') return;
-      const { left, top, width, height } = iconContainerRef.current.getBoundingClientRect();
-      const x = (e.clientX - left) / width - 0.5;
-      const y = (e.clientY - top) / height - 0.5;
-      iconRef.current.style.transform = `perspective(1000px) rotateX(${-y * 25}deg) rotateY(${x * 25}deg) scale3d(1.1, 1.1, 1.1)`;
-    };
-    const handleMouseLeave = () => {
-      if (!iconRef.current) return;
-      iconRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
-      setIsHovering(false);
-    };
-  
-    const Icon = nft.icon;
-  
-    return (
-      <div
-        ref={iconContainerRef}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        onMouseEnter={() => setIsHovering(true)}
-        className="relative group/parallax"
-        style={{ transformStyle: "preserve-3d" }}
-      >
-        <div ref={iconRef} className={cn("p-8 rounded-2xl inline-block transition-transform duration-300 ease-out relative overflow-hidden", nft.iconBgClass)} style={{ transformStyle: "preserve-3d" }}>
-            {nft.imageUrl ? <Image src={isHovering ? nft.imageUrl : (nft.imageUrl.replace('.gif', '_static.png'))} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain pointer-events-none" unoptimized onError={(e) => { const target = e.target as HTMLImageElement; if (target.src.includes('_static.png')) target.src = nft.imageUrl!; }} /> : (Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass)} />)}
-            <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-              <div className="animate-glare-pass absolute top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12" />
-            </div>
-        </div>
-      </div>
-    );
-  };
-  
-  const NftDetailSheet = ({ nft, onOpenChange }: { nft: SelectedNft | null; onOpenChange: (open: boolean) => void; }) => {
-      if (!nft) return null;
-      const canAfford = pageState.score >= nft.price;
-      const bgPattern = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2L10.5 6H6.5L8 10.5L7 14H17L16 10.5L17.5 6H13.5L12 2Z' fill='hsl(var(--primary))' opacity='0.1'/></svg>`);
-      return (
-        <Sheet open={!!nft} onOpenChange={onOpenChange}>
-            <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
-                <div className="flex flex-col h-full"><div className="p-6 pt-8 text-center" style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}><ParallaxIconDisplay nft={nft} /><SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle><CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription></div><div className="p-6 flex-1 overflow-y-auto"><div className="space-y-4 text-sm">{viewSource === 'inventory' && (<div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><User className="w-4 h-4"/>Владелец</span><span className="font-semibold text-foreground">{currentUser?.displayName || 'Вы'}</span></div>)}<div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><Shield className="w-4 h-4"/>Тип</span><Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge></div><div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span><span className="font-semibold text-primary">{nft.rarity}%</span></div><div className="flex justify-between items-center border-b border-border/30 pb-3"><span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span><span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span></div></div></div><SheetFooter className="p-6 border-t border-border/50 bg-background">{viewSource === 'inventory' ? (<div className="w-full flex flex-col sm:flex-row gap-2"><Button className="w-full" variant="outline" disabled><Cog className="w-4 h-4 mr-2" /> Использовать</Button><Button className="w-full" onClick={() => setIsSendDialogOpen(true)}><Send className="w-4 h-4 mr-2" /> Отправить</Button></div>) : (<Button className="w-full" disabled={!canAfford} onClick={() => handleBuyNft(nft)}>{canAfford ? (<>Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}</>) : ('Недостаточно монет')}</Button>)}</SheetFooter></div>
-            </SheetContent>
-        </Sheet>
-      );
-  };
-  
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased">
       <div className="flex-grow container mx-auto px-4 pt-10 md:pt-16 pb-20 md:pb-24 text-center">
         <h1 className="text-4xl font-bold mb-8 text-foreground">Магазин NFT</h1>
         <Card className="max-w-md mx-auto mb-8 bg-card/80 border-border/50 shadow-lg"><CardContent className="p-4 flex items-center justify-center"><Coins className="w-6 h-6 mr-3 text-primary" /><span className="text-lg font-medium text-foreground">Баланс: </span><span className="text-lg font-semibold text-primary ml-1.5">{pageState.score.toLocaleString()}</span></CardContent></Card>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">{nftItems.map((nft) => <NftCard key={nft.id} nft={nft} />)}</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">{nftItems.map((nft) => <NftCard key={nft.id} nft={nft} onClick={() => { setSelectedNft({...nft, instanceId: ''}); setViewSource('shop'); }} />)}</div>
         <Tabs defaultValue="inventory" className="w-full max-w-4xl mx-auto">
             <TabsList className="grid w-full grid-cols-3 mb-6 bg-card/80"><TabsTrigger value="inventory">Мои NFT ({pageState.ownedNfts.length})</TabsTrigger><TabsTrigger value="mailbox">Почта ({mailbox.length})</TabsTrigger><TabsTrigger value="history">История</TabsTrigger></TabsList>
             <TabsContent value="inventory">
@@ -575,35 +648,26 @@ export default function NftShopPage() {
         </Tabs>
       </div>
 
-       <NftDetailSheet nft={selectedNft} onOpenChange={(isOpen) => !isOpen && setSelectedNft(null)} />
+       <NftDetailSheet
+           nft={selectedNft} 
+           onOpenChange={(isOpen) => !isOpen && setSelectedNft(null)}
+           pageState={pageState}
+           currentUser={currentUser}
+           viewSource={viewSource}
+           handleBuyNft={handleBuyNft}
+           setIsSendDialogOpen={setIsSendDialogOpen}
+       />
        <SendNftDialog
             isOpen={isSendDialogOpen}
-            onOpenChange={(isOpen) => {
-                if (!isOpen) { // Reset state on close
-                    setSelectedRecipient(null);
-                    setSearchQuery('');
-                    setSearchResults([]);
-                }
-                setIsSendDialogOpen(isOpen);
-            }}
+            onOpenChange={setIsSendDialogOpen}
             selectedNft={selectedNft}
-            searchQuery={searchQuery}
-            onSearchQueryChange={setSearchQuery}
-            isSearching={isSearching}
-            searchResults={searchResults}
-            onRecipientSelect={(user) => {
-                setSelectedRecipient(user);
-                setSearchResults([]);
-                setSearchQuery('');
-            }}
-            selectedRecipient={selectedRecipient}
-            onClearRecipient={() => setSelectedRecipient(null)}
-            onSend={handleSendNft}
-            isSending={isSending}
+            currentUser={currentUser}
+            pageState={pageState}
+            setPageState={setPageState}
+            setSelectedNft={setSelectedNft}
         />
 
       <BottomNavBar onNavigate={handleNavigation} activeItem="/mint" />
     </div>
   );
 }
-
