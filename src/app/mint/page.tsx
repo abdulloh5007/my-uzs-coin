@@ -247,20 +247,77 @@ export default function NftShopPage() {
     );
   }
   
-  const ParallaxIconDisplay: React.FC<{ nft: NftItem, parallaxStyle: React.CSSProperties }> = ({ nft, parallaxStyle }) => {
-    const Icon = nft.icon;
+  const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
+    const iconContainerRef = useRef<HTMLDivElement>(null);
+    const [isHovering, setIsHovering] = useState(false);
+    const [isGif, setIsGif] = useState(false);
 
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!iconContainerRef.current || nft.type !== 'Анимированный') return;
+      const { left, top, width, height } = iconContainerRef.current.getBoundingClientRect();
+      const x = (e.clientX - left) / width - 0.5;
+      const y = (e.clientY - top) / height - 0.5;
+      const rotateY = x * 30;
+      const rotateX = -y * 30;
+      iconContainerRef.current.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+    };
+  
+    const handleMouseLeave = () => {
+      if (!iconContainerRef.current) return;
+      iconContainerRef.current.style.transform = 'rotateX(0deg) rotateY(0deg)';
+      setIsHovering(false);
+      if (nft.imageUrl?.endsWith('.gif')) {
+        setIsGif(false);
+      }
+    };
+  
+    const handleMouseEnter = () => {
+        setIsHovering(true);
+        if (nft.imageUrl?.endsWith('.gif')) {
+            setIsGif(true);
+        }
+    };
+
+    useEffect(() => {
+        // Reset GIF state when NFT changes
+        setIsGif(false);
+    }, [nft]);
+  
+    const Icon = nft.icon;
+  
     return (
-      <div style={{ perspective: '1000px' }}>
-        <div style={parallaxStyle} className={cn(
-          "p-8 rounded-2xl inline-block transition-transform duration-100 ease-out",
-          nft.iconBgClass
-        )}>
-           {nft.imageUrl ? (
-                <Image src={nft.imageUrl} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain" unoptimized />
-            ) : (
-               Icon && <Icon className={cn("w-24 h-24", nft.iconColorClass)} />
-            )}
+      <div 
+        style={{ perspective: '1000px' }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        onMouseEnter={handleMouseEnter}
+      >
+        <div
+          ref={iconContainerRef}
+          className={cn(
+            "p-8 rounded-2xl inline-block transition-transform duration-100 ease-out",
+            nft.iconBgClass
+          )}
+        >
+          {nft.imageUrl ? (
+            <Image
+              src={isGif ? nft.imageUrl : nft.imageUrl.replace('.gif', '_static.png')}
+              alt={nft.name}
+              width={96}
+              height={96}
+              className="w-24 h-24 object-contain"
+              unoptimized
+              onError={(e) => {
+                // Fallback to gif if static png doesn't exist
+                const target = e.target as HTMLImageElement;
+                if (!target.src.endsWith('.gif')) {
+                    target.src = nft.imageUrl!;
+                }
+              }}
+            />
+          ) : (
+            Icon && <Icon className={cn("w-24 h-24", nft.iconColorClass)} />
+          )}
         </div>
       </div>
     );
@@ -276,49 +333,6 @@ export default function NftShopPage() {
   }> = ({ nft, onOpenChange, userScore, ownedNfts, onBuyNft, nickname }) => {
       if (!nft) return null;
 
-      const interactionRef = useRef<HTMLDivElement>(null);
-      const [parallaxStyle, setParallaxStyle] = useState<React.CSSProperties>({});
-      
-      useEffect(() => {
-        if (!nft || nft.type !== 'Анимированный' || typeof window === 'undefined') {
-            setParallaxStyle({});
-            return;
-        }
-
-        const handleMouseMove = (e: MouseEvent) => {
-            if (!interactionRef.current) return;
-            const { left, top, width, height } = interactionRef.current.getBoundingClientRect();
-            const x = (e.clientX - left) / width - 0.5;
-            const y = (e.clientY - top) / height - 0.5;
-
-            const rotateY = x * 25;
-            const rotateX = -y * 25;
-            setParallaxStyle({
-                transform: `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`,
-            });
-        };
-
-        const handleMouseLeave = () => {
-            setParallaxStyle({
-                transform: 'rotateX(0deg) rotateY(0deg)',
-            });
-        };
-
-        const currentRef = interactionRef.current;
-        if (currentRef) {
-          currentRef.addEventListener('mousemove', handleMouseMove);
-          currentRef.addEventListener('mouseleave', handleMouseLeave);
-        }
-
-        return () => {
-          if (currentRef) {
-            currentRef.removeEventListener('mousemove', handleMouseMove);
-            currentRef.removeEventListener('mouseleave', handleMouseLeave);
-          }
-        };
-      }, [nft]);
-
-
       const isOwned = ownedNfts.includes(nft.id);
       const canAfford = userScore >= nft.price;
       const bgPattern = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2L10.5 6H6.5L8 10.5L7 14H17L16 10.5L17.5 6H13.5L12 2Z' fill='hsl(var(--primary))' opacity='0.1'/></svg>`);
@@ -326,11 +340,11 @@ export default function NftShopPage() {
       return (
         <Sheet open={!!nft} onOpenChange={onOpenChange}>
             <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] flex flex-col text-left">
-                <div ref={interactionRef} className="flex flex-col h-full">
+                <div className="flex flex-col h-full">
                     <div 
                         className="p-6 pt-8 text-center" 
                         style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}>
-                        <ParallaxIconDisplay nft={nft} parallaxStyle={parallaxStyle} />
+                        <ParallaxIconDisplay nft={nft} />
                         <SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle>
                         <CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription>
                     </div>
@@ -452,3 +466,4 @@ export default function NftShopPage() {
     </div>
   );
 }
+
