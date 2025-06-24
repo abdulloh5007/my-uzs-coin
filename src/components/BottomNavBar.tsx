@@ -1,7 +1,7 @@
 
 import type React from 'react';
 import { useState, useEffect } from 'react'; 
-import { User, MousePointerClick, Gift, Sparkles, Users } from 'lucide-react';
+import { User, MousePointerClick, Gift, Sparkles, Users, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { usePathname, useRouter } from 'next/navigation';
@@ -51,11 +51,12 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
   const pathname = usePathname();
   const { currentUser } = useAuth();
   const [hasUnclaimedRewards, setHasUnclaimedRewards] = useState(false);
+  const [hasNewMail, setHasNewMail] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
       const userDocRef = doc(db, 'users', currentUser.uid);
-      const unsubscribe = onSnapshot(userDocRef, (doc) => {
+      const unsubscribeRewards = onSnapshot(userDocRef, (doc) => {
         if (doc.exists()) {
           const data = doc.data();
           const unclaimed = data.completedUnclaimedTaskTierIds || [];
@@ -63,8 +64,16 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
         }
       });
 
-      // Cleanup the listener when the component unmounts or user changes
-      return () => unsubscribe();
+      const transfersRef = collection(db, 'nft_transfers');
+      const qMailbox = query(transfersRef, where('recipientId', '==', currentUser.uid), where('status', '==', 'pending'));
+      const unsubscribeMail = onSnapshot(qMailbox, (snapshot) => {
+          setHasNewMail(!snapshot.empty);
+      });
+
+      return () => {
+        unsubscribeRewards();
+        unsubscribeMail();
+      };
     }
   }, [currentUser]);
 
@@ -73,7 +82,8 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
     { icon: MousePointerClick, label: 'Кликер', path: '/' }, 
     { icon: Users, label: 'Друзья', path: '/friends' },
     { icon: Gift, label: 'Награды', path: '/rewards' },
-    { icon: Sparkles, label: 'NFT', path: '/mint' },
+    { icon: Sparkles, label: 'Магазин', path: '/mint' },
+    { icon: LayoutGrid, label: 'Коллекция', path: '/collections' },
     { icon: User, label: 'Профиль', path: '/profile' },
   ];
 
@@ -95,7 +105,10 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
       <div className="container mx-auto flex items-stretch justify-around h-full px-0">
         {navItems.map((item) => {
           const currentItemIsActive = (currentPathForActivity === item.path || (currentPathForActivity === '/' && item.path === '/') || (item.path === '/' && currentPathForActivity.startsWith('/?')));
-          const itemHasNotification = item.path === '/rewards' && hasUnclaimedRewards;
+          let itemHasNotification = false;
+          if (item.path === '/rewards') itemHasNotification = hasUnclaimedRewards;
+          if (item.path === '/collections') itemHasNotification = hasNewMail;
+
           return (
             <NavItem
               key={item.label}
