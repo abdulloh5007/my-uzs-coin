@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp, Trophy, AtSign } from 'lucide-react';
+import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp, Trophy, AtSign, KeyRound, Edit, Info } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
@@ -13,13 +13,21 @@ import { getLeagueInfo } from '@/lib/leagues';
 import { useRouter } from 'next/navigation';
 import { formatDistanceStrict } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, collection, query, orderBy, limit, getDocs, where, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 
 const INITIAL_CLICK_POWER_BASE = 1;
@@ -57,6 +65,10 @@ export default function ProfilePage() {
   
   const [editableUsername, setEditableUsername] = useState('');
   const [isSavingUsername, setIsSavingUsername] = useState(false);
+  const [editableNickname, setEditableNickname] = useState('');
+  const [isSavingNickname, setIsSavingNickname] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
+
   const [clickPower, setClickPower] = useState(INITIAL_CLICK_POWER_BASE);
   const [energyRegenRate, setEnergyRegenRate] = useState(INITIAL_ENERGY_REGEN_RATE_BASE);
   const [gameTimePlayed, setGameTimePlayed] = useState("0s");
@@ -86,6 +98,7 @@ export default function ProfilePage() {
         };
         setStats(profileStats);
         setEditableUsername(profileStats.username ? profileStats.username.substring(1) : '');
+        setEditableNickname(profileStats.nickname);
       }
     } catch (error) {
       console.error("Error loading profile data:", error);
@@ -99,11 +112,11 @@ export default function ProfilePage() {
     
     const usernameWithoutAt = editableUsername.trim();
 
-    if (usernameWithoutAt && (usernameWithoutAt.length < 3 || !/^[a-zA-Z0-9_]+$/.test(usernameWithoutAt))) {
+    if (usernameWithoutAt && (!/^[a-zA-Z0-9_]+$/.test(usernameWithoutAt) || usernameWithoutAt.length < 3)) {
         toast({
             variant: 'destructive',
             title: 'Неверный формат имени пользователя',
-            description: 'Имя должно быть не короче 3 символов и содержать только латинские буквы, цифры и нижнее подчеркивание.'
+            description: 'Имя должно быть от 3 символов и содержать только латинские буквы, цифры и _.'
         });
         return;
     }
@@ -151,6 +164,57 @@ export default function ProfilePage() {
     }
   }, [currentUser, editableUsername, toast, stats.username]);
   
+  const handleSaveNickname = useCallback(async () => {
+    if (!currentUser) return;
+    const newNickname = editableNickname.trim();
+
+    if (newNickname.length < 3 || newNickname.length > 20) {
+        toast({
+            variant: 'destructive',
+            title: 'Неверная длина никнейма',
+            description: 'Никнейм должен содержать от 3 до 20 символов.'
+        });
+        return;
+    }
+    if (newNickname === stats.nickname) return;
+
+    setIsSavingNickname(true);
+    try {
+        await updateProfile(currentUser, { displayName: newNickname });
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await setDoc(userDocRef, { nickname: newNickname }, { merge: true });
+
+        setStats(prev => ({ ...prev, nickname: newNickname }));
+        toast({
+            title: 'Успешно!',
+            description: 'Ваш никнейм обновлен.'
+        });
+    } catch (error) {
+        console.error("Error saving nickname:", error);
+        toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось сохранить никнейм.' });
+    } finally {
+        setIsSavingNickname(false);
+    }
+  }, [currentUser, editableNickname, toast, stats.nickname]);
+
+  const handlePasswordReset = useCallback(async () => {
+    if (!currentUser?.email) return;
+
+    setIsSendingReset(true);
+    try {
+        await sendPasswordResetEmail(auth, currentUser.email);
+        toast({
+            title: 'Ссылка отправлена',
+            description: 'Проверьте свою почту для сброса пароля.'
+        });
+    } catch (error) {
+        console.error("Error sending password reset email:", error);
+        toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось отправить письмо для сброса пароля.' });
+    } finally {
+        setIsSendingReset(false);
+    }
+  }, [currentUser?.email, toast]);
+
   useEffect(() => {
     setClickPower(INITIAL_CLICK_POWER_BASE + (stats.clickPowerLevel * CLICK_POWER_INCREMENT_PER_LEVEL));
     setEnergyRegenRate(INITIAL_ENERGY_REGEN_RATE_BASE + (stats.energyRegenLevel * ENERGY_REGEN_INCREMENT_PER_LEVEL));
@@ -264,67 +328,103 @@ export default function ProfilePage() {
   
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
-      <div className="flex-grow container mx-auto px-4 pt-10 md:pt-16 pb-20 md:pb-24 text-center">
-        
-        <Avatar className="w-24 h-24 mx-auto mb-4 shadow-lg ring-2 ring-primary/50">
-          <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${currentUser.uid}`} alt="User Avatar" />
-          <AvatarFallback>
-            <User className="w-12 h-12 text-muted-foreground" />
-          </AvatarFallback>
-        </Avatar>
-        
-        <h1 className="text-3xl font-bold">{stats.nickname}</h1>
-        <p className="text-muted-foreground mb-6 flex items-center justify-center gap-1.5">
-          <Mail className="w-4 h-4"/>
-          {currentUser.email}
-        </p>
+      <main className="flex-grow container mx-auto px-4 pt-10 md:pt-16 pb-20 md:pb-24">
+        <h1 className="text-4xl font-bold mb-8 text-center md:text-left">Профиль и Настройки</h1>
 
-        <div className="max-w-md mx-auto space-y-4">
-            <Card className="bg-card/80 border-border/50 shadow-lg text-left">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <AtSign className="w-5 h-5 text-primary" /> Имя пользователя
-                </CardTitle>
-                <CardDescription className="text-xs">Используется для взаимодействия с другими игроками.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center w-full rounded-md border border-input bg-input/80 ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-                        <span className="pl-3 text-muted-foreground">@</span>
-                        <Input 
-                            value={editableUsername}
-                            onChange={(e) => setEditableUsername(e.target.value)}
-                            placeholder="username"
-                            className="bg-transparent border-0 h-9 focus-visible:ring-transparent focus-visible:ring-offset-0 flex-1"
-                            disabled={isSavingUsername}
-                        />
-                    </div>
-                    <Button onClick={handleSaveUsername} disabled={isSavingUsername || editableUsername.trim() === (stats.username ? stats.username.substring(1) : '')}>
-                        {isSavingUsername ? 'Сохранение...' : 'Сохранить'}
-                    </Button>
+        <div className="grid grid-cols-1 md:grid-cols-2 md:gap-8 lg:gap-12">
+            {/* --- Left Column: Stats --- */}
+            <div className="space-y-6">
+                <div className="flex flex-col items-center md:items-start text-center md:text-left">
+                    <Avatar className="w-24 h-24 mx-auto md:mx-0 mb-4 shadow-lg ring-2 ring-primary/50">
+                        <AvatarImage src={`https://api.dicebear.com/8.x/bottts/svg?seed=${currentUser.uid}`} alt="User Avatar" />
+                        <AvatarFallback><User className="w-12 h-12 text-muted-foreground" /></AvatarFallback>
+                    </Avatar>
+                    <h2 className="text-3xl font-bold">{stats.nickname}</h2>
+                    <p className="text-muted-foreground flex items-center justify-center md:justify-start gap-1.5">
+                        <Mail className="w-4 h-4"/>{currentUser.email}
+                    </p>
                 </div>
-              </CardContent>
-            </Card>
 
-            <div className="cursor-pointer" onClick={handleOpenLeaderboard}>
-                <LeagueInfoCard
-                    currentLeague={currentLeague}
-                    nextLeague={nextLeague}
-                    leagueScore={stats.totalScoreCollected} 
-                    progressPercentage={progressPercentage}
-                />
+                <div className="cursor-pointer" onClick={handleOpenLeaderboard}>
+                    <LeagueInfoCard
+                        currentLeague={currentLeague}
+                        nextLeague={nextLeague}
+                        leagueScore={stats.totalScoreCollected} 
+                        progressPercentage={progressPercentage}
+                    />
+                </div>
+
+                <h3 className="text-2xl font-bold text-center md:text-left pt-4">Статистика</h3>
+                <div className="space-y-4">
+                    <StatCard icon={Coins} label="Текущий баланс" value={stats.score.toLocaleString()} />
+                    <StatCard icon={TrendingUp} label="Всего заработано" value={stats.totalScoreCollected.toLocaleString()} />
+                    <StatCard icon={Target} label="Сила клика" value={`+${clickPower}`} />
+                    <StatCard icon={History} label="Восстановление" value={`+${energyRegenRate}/сек`} />
+                    <StatCard icon={Star} label="Всего кликов" value={stats.totalClicks.toLocaleString()} />
+                    <StatCard icon={Clock4} label="Время игры" value={gameTimePlayed} />
+                </div>
             </div>
-          
-          <StatCard icon={Coins} label="Текущий баланс" value={stats.score.toLocaleString()} />
-          <StatCard icon={TrendingUp} label="Всего заработано" value={stats.totalScoreCollected.toLocaleString()} />
-          <StatCard icon={Target} label="Сила клика" value={`+${clickPower}`} />
-          <StatCard icon={History} label="Восстановление" value={`+${energyRegenRate}/сек`} />
-          <StatCard icon={Star} label="Всего кликов" value={stats.totalClicks.toLocaleString()} />
-          <StatCard icon={Clock4} label="Время игры" value={gameTimePlayed} />
 
+            {/* --- Right Column: Settings --- */}
+            <div className="space-y-6 mt-8 md:mt-0">
+                <Card className="bg-card/80 border-border/50 shadow-lg text-left">
+                    <CardHeader>
+                        <CardTitle className="text-xl flex items-center gap-2"><Sparkles className="w-5 h-5 text-primary"/>Настройки профиля</CardTitle>
+                        <CardDescription>Изменение данных вашего аккаунта.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-8 pt-2">
+                        {/* Nickname */}
+                        <div className="space-y-2">
+                            <Label htmlFor="nickname" className="flex items-center gap-2"><Edit className="w-4 h-4" />Никнейм</Label>
+                            <div className="flex items-center gap-2">
+                                <Input id="nickname" value={editableNickname} onChange={(e) => setEditableNickname(e.target.value)} disabled={isSavingNickname} className="bg-input/80 border-border" />
+                                <Button onClick={handleSaveNickname} disabled={isSavingNickname || editableNickname.trim() === stats.nickname}>
+                                    {isSavingNickname ? '...' : 'Сохранить'}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Username */}
+                        <div className="space-y-2">
+                            <Label htmlFor="username" className="flex items-center gap-2"><AtSign className="w-4 h-4" />Имя пользователя</Label>
+                            <div className="flex items-center gap-2">
+                                <div className="flex items-center w-full rounded-md border border-input bg-input/80 ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                                    <span className="pl-3 text-muted-foreground">@</span>
+                                    <Input id="username" value={editableUsername} onChange={(e) => setEditableUsername(e.target.value)} placeholder="username" className="bg-transparent border-0 h-9 focus-visible:ring-transparent focus-visible:ring-offset-0 flex-1" disabled={isSavingUsername} />
+                                </div>
+                                <Button onClick={handleSaveUsername} disabled={isSavingUsername || editableUsername.trim() === (stats.username ? stats.username.substring(1) : '')}>
+                                    {isSavingUsername ? '...' : 'Сохранить'}
+                                </Button>
+                            </div>
+                        </div>
+                        
+                        {/* Password */}
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-2"><KeyRound className="w-4 h-4" />Пароль</Label>
+                            <Button variant="outline" className="w-full justify-start" onClick={handlePasswordReset} disabled={isSendingReset}>
+                                {isSendingReset ? 'Отправка...' : 'Отправить ссылку для сброса пароля на почту'}
+                            </Button>
+                        </div>
+                        
+                        {/* Avatar */}
+                        <div className="space-y-2">
+                             <Label className="flex items-center gap-2">
+                                <User className="w-4 h-4" />
+                                Аватар
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild><button type="button"><Info className="w-3.5 h-3.5 text-muted-foreground" /></button></TooltipTrigger>
+                                        <TooltipContent><p>Аватар генерируется автоматически на основе вашего ID.</p></TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </Label>
+                            <p className="text-sm text-muted-foreground">Изменение аватара пока недоступно.</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
-
-      </div>
+      </main>
       
       <BottomNavBar activeItem="/profile" onNavigate={handleNavigation} />
 
@@ -340,3 +440,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    
