@@ -83,13 +83,15 @@ interface NftDetailSheetProps {
     onOpenChange: (open: boolean) => void;
     pageState: NftShopState;
     handleBuyNft: (nft: NftItem) => Promise<void>;
+    isBuying: boolean;
 }
 
 const NftDetailSheet: React.FC<NftDetailSheetProps> = ({ 
     nft, 
     onOpenChange, 
     pageState, 
-    handleBuyNft
+    handleBuyNft,
+    isBuying
 }) => {
     if (!nft) return null;
     const canAfford = pageState.score >= nft.price;
@@ -131,8 +133,8 @@ const NftDetailSheet: React.FC<NftDetailSheetProps> = ({
                         </div>
                     </div>
                     <SheetFooter className="p-6 border-t border-border/50 bg-background mt-auto">
-                        <Button className="w-full" disabled={!canAfford} onClick={() => handleBuyNft(nft)}>
-                            {canAfford ? (<>Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}</>) : ('Недостаточно монет')}
+                        <Button className="w-full" disabled={!canAfford || isBuying} onClick={() => handleBuyNft(nft)}>
+                            {isBuying ? 'Покупка...' : (canAfford ? (<>Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}</>) : ('Недостаточно монет'))}
                         </Button>
                     </SheetFooter>
                   </div>
@@ -177,6 +179,7 @@ export default function NftShopPage() {
   
   const [selectedNft, setSelectedNft] = useState<NftItem | null>(null);
   const [pageState, setPageState] = useState<NftShopState>({ score: 0, ownedNfts: [] });
+  const [isBuying, setIsBuying] = useState(false);
 
   const loadShopData = useCallback(async (userId: string) => {
     setIsLoading(true);
@@ -208,9 +211,10 @@ export default function NftShopPage() {
   }, [currentUser, authLoading, router, loadShopData]);
 
   const handleBuyNft = async (nft: NftItem) => {
-    if (!currentUser) return;
+    if (!currentUser || isBuying) return;
     
     if (pageState.score >= nft.price) {
+      setIsBuying(true);
       const newBalance = pageState.score - nft.price;
       const newInstanceId = doc(collection(db, "dummy")).id;
       
@@ -243,6 +247,8 @@ export default function NftShopPage() {
         console.error("Error buying NFT:", error);
         toast({ variant: "destructive", title: "Ошибка", description: "Не удалось сохранить покупку NFT." });
         loadShopData(currentUser.uid); // Revert on error
+      } finally {
+        setIsBuying(false);
       }
 
     } else {
@@ -283,11 +289,10 @@ export default function NftShopPage() {
            onOpenChange={(isOpen) => !isOpen && setSelectedNft(null)}
            pageState={pageState}
            handleBuyNft={handleBuyNft}
+           isBuying={isBuying}
        />
 
       <BottomNavBar onNavigate={handleNavigation} activeItem="/mint" />
     </div>
   );
 }
-
-    
