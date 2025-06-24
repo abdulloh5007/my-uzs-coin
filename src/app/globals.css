@@ -105,10 +105,13 @@ body {
     );
     transform: skewX(-25deg);
     pointer-events: none;
-    left: -75%;
-    transition: left 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+    /* New animation that runs every 3 seconds */
+    animation: glare-animation 3s infinite cubic-bezier(0.23, 1, 0.32, 1);
   }
-  .glare-container:hover::after {
-    left: 125%;
+  
+  @keyframes glare-animation {
+    0% { left: -75%; }
+    33% { left: 125%; } /* Animation takes 1s of the 3s duration */
+    100% { left: 125%; } /* Stays off-screen for the remaining 2s */
   }
 }
