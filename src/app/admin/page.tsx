@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Sparkles, Shield } from 'lucide-react';
+import { Sparkles, Shield, PlusCircle } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
@@ -77,15 +77,29 @@ export default function AdminPage() {
                 <h1 className="text-4xl font-bold mb-2 text-foreground">Панель администратора</h1>
                 <p className="text-muted-foreground mb-8">Добро пожаловать, владелец!</p>
 
-                 <Card className="max-w-2xl mx-auto text-left bg-card/80">
-                    <CardHeader>
-                        <CardTitle>Статус системы</CardTitle>
-                        <CardDescription>Этот раздел находится в разработке.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p>Здесь будет отображаться информация о пользователях, статистика и инструменты управления.</p>
-                    </CardContent>
-                </Card>
+                <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto text-left">
+                    <Card className="bg-card/80">
+                        <CardHeader>
+                            <CardTitle>Статус системы</CardTitle>
+                            <CardDescription>Этот раздел находится в разработке.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <p>Здесь будет отображаться информация о пользователях, статистика и инструменты управления.</p>
+                        </CardContent>
+                    </Card>
+                     <Card 
+                        onClick={() => handleNavigation('/admin/create-nft')} 
+                        className="bg-card/80 hover:bg-card/90 cursor-pointer transition-colors"
+                    >
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><PlusCircle className="text-primary"/>Создать NFT</CardTitle>
+                            <CardDescription>Добавить новый предмет в магазин.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <p>Форма для создания новых анимированных или простых NFT для игроков.</p>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
              <BottomNavBar onNavigate={handleNavigation} />
         </div>
