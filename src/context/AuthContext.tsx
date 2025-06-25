@@ -136,6 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           referredBy: referredBy,
           referredUsers: [],
           totalReferralBonus: 0,
+          isVerified: false, // Default verification status
           lastUpdated: serverTimestamp(),
       };
 

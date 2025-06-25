@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp, Trophy, AtSign, KeyRound, Edit, Info, Settings, BarChartHorizontal, Camera } from 'lucide-react';
+import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp, Trophy, AtSign, KeyRound, Edit, Info, Settings, BarChartHorizontal, Camera, CheckCircle2 } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
@@ -31,6 +31,9 @@ const CLICK_POWER_INCREMENT_PER_LEVEL = 1;
 const INITIAL_ENERGY_REGEN_RATE_BASE = 1;
 const ENERGY_REGEN_INCREMENT_PER_LEVEL = 1;
 
+// ЗАМЕНИТЕ НА ID ВЛАДЕЛЬЦА ПРИЛОЖЕНИЯ
+const OWNER_UID = "REPLACE_WITH_ACTUAL_OWNER_UID";
+
 interface ProfileStats {
   score: number;
   totalScoreCollected: number;
@@ -41,6 +44,7 @@ interface ProfileStats {
   nickname: string;
   username?: string;
   photoURL: string | null;
+  isVerified?: boolean;
 }
 
 export default function ProfilePage() {
@@ -60,6 +64,7 @@ export default function ProfilePage() {
     nickname: '',
     username: '',
     photoURL: null,
+    isVerified: false,
   });
   
   const [editableUsername, setEditableUsername] = useState('');
@@ -96,6 +101,7 @@ export default function ProfilePage() {
           nickname: data.nickname || currentUser?.displayName || 'Игрок',
           username: data.username || '',
           photoURL: data.photoURL || currentUser?.photoURL || null,
+          isVerified: data.isVerified || false,
         };
         setStats(profileStats);
         setEditableUsername(profileStats.username ? profileStats.username.substring(1) : '');
@@ -130,7 +136,6 @@ export default function ProfilePage() {
       reader.onload = async () => {
         const dataUrl = reader.result as string;
 
-        // No need to update Firebase Auth profile, only our Firestore doc
         const userDocRef = doc(db, 'users', currentUser.uid);
         await setDoc(userDocRef, { photoURL: dataUrl }, { merge: true });
 
@@ -156,7 +161,6 @@ export default function ProfilePage() {
     
     const usernameWithoutAt = editableUsername.trim();
 
-    // Rule: No trailing underscore
     if (usernameWithoutAt.endsWith('_')) {
         toast({
             variant: 'destructive',
@@ -166,7 +170,6 @@ export default function ProfilePage() {
         return;
     }
 
-    // Rule: Character set and length validation
     if (usernameWithoutAt && (!/^[a-zA-Z0-9_]+$/.test(usernameWithoutAt) || usernameWithoutAt.length < 3 || usernameWithoutAt.length > 22)) {
         toast({
             variant: 'destructive',
@@ -180,13 +183,12 @@ export default function ProfilePage() {
     const finalUsernameLowercase = finalUsername.toLowerCase();
     
     if (finalUsername === stats.username) {
-        return; // No changes have been made
+        return; 
     }
 
     setIsSavingUsername(true);
     try {
         if (finalUsername) {
-            // Rule: Case-insensitive uniqueness check
             const usersRef = collection(db, 'users');
             const q = query(usersRef, where('username_lowercase', '==', finalUsernameLowercase));
             const querySnapshot = await getDocs(q);
@@ -204,7 +206,6 @@ export default function ProfilePage() {
         }
       
         const userDocRef = doc(db, 'users', currentUser.uid);
-        // Save both username and its lowercase version for querying
         await setDoc(userDocRef, { 
             username: finalUsername,
             username_lowercase: finalUsernameLowercase
@@ -414,7 +415,25 @@ export default function ProfilePage() {
                         {isUploadingAvatar ? <Sparkles className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
                     </button>
                 </div>
-                <h1 className="text-4xl font-bold">{stats.nickname}</h1>
+                <h1 className="text-4xl font-bold flex items-center justify-center gap-2">
+                    <span>{stats.nickname}</span>
+                    {stats.isVerified && (
+                        <TooltipProvider delayDuration={0}>
+                            <Tooltip>
+                                <TooltipTrigger>
+                                    {currentUser?.uid === OWNER_UID ? (
+                                        <Coins className="w-7 h-7 text-primary animate-pulse" />
+                                    ) : (
+                                        <CheckCircle2 className="w-7 h-7 text-green-500" />
+                                    )}
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{currentUser?.uid === OWNER_UID ? 'Владелец' : 'Верифицированный аккаунт'}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                </h1>
                 <p className="text-muted-foreground flex items-center justify-center gap-1.5 mt-1">
                     <Mail className="w-4 h-4"/>{currentUser.email}
                 </p>
