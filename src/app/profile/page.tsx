@@ -156,6 +156,17 @@ export default function ProfilePage() {
     
     const usernameWithoutAt = editableUsername.trim();
 
+    // Rule: No trailing underscore
+    if (usernameWithoutAt.endsWith('_')) {
+        toast({
+            variant: 'destructive',
+            title: 'Неверный формат имени пользователя',
+            description: 'Имя пользователя не может заканчиваться символом "_".'
+        });
+        return;
+    }
+
+    // Rule: Character set and length validation
     if (usernameWithoutAt && (!/^[a-zA-Z0-9_]+$/.test(usernameWithoutAt) || usernameWithoutAt.length < 3 || usernameWithoutAt.length > 22)) {
         toast({
             variant: 'destructive',
@@ -166,40 +177,44 @@ export default function ProfilePage() {
     }
 
     const finalUsername = usernameWithoutAt ? `@${usernameWithoutAt}` : '';
+    const finalUsernameLowercase = finalUsername.toLowerCase();
     
     if (finalUsername === stats.username) {
-        return; 
+        return; // No changes have been made
     }
 
     setIsSavingUsername(true);
     try {
         if (finalUsername) {
+            // Rule: Case-insensitive uniqueness check
             const usersRef = collection(db, 'users');
-            const q = query(usersRef, where('username', '==', finalUsername));
+            const q = query(usersRef, where('username_lowercase', '==', finalUsernameLowercase));
             const querySnapshot = await getDocs(q);
 
-            if (!querySnapshot.empty) {
-                const isTakenByOther = querySnapshot.docs.some(doc => doc.id !== currentUser.uid);
-                if (isTakenByOther) {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Имя пользователя занято',
-                        description: 'Это имя пользователя уже используется. Попробуйте другое.'
-                    });
-                    setIsSavingUsername(false);
-                    return;
-                }
+            const isTaken = querySnapshot.docs.some(doc => doc.id !== currentUser.uid);
+            if (isTaken) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Имя пользователя занято',
+                    description: 'Это имя пользователя уже используется. Попробуйте другое.'
+                });
+                setIsSavingUsername(false);
+                return;
             }
         }
       
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userDocRef, { username: finalUsername }, { merge: true });
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        // Save both username and its lowercase version for querying
+        await setDoc(userDocRef, { 
+            username: finalUsername,
+            username_lowercase: finalUsernameLowercase
+        }, { merge: true });
 
-      setStats(prev => ({ ...prev, username: finalUsername }));
-      toast({
-        title: 'Успешно!',
-        description: 'Ваше имя пользователя сохранено.'
-      });
+        setStats(prev => ({ ...prev, username: finalUsername }));
+        toast({
+            title: 'Успешно!',
+            description: 'Ваше имя пользователя сохранено.'
+        });
     } catch (error) {
       console.error("Error saving username:", error);
       toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось сохранить имя пользователя.' });
