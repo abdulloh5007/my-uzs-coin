@@ -411,7 +411,7 @@ export default function CollectionsPage() {
   const [pageState, setPageState] = useState<CollectionState>({ ownedNfts: [] });
   
   const [mailbox, setMailbox] = useState<NftTransfer[]>([]);
-  const [sentHistory, setSentHistory] = useState<NftTransfer[]>([]);
+  const [transferHistory, setTransferHistory] = useState<NftTransfer[]>([]);
   const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
 
   const loadCollectionData = useCallback(async (userId: string) => {
@@ -436,24 +436,44 @@ export default function CollectionsPage() {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Mailbox listener
     const transfersRef = collection(db, 'nft_transfers');
+
+    // Mailbox listener for pending items
     const qMailbox = query(transfersRef, where('recipientId', '==', currentUser.uid), where('status', '==', 'pending'), orderBy('sentAt', 'desc'));
     const unsubscribeMailbox = onSnapshot(qMailbox, (snapshot) => {
       const received: NftTransfer[] = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp)?.toDate() ?? new Date() } as NftTransfer));
       setMailbox(received);
     }, (error) => console.error("Mailbox listener error:", error));
+    
+    // History listeners
+    let sentItems: NftTransfer[] = [];
+    let receivedClaimedItems: NftTransfer[] = [];
 
-    // Sent history listener
+    const combineAndSetHistory = () => {
+      const combined = [...sentItems, ...receivedClaimedItems];
+      combined.sort((a, b) => b.sentAt.getTime() - a.sentAt.getTime());
+      setTransferHistory(combined);
+    };
+
+    // Listener for items sent by the user
     const qSent = query(transfersRef, where('senderId', '==', currentUser.uid), orderBy('sentAt', 'desc'));
     const unsubscribeSent = onSnapshot(qSent, (snapshot) => {
-      const sent: NftTransfer[] = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp)?.toDate() ?? new Date() } as NftTransfer));
-      setSentHistory(sent);
+      sentItems = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp)?.toDate() ?? new Date() } as NftTransfer));
+      combineAndSetHistory();
     }, (error) => console.error("Sent history listener error:", error));
+
+    // Listener for items received and claimed by the user
+    const qReceivedClaimed = query(transfersRef, where('recipientId', '==', currentUser.uid), where('status', '==', 'claimed'), orderBy('sentAt', 'desc'));
+    const unsubscribeReceivedClaimed = onSnapshot(qReceivedClaimed, (snapshot) => {
+      receivedClaimedItems = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp)?.toDate() ?? new Date() } as NftTransfer));
+      combineAndSetHistory();
+    }, (error) => console.error("Received claimed history listener error:", error));
+
 
     return () => {
       unsubscribeMailbox();
       unsubscribeSent();
+      unsubscribeReceivedClaimed();
     };
   }, [currentUser]);
 
@@ -508,7 +528,11 @@ export default function CollectionsPage() {
         <h1 className="text-4xl font-bold mb-8 text-foreground">Моя коллекция</h1>
         
         <Tabs defaultValue="inventory" className="w-full max-w-4xl mx-auto">
-            <TabsList className="grid w-full grid-cols-3 mb-6 bg-card/80"><TabsTrigger value="inventory">Мои NFT ({pageState.ownedNfts.length})</TabsTrigger><TabsTrigger value="mailbox">Почта ({mailbox.length})</TabsTrigger><TabsTrigger value="history">История</TabsTrigger></TabsList>
+            <TabsList className="grid w-full grid-cols-3 mb-6 bg-card/80">
+                <TabsTrigger value="inventory">Мои NFT ({pageState.ownedNfts.length})</TabsTrigger>
+                <TabsTrigger value="mailbox">Почта ({mailbox.length})</TabsTrigger>
+                <TabsTrigger value="history">История ({transferHistory.length})</TabsTrigger>
+            </TabsList>
             <TabsContent value="inventory">
                 {pageState.ownedNfts.length > 0 ? (<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {pageState.ownedNfts.map((ownedNft) => {
@@ -546,25 +570,32 @@ export default function CollectionsPage() {
                 </div>) : (<div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><Inbox className="w-8 h-8 mb-2" /><p>Ваша почта пуста.</p></div>)}
             </TabsContent>
             <TabsContent value="history">
-                 {sentHistory.length > 0 ? (<div className="space-y-3">
-                    {sentHistory.map(transfer => {
+                 {transferHistory.length > 0 ? (<div className="space-y-3">
+                    {transferHistory.map(transfer => {
                         const nft = nftItems.find(n => n.id === transfer.nftId);
                         if (!nft) return null;
+
+                        const isSender = transfer.senderId === currentUser?.uid;
+                        const otherPartyUsername = isSender ? transfer.recipientUsername : transfer.senderNickname;
+                        const otherPartyPhotoURL = isSender ? transfer.recipientPhotoURL : transfer.senderPhotoURL;
+                        const otherPartyId = isSender ? transfer.recipientId : transfer.senderId;
+                        const actionText = isSender ? `Отправлено ${otherPartyUsername}` : `Получено от ${otherPartyUsername}`;
+                        
                         return (<Card key={transfer.id} className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
                            <div className="flex items-center gap-3">
                                <Avatar>
-                                    <AvatarImage src={transfer.recipientPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.recipientId}`} alt={transfer.recipientUsername}/>
-                                    <AvatarFallback>{transfer.recipientUsername?.charAt(1) || '?'}</AvatarFallback>
+                                    <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
+                                    <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
                                </Avatar>
                                <div>
                                    <p className="text-sm font-semibold">{nft.name}</p>
-                                   <p className="text-xs text-muted-foreground">Отправлено {transfer.recipientUsername} • {formatDistanceToNow(transfer.sentAt, { addSuffix: true, locale: ru })}</p>
+                                   <p className="text-xs text-muted-foreground">{actionText} • {formatDistanceToNow(transfer.sentAt, { addSuffix: true, locale: ru })}</p>
                                </div>
                            </div>
                            <Badge variant={transfer.status === 'claimed' ? 'default' : 'secondary'} className={cn(transfer.status === 'claimed' ? 'bg-green-500/80' : 'bg-yellow-500/80')}>{transfer.status === 'claimed' ? 'Получено' : 'В ожидании'}</Badge>
                         </CardContent></Card>);
                     })}
-                </div>) : (<div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><History className="w-8 h-8 mb-2" /><p>Вы еще не отправляли NFT.</p></div>)}
+                </div>) : (<div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><History className="w-8 h-8 mb-2" /><p>История транзакций пуста.</p></div>)}
             </TabsContent>
         </Tabs>
       </div>
@@ -589,12 +620,3 @@ export default function CollectionsPage() {
     </div>
   );
 }
-
-    
-
-    
-
-
-
-
-    
