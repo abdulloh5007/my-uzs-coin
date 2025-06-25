@@ -6,7 +6,7 @@ import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Sparkles, Cpu, Wand2, Egg, ShoppingCart, Check, Info, User, Shield, BarChart, Package, Send, Cog, Mail, History, Inbox, ArrowRight, X, LayoutGrid, Clock } from 'lucide-react';
+import { Coins, Sparkles, Cpu, Wand2, Egg, ShoppingCart, Check, Info, User, Shield, BarChart, Package, Send, Cog, Mail, History, Inbox, ArrowRight, X, LayoutGrid, Clock, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -65,10 +65,13 @@ interface NftTransfer {
   instanceId: string;
   senderId: string;
   senderNickname: string;
+  senderUsername?: string;
   senderPhotoURL?: string | null;
+  senderIsVerified?: boolean;
   recipientId?: string;
   recipientUsername: string;
   recipientPhotoURL?: string | null;
+  recipientIsVerified?: boolean;
   status: 'pending' | 'claimed';
   sentAt: Date;
 }
@@ -82,6 +85,7 @@ interface FoundUser {
   username: string;
   nickname: string;
   photoURL?: string | null;
+  isVerified?: boolean;
 }
 
 // --- Independent Components to prevent re-rendering issues ---
@@ -158,6 +162,7 @@ const SendNftDialog: React.FC<{
                             username: data.username,
                             nickname: data.nickname,
                             photoURL: data.photoURL || null,
+                            isVerified: data.isVerified || false,
                         });
                     }
                 }
@@ -186,22 +191,29 @@ const SendNftDialog: React.FC<{
       }
       setIsSending(true);
       try {
-          const batch = writeBatch(db);
           const senderDocRef = doc(db, 'users', currentUser.uid);
+          const senderDocSnap = await getDoc(senderDocRef);
+          const senderData = senderDocSnap.data() || {};
+          
+          const batch = writeBatch(db);
+          const userDocRef = doc(db, 'users', currentUser.uid);
           const newOwnedNfts = pageState.ownedNfts.filter(item => item.instanceId !== selectedNft.instanceId);
 
-          batch.update(senderDocRef, { ownedNfts: newOwnedNfts });
+          batch.update(userDocRef, { ownedNfts: newOwnedNfts });
 
           const transferDocRef = doc(collection(db, 'nft_transfers'));
           batch.set(transferDocRef, {
               nftId: selectedNft.id,
               instanceId: selectedNft.instanceId,
               senderId: currentUser.uid,
-              senderNickname: currentUser.displayName || 'Аноним',
-              senderPhotoURL: currentUser.photoURL || null,
+              senderNickname: senderData.nickname || currentUser.displayName || 'Аноним',
+              senderUsername: senderData.username || '',
+              senderPhotoURL: senderData.photoURL || currentUser.photoURL || null,
+              senderIsVerified: senderData.isVerified || false,
               recipientId: selectedRecipient.uid,
               recipientUsername: selectedRecipient.username,
               recipientPhotoURL: selectedRecipient.photoURL || null,
+              recipientIsVerified: selectedRecipient.isVerified || false,
               status: 'pending',
               sentAt: serverTimestamp()
           });
@@ -238,10 +250,15 @@ const SendNftDialog: React.FC<{
                         <Card className="bg-card/90">
                            <CardContent className="p-3 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <Avatar>
-                                        <AvatarImage src={selectedRecipient.photoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${selectedRecipient.uid}`} alt={selectedRecipient.nickname || 'Пользователь'} />
-                                        <AvatarFallback>{selectedRecipient.nickname?.charAt(0) || '?'}</AvatarFallback>
-                                    </Avatar>
+                                    <div className="relative">
+                                        <Avatar>
+                                            <AvatarImage src={selectedRecipient.photoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${selectedRecipient.uid}`} alt={selectedRecipient.nickname || 'Пользователь'} />
+                                            <AvatarFallback>{selectedRecipient.nickname?.charAt(0) || '?'}</AvatarFallback>
+                                        </Avatar>
+                                        {selectedRecipient.isVerified && (
+                                            <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                        )}
+                                    </div>
                                     <div>
                                         <p className="font-semibold text-foreground">{selectedRecipient.nickname || 'Пользователь'}</p>
                                         <p className="text-sm text-muted-foreground">{selectedRecipient.username}</p>
@@ -278,10 +295,15 @@ const SendNftDialog: React.FC<{
                              {searchResults.map(user => (
                                 <Card key={user.uid} className="cursor-pointer hover:bg-accent transition-colors" onClick={() => onRecipientSelect(user)}>
                                     <CardContent className="p-3 flex items-center gap-3">
-                                         <Avatar>
-                                            <AvatarImage src={user.photoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${user.uid}`} alt={user.nickname || 'Пользователь'}/>
-                                            <AvatarFallback>{user.nickname?.charAt(0) || '?'}</AvatarFallback>
-                                        </Avatar>
+                                        <div className="relative">
+                                            <Avatar>
+                                                <AvatarImage src={user.photoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${user.uid}`} alt={user.nickname || 'Пользователь'}/>
+                                                <AvatarFallback>{user.nickname?.charAt(0) || '?'}</AvatarFallback>
+                                            </Avatar>
+                                            {user.isVerified && (
+                                                <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                            )}
+                                        </div>
                                         <div>
                                             <p className="font-semibold text-foreground">{user.nickname || 'Пользователь'}</p>
                                             <p className="text-sm text-muted-foreground">{user.username}</p>
@@ -555,13 +577,18 @@ export default function CollectionsPage() {
                         if (!nft) return null;
                         return (<Card key={transfer.id} className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
-                               <Avatar>
-                                    <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
-                                    <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
-                                </Avatar>
+                               <div className="relative">
+                                    <Avatar>
+                                        <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
+                                        <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
+                                    </Avatar>
+                                    {transfer.senderIsVerified && (
+                                        <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                    )}
+                               </div>
                                 <div>
                                   <p className="text-sm font-semibold">{nft.name}</p>
-                                  <p className="text-xs text-muted-foreground">от {transfer.senderNickname}</p>
+                                  <p className="text-xs text-muted-foreground">от {transfer.senderUsername || transfer.senderNickname}</p>
                                 </div>
                             </div>
                             <Button size="sm" onClick={() => handleClaimNft(transfer)}>Получить</Button>
@@ -576,17 +603,23 @@ export default function CollectionsPage() {
                         if (!nft) return null;
 
                         const isSender = transfer.senderId === currentUser?.uid;
-                        const otherPartyUsername = isSender ? transfer.recipientUsername : transfer.senderNickname;
+                        const otherPartyUsername = isSender ? transfer.recipientUsername : (transfer.senderUsername || transfer.senderNickname);
                         const otherPartyPhotoURL = isSender ? transfer.recipientPhotoURL : transfer.senderPhotoURL;
                         const otherPartyId = isSender ? transfer.recipientId : transfer.senderId;
+                        const otherPartyIsVerified = isSender ? (transfer.recipientIsVerified || false) : (transfer.senderIsVerified || false);
                         const actionText = isSender ? `Отправлено ${otherPartyUsername}` : `Получено от ${otherPartyUsername}`;
                         
                         return (<Card key={transfer.id} className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
                            <div className="flex items-center gap-3">
-                               <Avatar>
-                                    <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
-                                    <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
-                               </Avatar>
+                               <div className="relative">
+                                   <Avatar>
+                                        <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
+                                        <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
+                                   </Avatar>
+                                   {otherPartyIsVerified && (
+                                       <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                   )}
+                               </div>
                                <div>
                                    <p className="text-sm font-semibold">{nft.name}</p>
                                    <p className="text-xs text-muted-foreground">{actionText} • {formatDistanceToNow(transfer.sentAt, { addSuffix: true, locale: ru })}</p>
@@ -620,3 +653,4 @@ export default function CollectionsPage() {
     </div>
   );
 }
+
