@@ -16,9 +16,10 @@ interface NavItemProps {
   isActive?: boolean;
   onClick?: () => void;
   hasNotification?: boolean;
+  className?: string;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, isActive, onClick, hasNotification }) => {
+const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, isActive, onClick, hasNotification, className }) => {
   return (
     <Button
       variant="ghost"
@@ -26,7 +27,8 @@ const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, isActive, onClick,
       className={cn(
         "relative flex flex-col items-center justify-center h-full p-2 flex-1 rounded-none",
         "text-muted-foreground hover:text-foreground",
-        isActive ? "text-primary bg-primary/10" : ""
+        isActive ? "text-primary bg-primary/10" : "",
+        className
       )}
     >
       <Icon className={cn("w-6 h-6 mb-0.5", isActive ? "text-primary" : "")} />
@@ -78,7 +80,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
   }, [currentUser]);
 
 
-  const navItems: Omit<NavItemProps, 'isActive' | 'onClick' | 'hasNotification'>[] = [
+  const navItems: Omit<NavItemProps, 'isActive' | 'onClick' | 'hasNotification' | 'className'>[] = [
     { icon: MousePointerClick, label: 'Кликер', path: '/' }, 
     { icon: Users, label: 'Друзья', path: '/friends' },
     { icon: Gift, label: 'Награды', path: '/rewards' },
@@ -109,6 +111,8 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
           if (item.path === '/rewards') itemHasNotification = hasUnclaimedRewards;
           if (item.path === '/collections') itemHasNotification = hasNewMail;
 
+          const isHiddenOnMobile = item.path === '/rewards' || item.path === '/collections';
+
           return (
             <NavItem
               key={item.label}
@@ -118,6 +122,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
               isActive={currentItemIsActive}
               onClick={() => handleItemClick(item.path)}
               hasNotification={itemHasNotification}
+              className={isHiddenOnMobile ? 'hidden md:flex' : 'flex'}
             />
           );
         })}
