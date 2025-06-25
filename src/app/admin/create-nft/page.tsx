@@ -34,34 +34,41 @@ const createNftSchema = z.object({
     edition: z.coerce.number().int("Должно быть целое число.").positive("Количество должно быть положительным числом."),
     price: z.coerce.number().int("Должно быть целое число.").positive("Цена должна быть положительным числом."),
     category: z.string().min(2, { message: "Категория должна быть не менее 2 символов." }),
-    image: z.any(),
+    image: z.any().optional(),
+    svgCode: z.string().optional(),
 }).superRefine((data, ctx) => {
-    if (!data.image || data.image.length !== 1) {
-        ctx.addIssue({ code: 'custom', path: ['image'], message: 'Требуется файл.' });
-        return;
-    }
-    const file = data.image[0];
-    const allowedTypes = ACCEPTED_IMAGE_TYPES[data.type];
-    const allowedExtensions = allowedTypes.map(t => `.${t.split('/')[1]}`).join(', ');
-
-    if (!allowedTypes.includes(file.type)) {
-        ctx.addIssue({ code: 'custom', path: ['image'], message: `Для типа "${data.type}" разрешены только файлы: ${allowedExtensions}.` });
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-        ctx.addIssue({ code: 'custom', path: ['image'], message: `Максимальный размер файла 5MB.` });
+    if (data.type === 'Анимированный') {
+        if (!data.image || data.image.length !== 1) {
+            ctx.addIssue({ code: 'custom', path: ['image'], message: 'Требуется GIF файл.' });
+            return;
+        }
+        const file = data.image[0];
+        if (!ACCEPTED_IMAGE_TYPES['Анимированный'].includes(file.type)) {
+            ctx.addIssue({ code: 'custom', path: ['image'], message: `Для типа "Анимированный" разрешены только GIF файлы.` });
+        }
+        if (file.size > MAX_FILE_SIZE) {
+            ctx.addIssue({ code: 'custom', path: ['image'], message: `Максимальный размер файла 5MB.` });
+        }
+    } else if (data.type === 'Простой') {
+        if (!data.svgCode || data.svgCode.trim() === '') {
+            ctx.addIssue({ code: 'custom', path: ['svgCode'], message: 'Требуется SVG код или загруженный файл.' });
+        }
     }
 });
 
 
 type CreateNftFormValues = z.infer<typeof createNftSchema>;
 
-const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
+const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = error => reject(error);
 });
+
+const svgToDataUrl = (svg: string): string => {
+    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+}
 
 export default function CreateNftPage() {
     const { currentUser, loading: authLoading } = useAuth();
@@ -69,7 +76,8 @@ export default function CreateNftPage() {
     const { toast } = useToast();
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [svgCode, setSvgCode] = useState<string>("");
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -83,8 +91,11 @@ export default function CreateNftPage() {
             price: 0,
             rarity: 0,
             edition: 0,
+            svgCode: '',
         },
     });
+    
+    const currentNftType = form.watch('type');
 
     useEffect(() => {
         if (authLoading) return;
@@ -116,18 +127,42 @@ export default function CreateNftPage() {
 
     const handleFileSelect = (file: File | undefined) => {
         if (!file) {
-            form.setValue("image", undefined, { shouldValidate: true });
-            setImagePreview(null);
+            if (currentNftType === 'Анимированный') form.setValue("image", undefined);
+            if (currentNftType === 'Простой') form.setValue("svgCode", "");
+            setPreviewUrl(null);
+            setSvgCode("");
             return;
         }
 
-        const reader = new FileReader();
-        reader.onload = () => {
-            setImagePreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-        form.setValue("image", [file], { shouldValidate: true });
+        if (currentNftType === 'Анимированный') {
+            if (ACCEPTED_IMAGE_TYPES['Анимированный'].includes(file.type)) {
+                const reader = new FileReader();
+                reader.onload = () => setPreviewUrl(reader.result as string);
+                reader.readAsDataURL(file);
+                form.setValue("image", [file], { shouldValidate: true });
+            }
+        } else if (currentNftType === 'Простой') {
+            if (ACCEPTED_IMAGE_TYPES['Простой'].includes(file.type)) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const text = e.target?.result as string;
+                    setSvgCode(text);
+                    form.setValue("svgCode", text, { shouldValidate: true });
+                    setPreviewUrl(`data:image/svg+xml;utf8,${encodeURIComponent(text)}`);
+                };
+                reader.readAsText(file);
+                // We don't set the image field for SVGs, we use svgCode
+                 form.setValue("image", undefined);
+            }
+        }
     };
+
+    const handleSvgCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const newCode = e.target.value;
+        setSvgCode(newCode);
+        form.setValue('svgCode', newCode, { shouldValidate: true });
+        setPreviewUrl(`data:image/svg+xml;utf8,${encodeURIComponent(newCode)}`);
+    }
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -135,15 +170,14 @@ export default function CreateNftPage() {
         setIsDragging(false);
         const file = e.dataTransfer.files?.[0];
         if (file) {
-            const currentType = form.getValues("type");
-            const allowedTypes = ACCEPTED_IMAGE_TYPES[currentType];
+            const allowedTypes = ACCEPTED_IMAGE_TYPES[currentNftType];
             if (allowedTypes.includes(file.type)) {
                 handleFileSelect(file);
             } else {
                  toast({
                     variant: "destructive",
                     title: "Неверный тип файла",
-                    description: `Пожалуйста, выберите ${currentType === 'Анимированный' ? 'GIF' : 'SVG'} файл.`,
+                    description: `Пожалуйста, выберите ${currentNftType === 'Анимированный' ? 'GIF' : 'SVG'} файл.`,
                 });
             }
         }
@@ -157,8 +191,15 @@ export default function CreateNftPage() {
 
     const onSubmit = async (data: CreateNftFormValues) => {
         try {
-            const imageFile = data.image[0];
-            const imageUrl = await toBase64(imageFile);
+            let imageUrl = '';
+            if (data.type === 'Анимированный') {
+                const imageFile = data.image[0];
+                imageUrl = await fileToBase64(imageFile);
+            } else { // 'Простой'
+                if (!data.svgCode) throw new Error("SVG code is missing.");
+                imageUrl = svgToDataUrl(data.svgCode);
+            }
+
             const newNftId = data.name.toLowerCase().replace(/\s+/g, '_');
 
             const newNftData = {
@@ -181,7 +222,8 @@ export default function CreateNftPage() {
                 description: `"${data.name}" успешно добавлен в базу данных.`,
             });
             form.reset();
-            setImagePreview(null);
+            setPreviewUrl(null);
+            setSvgCode("");
 
         } catch (error) {
             console.error("Error creating NFT:", error);
@@ -228,45 +270,77 @@ export default function CreateNftPage() {
                                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                         
-                                        <div className="space-y-2">
-                                            <FormLabel>Файл NFT ({form.watch('type') === 'Анимированный' ? 'GIF' : 'SVG'})</FormLabel>
-                                            <div
-                                              onDragEnter={(e) => handleDragEvents(e, true)}
-                                              onDragLeave={(e) => handleDragEvents(e, false)}
-                                              onDragOver={(e) => handleDragEvents(e, true)}
-                                              onDrop={handleDrop}
-                                              onClick={() => fileInputRef.current?.click()}
-                                              className={cn(
-                                                "aspect-square w-full rounded-lg border-2 border-dashed border-border flex items-center justify-center cursor-pointer transition-colors relative",
-                                                isDragging ? "border-primary bg-primary/10" : "hover:border-primary/50"
-                                              )}
-                                            >
-                                                <input
-                                                  type="file"
-                                                  ref={fileInputRef}
-                                                  className="hidden"
-                                                  onChange={(e) => handleFileSelect(e.target.files?.[0])}
-                                                  accept={form.watch('type') === 'Анимированный' ? 'image/gif' : 'image/svg+xml'}
-                                                />
-                                                {imagePreview ? (
-                                                  <img src={imagePreview} alt="Предпросмотр" className="max-w-full max-h-full p-4 object-contain rounded-md" />
-                                                ) : (
-                                                  <div className="text-center text-muted-foreground p-4">
-                                                    <UploadCloud className="mx-auto h-12 w-12" />
-                                                    <p className="mt-2 font-semibold">Перетащите файл сюда</p>
-                                                    <p className="text-xs">или нажмите для выбора</p>
-                                                  </div>
-                                                )}
-                                            </div>
-                                            <FormField
-                                                control={form.control}
-                                                name="image"
-                                                render={() => (
-                                                  <FormItem>
-                                                    <FormMessage />
-                                                  </FormItem>
-                                                )}
-                                            />
+                                        <div className="space-y-4">
+                                           {currentNftType === 'Анимированный' ? (
+                                                <div className="space-y-2">
+                                                    <FormLabel>Файл NFT (GIF)</FormLabel>
+                                                    <div
+                                                        onDragEnter={(e) => handleDragEvents(e, true)}
+                                                        onDragLeave={(e) => handleDragEvents(e, false)}
+                                                        onDragOver={(e) => handleDragEvents(e, true)}
+                                                        onDrop={handleDrop}
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        className={cn(
+                                                            "aspect-square w-full rounded-lg border-2 border-dashed border-border flex items-center justify-center cursor-pointer transition-colors relative",
+                                                            isDragging ? "border-primary bg-primary/10" : "hover:border-primary/50"
+                                                        )}
+                                                    >
+                                                        <input
+                                                            type="file"
+                                                            ref={fileInputRef}
+                                                            className="hidden"
+                                                            onChange={(e) => handleFileSelect(e.target.files?.[0])}
+                                                            accept="image/gif"
+                                                        />
+                                                        {previewUrl ? (
+                                                            <img src={previewUrl} alt="Предпросмотр" className="max-w-full max-h-full p-4 object-contain rounded-md" />
+                                                        ) : (
+                                                            <div className="text-center text-muted-foreground p-4">
+                                                                <UploadCloud className="mx-auto h-12 w-12" />
+                                                                <p className="mt-2 font-semibold">Перетащите GIF сюда</p>
+                                                                <p className="text-xs">или нажмите для выбора</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <FormField control={form.control} name="image" render={() => (<FormItem><FormMessage /></FormItem>)} />
+                                                </div>
+                                           ) : (
+                                                <div className="space-y-6">
+                                                    <div>
+                                                        <FormLabel>Загрузить SVG файл</FormLabel>
+                                                        <div
+                                                            onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            className="mt-1 p-4 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
+                                                        >
+                                                            <UploadCloud className="mx-auto h-8 w-8 text-muted-foreground" />
+                                                            <p className="mt-1 text-sm text-center text-muted-foreground">Перетащите или выберите SVG</p>
+                                                            <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => handleFileSelect(e.target.files?.[0])} accept="image/svg+xml" />
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <FormLabel>или отредактировать SVG код</FormLabel>
+                                                        <Textarea
+                                                            value={svgCode}
+                                                            onChange={handleSvgCodeChange}
+                                                            placeholder="<svg>...</svg>"
+                                                            className="mt-1 font-mono text-xs"
+                                                            rows={8}
+                                                        />
+                                                        <FormField control={form.control} name="svgCode" render={() => (<FormItem><FormMessage /></FormItem>)} />
+                                                    </div>
+                                                    <div>
+                                                        <FormLabel>Предпросмотр</FormLabel>
+                                                        <div className="mt-1 aspect-square w-full rounded-lg border border-dashed border-border flex items-center justify-center bg-card/50">
+                                                            {previewUrl ? (
+                                                                <img src={previewUrl} alt="Предпросмотр SVG" className="max-w-full max-h-full p-4 object-contain" />
+                                                            ) : (
+                                                                <p className="text-muted-foreground">Здесь будет превью</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                           )}
                                         </div>
 
                                         <div className="space-y-4 flex flex-col">
@@ -278,12 +352,15 @@ export default function CreateNftPage() {
                                                     <FormLabel>Тип NFT</FormLabel>
                                                     <FormControl>
                                                         <RadioGroup
-                                                        onValueChange={(value) => {
-                                                            field.onChange(value);
-                                                            handleFileSelect(undefined);
-                                                        }}
-                                                        defaultValue={field.value}
-                                                        className="flex flex-row space-x-4"
+                                                            onValueChange={(value) => {
+                                                                field.onChange(value);
+                                                                // Reset inputs on type change
+                                                                handleFileSelect(undefined);
+                                                                form.setValue("image", undefined);
+                                                                form.setValue("svgCode", "");
+                                                            }}
+                                                            defaultValue={field.value}
+                                                            className="flex flex-row space-x-4"
                                                         >
                                                         <FormItem className="flex items-center space-x-3 space-y-0">
                                                             <FormControl><RadioGroupItem value="Анимированный" /></FormControl>
