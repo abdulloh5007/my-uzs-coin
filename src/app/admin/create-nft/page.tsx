@@ -208,7 +208,8 @@ export default function CreateNftPage() {
                 description: data.description,
                 type: data.type,
                 rarity: data.rarity,
-                edition: data.edition,
+                edition: data.edition, // Current count
+                totalEdition: data.edition, // Total count
                 price: data.price,
                 category: data.category,
                 imageUrl: imageUrl,

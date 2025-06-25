@@ -31,6 +31,7 @@ interface NftItem {
   category: string;
   rarity: number;
   edition: number;
+  totalEdition: number;
 }
 
 interface NftShopState {
@@ -123,7 +124,7 @@ const NftDetailSheet: React.FC<NftDetailSheetProps> = ({
                             </div>
                             <div className="flex justify-between items-center border-b border-border/30 pb-3">
                                 <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Осталось</span>
-                                <span className={`font-semibold ${nft.edition > 10 ? 'text-foreground' : 'text-amber-500'}`}>{nft.edition.toLocaleString()}</span>
+                                <span className={`font-semibold ${nft.edition > 10 ? 'text-foreground' : 'text-amber-500'}`}>{nft.edition.toLocaleString()} из {nft.totalEdition.toLocaleString()}</span>
                             </div>
                         </div>
                     </div>
@@ -183,7 +184,7 @@ const NftCard: React.FC<{nft: NftItem, onClick: () => void}> = ({ nft, onClick }
                      <div className="flex justify-between items-center text-sm mt-1">
                         <span className="text-muted-foreground">Осталось:</span>
                         <span className={`font-semibold ${nft.edition > 10 ? 'text-foreground' : 'text-amber-500'}`}>
-                            {nft.edition > 0 ? nft.edition.toLocaleString() : 'Нет'}
+                            {nft.edition > 0 ? `${nft.edition.toLocaleString()} из ${nft.totalEdition.toLocaleString()}` : 'Нет'}
                         </span>
                     </div>
                 </div>
@@ -235,6 +236,7 @@ export default function NftShopPage() {
               category: data.category,
               rarity: data.rarity,
               edition: data.edition,
+              totalEdition: data.totalEdition || data.edition,
               imageUrl: data.imageUrl,
               iconColorClass: 'text-primary',
               iconBgClass: 'bg-primary/20',
