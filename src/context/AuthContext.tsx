@@ -106,6 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           username: '',
           username_lowercase: '',
           photoURL: null,
+          role: 'player', // Add role field with default value 'player'
           score: initialScore,
           totalScoreCollected: initialScore,
           energy: INITIAL_MAX_ENERGY_BASE,

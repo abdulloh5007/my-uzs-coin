@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp, Trophy, AtSign, KeyRound, Edit, Info, Settings, BarChartHorizontal, Camera, CheckCircle2 } from 'lucide-react';
+import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp, Trophy, AtSign, KeyRound, Edit, Info, Settings, BarChartHorizontal, Camera, CheckCircle2, Shield } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from 'next/link';
 
 
 const INITIAL_CLICK_POWER_BASE = 1;
@@ -45,6 +46,7 @@ interface ProfileStats {
   username?: string;
   photoURL: string | null;
   isVerified?: boolean;
+  role: 'owner' | 'player';
 }
 
 export default function ProfilePage() {
@@ -65,6 +67,7 @@ export default function ProfilePage() {
     username: '',
     photoURL: null,
     isVerified: false,
+    role: 'player',
   });
   
   const [editableUsername, setEditableUsername] = useState('');
@@ -91,7 +94,7 @@ export default function ProfilePage() {
       const docSnap = await getDoc(userDocRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
-        const profileStats = {
+        const profileStats: ProfileStats = {
           score: data.score || 0,
           totalScoreCollected: data.totalScoreCollected || data.score || 0,
           totalClicks: data.totalClicks || 0,
@@ -102,6 +105,7 @@ export default function ProfilePage() {
           username: data.username || '',
           photoURL: data.photoURL || currentUser?.photoURL || null,
           isVerified: data.isVerified || false,
+          role: data.role || 'player',
         };
         setStats(profileStats);
         setEditableUsername(profileStats.username ? profileStats.username.substring(1) : '');
@@ -421,14 +425,14 @@ export default function ProfilePage() {
                         <TooltipProvider delayDuration={0}>
                             <Tooltip>
                                 <TooltipTrigger>
-                                    {currentUser?.uid === OWNER_UID ? (
+                                    {stats.role === 'owner' ? (
                                         <Coins className="w-7 h-7 text-primary animate-pulse" />
                                     ) : (
-                                        <CheckCircle2 className="w-7 h-7 text-green-500" />
+                                        <CheckCircle2 className="w-7 h-7 text-primary" />
                                     )}
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>{currentUser?.uid === OWNER_UID ? 'Владелец' : 'Верифицированный аккаунт'}</p>
+                                    <p>{stats.role === 'owner' ? 'Владелец' : 'Верифицированный аккаунт'}</p>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
@@ -514,6 +518,22 @@ export default function ProfilePage() {
                         </div>
                     </CardContent>
                 </Card>
+
+                {stats.role === 'owner' && (
+                    <Card className="bg-card/80 border-border/50 shadow-lg text-left mt-6">
+                        <CardHeader>
+                            <CardTitle className="text-xl flex items-center gap-2"><Shield className="w-5 h-5 text-primary"/>Панель администратора</CardTitle>
+                            <CardDescription>Управление приложением и пользователями.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                             <Link href="/admin" passHref>
+                                <Button className="w-full">
+                                    Перейти в панель
+                                </Button>
+                            </Link>
+                        </CardContent>
+                    </Card>
+                 )}
               </TabsContent>
             </Tabs>
         </div>
