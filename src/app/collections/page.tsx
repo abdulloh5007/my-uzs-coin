@@ -23,6 +23,7 @@ import { ru } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // --- TYPES (Copied from mint/page.tsx, can be moved to a types file later) ---
 interface NftItem {
@@ -251,12 +252,28 @@ const SendNftDialog: React.FC<{
                            <CardContent className="p-3 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="relative">
-                                        <Avatar>
-                                            <AvatarImage src={selectedRecipient.photoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${selectedRecipient.uid}`} alt={selectedRecipient.nickname || 'Пользователь'} />
-                                            <AvatarFallback>{selectedRecipient.nickname?.charAt(0) || '?'}</AvatarFallback>
-                                        </Avatar>
-                                        {selectedRecipient.isVerified && (
-                                            <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                        {selectedRecipient.isVerified ? (
+                                            <TooltipProvider delayDuration={0}>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <div className="relative">
+                                                            <Avatar>
+                                                                <AvatarImage src={selectedRecipient.photoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${selectedRecipient.uid}`} alt={selectedRecipient.nickname || 'Пользователь'} />
+                                                                <AvatarFallback>{selectedRecipient.nickname?.charAt(0) || '?'}</AvatarFallback>
+                                                            </Avatar>
+                                                            <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                                        </div>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Верифицированный пользователь</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        ) : (
+                                            <Avatar>
+                                                <AvatarImage src={selectedRecipient.photoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${selectedRecipient.uid}`} alt={selectedRecipient.nickname || 'Пользователь'} />
+                                                <AvatarFallback>{selectedRecipient.nickname?.charAt(0) || '?'}</AvatarFallback>
+                                            </Avatar>
                                         )}
                                     </div>
                                     <div>
@@ -296,12 +313,28 @@ const SendNftDialog: React.FC<{
                                 <Card key={user.uid} className="cursor-pointer hover:bg-accent transition-colors" onClick={() => onRecipientSelect(user)}>
                                     <CardContent className="p-3 flex items-center gap-3">
                                         <div className="relative">
-                                            <Avatar>
-                                                <AvatarImage src={user.photoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${user.uid}`} alt={user.nickname || 'Пользователь'}/>
-                                                <AvatarFallback>{user.nickname?.charAt(0) || '?'}</AvatarFallback>
-                                            </Avatar>
-                                            {user.isVerified && (
-                                                <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                            {user.isVerified ? (
+                                                <TooltipProvider delayDuration={0}>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <div className="relative">
+                                                                <Avatar>
+                                                                    <AvatarImage src={user.photoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${user.uid}`} alt={user.nickname || 'Пользователь'}/>
+                                                                    <AvatarFallback>{user.nickname?.charAt(0) || '?'}</AvatarFallback>
+                                                                </Avatar>
+                                                                <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                                            </div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Верифицированный пользователь</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            ) : (
+                                                <Avatar>
+                                                    <AvatarImage src={user.photoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${user.uid}`} alt={user.nickname || 'Пользователь'}/>
+                                                    <AvatarFallback>{user.nickname?.charAt(0) || '?'}</AvatarFallback>
+                                                </Avatar>
                                             )}
                                         </div>
                                         <div>
@@ -578,12 +611,28 @@ export default function CollectionsPage() {
                         return (<Card key={transfer.id} className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
                                <div className="relative">
-                                    <Avatar>
-                                        <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
-                                        <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
-                                    </Avatar>
-                                    {transfer.senderIsVerified && (
-                                        <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                    {transfer.senderIsVerified ? (
+                                        <TooltipProvider delayDuration={0}>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <div className="relative">
+                                                        <Avatar>
+                                                            <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
+                                                            <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
+                                                        </Avatar>
+                                                        <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                                    </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>Верифицированный пользователь</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    ) : (
+                                        <Avatar>
+                                            <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
+                                            <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
+                                        </Avatar>
                                     )}
                                </div>
                                 <div>
@@ -612,12 +661,28 @@ export default function CollectionsPage() {
                         return (<Card key={transfer.id} className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
                            <div className="flex items-center gap-3">
                                <div className="relative">
-                                   <Avatar>
-                                        <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
-                                        <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
-                                   </Avatar>
-                                   {otherPartyIsVerified && (
-                                       <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                   {otherPartyIsVerified ? (
+                                        <TooltipProvider delayDuration={0}>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                   <div className="relative">
+                                                       <Avatar>
+                                                            <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
+                                                            <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
+                                                       </Avatar>
+                                                       <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                                   </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>Верифицированный пользователь</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                   ) : (
+                                       <Avatar>
+                                            <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
+                                            <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
+                                       </Avatar>
                                    )}
                                </div>
                                <div>
@@ -653,4 +718,3 @@ export default function CollectionsPage() {
     </div>
   );
 }
-
