@@ -11,14 +11,15 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, arrayUnion, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, arrayUnion, Timestamp, runTransaction, increment } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 
 // --- TYPES ---
 interface NftItem {
-  id: string;
+  docId: string; // The actual document ID in Firestore
+  id: string; // The custom ID like 'silver_coin'
   name: string;
   description: string;
   icon?: React.ElementType;
@@ -88,6 +89,7 @@ const NftDetailSheet: React.FC<NftDetailSheetProps> = ({
 }) => {
     if (!nft) return null;
     const canAfford = pageState.score >= nft.price;
+    const isSoldOut = nft.edition <= 0;
     const bgPattern = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2L10.5 6H6.5L8 10.5L7 14H17L16 10.5L17.5 6H13.5L12 2Z' fill='hsl(var(--primary))' opacity='0.1'/></svg>`);
     
     return (
@@ -120,14 +122,14 @@ const NftDetailSheet: React.FC<NftDetailSheetProps> = ({
                                 <span className="font-semibold text-primary">{nft.rarity}%</span>
                             </div>
                             <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                                <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span>
-                                <span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span>
+                                <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Осталось</span>
+                                <span className={`font-semibold ${nft.edition > 10 ? 'text-foreground' : 'text-amber-500'}`}>{nft.edition.toLocaleString()}</span>
                             </div>
                         </div>
                     </div>
                     <SheetFooter className="p-6 border-t border-border/50 bg-background mt-auto">
-                        <Button className="w-full" disabled={!canAfford || isBuying} onClick={() => handleBuyNft(nft)}>
-                            {isBuying ? 'Покупка...' : (canAfford ? (<>Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}</>) : ('Недостаточно монет'))}
+                        <Button className="w-full" disabled={!canAfford || isBuying || isSoldOut} onClick={() => handleBuyNft(nft)}>
+                             {isBuying ? 'Покупка...' : isSoldOut ? 'Закончилось' : canAfford ? (<>Купить за <Coins className="w-5 h-5 mx-2" /> {nft.price.toLocaleString()}</>) : 'Недостаточно монет'}
                         </Button>
                     </SheetFooter>
                   </div>
@@ -178,8 +180,16 @@ const NftCard: React.FC<{nft: NftItem, onClick: () => void}> = ({ nft, onClick }
                 <div>
                     <div className="flex justify-between items-center text-sm mb-1"><span className="text-muted-foreground">Тип:</span><Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn('text-xs', nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50 hover:bg-purple-500/80' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge></div>
                     <div className="flex justify-between items-center text-sm"><span className="text-muted-foreground">Цена:</span><span className="font-semibold text-primary flex items-center gap-1"><Coins className="w-4 h-4"/>{nft.price.toLocaleString()}</span></div>
+                     <div className="flex justify-between items-center text-sm mt-1">
+                        <span className="text-muted-foreground">Осталось:</span>
+                        <span className={`font-semibold ${nft.edition > 10 ? 'text-foreground' : 'text-amber-500'}`}>
+                            {nft.edition > 0 ? nft.edition.toLocaleString() : 'Нет'}
+                        </span>
+                    </div>
                 </div>
-                <Button onClick={onClick} variant="outline" className="w-full mt-4"><Info className="w-4 h-4 mr-2" />Подробнее</Button>
+                <Button onClick={onClick} variant="outline" className="w-full mt-4" disabled={nft.edition <= 0}>
+                   {nft.edition > 0 ? <><Info className="w-4 h-4 mr-2" />Подробнее</> : 'Закончилось'}
+                </Button>
             </CardContent>
         </Card>
     );
@@ -211,12 +221,12 @@ export default function NftShopPage() {
         }
       }
 
-      // Fetch NFT data
       const nftCollectionRef = collection(db, 'nfts');
       const nftQuerySnapshot = await getDocs(nftCollectionRef);
       const fetchedNfts: NftItem[] = nftQuerySnapshot.docs.map(doc => {
           const data = doc.data();
           return {
+              docId: doc.id,
               id: data.id,
               name: data.name,
               description: data.description,
@@ -245,58 +255,76 @@ export default function NftShopPage() {
     if (!authLoading && !currentUser) {
       router.push('/login');
     } else {
-      // Load data regardless of user, but pass UID if available
       loadShopData(currentUser?.uid);
     }
   }, [currentUser, authLoading, router, loadShopData]);
 
   const handleBuyNft = async (nft: NftItem) => {
     if (!currentUser || isBuying) return;
+
+    if (pageState.score < nft.price) {
+        toast({ variant: "destructive", title: "Недостаточно монет", description: `Вам не хватает ${(nft.price - pageState.score).toLocaleString()} монет.` });
+        return;
+    }
+    if (nft.edition <= 0) {
+        toast({ variant: "destructive", title: "Предмет закончился", description: "К сожалению, все экземпляры этого NFT были распроданы." });
+        return;
+    }
     
-    if (pageState.score >= nft.price) {
-      setIsBuying(true);
-      const newBalance = pageState.score - nft.price;
-      const newInstanceId = doc(collection(db, "dummy")).id;
-      
-      const purchaseTimestamp = Timestamp.now();
-      const newOwnedNft = { nftId: nft.id, instanceId: newInstanceId, purchasedAt: purchaseTimestamp };
+    setIsBuying(true);
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    const nftDocRef = doc(db, 'nfts', nft.docId);
 
-      // Optimistic UI update
-      setPageState(prev => ({ 
-        ...prev, 
-        score: newBalance, 
-        ownedNfts: [...prev.ownedNfts, newOwnedNft] 
-      }));
+    try {
+        await runTransaction(db, async (transaction) => {
+            const nftDoc = await transaction.get(nftDocRef);
+            const userDoc = await transaction.get(userDocRef);
 
-      try {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        await setDoc(userDocRef, { 
-            score: newBalance, 
-            ownedNfts: arrayUnion(newOwnedNft),
-            lastUpdated: serverTimestamp() 
-        }, { merge: true });
+            if (!nftDoc.exists() || !userDoc.exists()) {
+                throw "Документ не найден! Пожалуйста, обновите страницу.";
+            }
 
+            const nftData = nftDoc.data();
+            const userData = userDoc.data();
+
+            if (nftData.edition <= 0) {
+                throw "Этот предмет только что закончился.";
+            }
+
+            if (userData.score < nftData.price) {
+                throw "Недостаточно монет.";
+            }
+            
+            const newInstanceId = doc(collection(db, "dummy")).id;
+            const purchaseTimestamp = Timestamp.now();
+            const newOwnedNft = { nftId: nft.id, instanceId: newInstanceId, purchasedAt: purchaseTimestamp };
+
+            transaction.update(nftDocRef, { edition: increment(-1) });
+            transaction.update(userDocRef, {
+                score: increment(-nftData.price),
+                ownedNfts: arrayUnion(newOwnedNft),
+                lastUpdated: serverTimestamp()
+            });
+        });
+        
         toast({
           title: `🎉 ${nft.name} куплен!`,
           description: `NFT добавлен в вашу коллекцию.`,
           duration: 5000,
         });
         setSelectedNft(null);
+        loadShopData(currentUser.uid); // Refresh data from DB to show new counts and balance
 
-      } catch (error) {
-        console.error("Error buying NFT:", error);
-        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось сохранить покупку NFT." });
-        loadShopData(currentUser.uid); // Revert on error
-      } finally {
+    } catch (e: any) {
+        console.error("Transaction failed: ", e);
+        toast({
+            variant: "destructive",
+            title: "Ошибка покупки",
+            description: typeof e === 'string' ? e : "Не удалось совершить покупку. Попробуйте снова.",
+        });
+        loadShopData(currentUser.uid); // Also refresh on error to get latest state
+    } finally {
         setIsBuying(false);
-      }
-
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Недостаточно монет",
-        description: `Вам не хватает ${ (nft.price - pageState.score).toLocaleString()} монет для покупки.`,
-      });
     }
   };
   
