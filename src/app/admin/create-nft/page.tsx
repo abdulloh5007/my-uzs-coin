@@ -63,6 +63,9 @@ export default function CreateNftPage() {
             name: '',
             description: '',
             category: '',
+            price: 0,
+            rarity: 0,
+            edition: 0,
         },
     });
 
