@@ -59,6 +59,7 @@ interface NftTransfer {
   id: string;
   nftId: string;
   instanceId: string;
+  copyNumber?: number;
   senderId: string;
   senderNickname: string;
   senderUsername?: string;
@@ -201,6 +202,7 @@ const SendNftDialog: React.FC<{
           batch.set(transferDocRef, {
               nftId: selectedNft.id,
               instanceId: selectedNft.instanceId,
+              copyNumber: selectedNft.copyNumber || null,
               senderId: currentUser.uid,
               senderNickname: senderData.nickname || currentUser.displayName || 'Аноним',
               senderUsername: senderData.username || '',
@@ -574,17 +576,12 @@ export default function CollectionsPage() {
       const batch = writeBatch(db);
 
       const userDocRef = doc(db, 'users', currentUser.uid);
-      const nftData = allNfts.find(n => n.id === transfer.nftId);
-
-      // We need to find out the copyNumber for this claimed NFT.
-      // This is tricky without knowing its purchase history.
-      // For now, we will add it without a copy number.
-      // A better approach might be to pass the copyNumber in the transfer document.
-      // For now, let's keep it simple.
+      
       const newOwnedNft = { 
         nftId: transfer.nftId, 
         instanceId: transfer.instanceId, 
-        purchasedAt: Timestamp.now() 
+        purchasedAt: Timestamp.now(),
+        copyNumber: transfer.copyNumber || undefined,
       };
 
       batch.update(userDocRef, {
