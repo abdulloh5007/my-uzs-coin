@@ -39,17 +39,20 @@ interface NftItem {
   category: string;
   rarity: number;
   edition: number;
+  totalEdition?: number;
 }
 
 interface OwnedNft {
   nftId: string;
   instanceId: string;
   purchasedAt?: Timestamp;
+  copyNumber?: number;
 }
 
 interface SelectedNft extends NftItem {
   instanceId: string;
   purchasedAt?: Timestamp;
+  copyNumber?: number;
 }
 
 interface NftTransfer {
@@ -390,10 +393,17 @@ const NftDetailSheet: React.FC<{
                                 <span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span>
                                 <span className="font-semibold text-primary">{nft.rarity}%</span>
                             </div>
-                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                                <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span>
-                                <span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span>
-                            </div>
+                             {nft.copyNumber && nft.totalEdition ? (
+                                <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                    <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Экземпляр</span>
+                                    <span className="font-semibold text-foreground">#{nft.copyNumber} из {nft.totalEdition.toLocaleString()}</span>
+                                </div>
+                            ) : (
+                                <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                    <span className="text-muted-foreground flex items-center gap-2"><Package className="w-4 h-4"/>Выпущено</span>
+                                    <span className="font-semibold text-foreground">{nft.edition.toLocaleString()}</span>
+                                </div>
+                            )}
                             {nft.purchasedAt && (
                               <div className="flex justify-between items-center border-b border-border/30 pb-3">
                                   <span className="text-muted-foreground flex items-center gap-2"><Clock className="w-4 h-4"/>Приобретено</span>
@@ -490,6 +500,7 @@ export default function CollectionsPage() {
               category: data.category,
               rarity: data.rarity,
               edition: data.edition,
+              totalEdition: data.totalEdition,
               imageUrl: data.imageUrl,
               iconColorClass: 'text-primary',
               iconBgClass: 'bg-primary/20',
@@ -563,8 +574,21 @@ export default function CollectionsPage() {
       const batch = writeBatch(db);
 
       const userDocRef = doc(db, 'users', currentUser.uid);
+      const nftData = allNfts.find(n => n.id === transfer.nftId);
+
+      // We need to find out the copyNumber for this claimed NFT.
+      // This is tricky without knowing its purchase history.
+      // For now, we will add it without a copy number.
+      // A better approach might be to pass the copyNumber in the transfer document.
+      // For now, let's keep it simple.
+      const newOwnedNft = { 
+        nftId: transfer.nftId, 
+        instanceId: transfer.instanceId, 
+        purchasedAt: Timestamp.now() 
+      };
+
       batch.update(userDocRef, {
-        ownedNfts: arrayUnion({ nftId: transfer.nftId, instanceId: transfer.instanceId, purchasedAt: Timestamp.now() })
+        ownedNfts: arrayUnion(newOwnedNft)
       });
       
       const transferDocRef = doc(db, 'nft_transfers', transfer.id);
@@ -612,7 +636,7 @@ export default function CollectionsPage() {
                     if (!foundNft) return null;
                     const IconComponent = foundNft.icon;
                     return (
-                      <button key={ownedNft.instanceId} onClick={() => { setSelectedNft({...foundNft, instanceId: ownedNft.instanceId, purchasedAt: ownedNft.purchasedAt}) }} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center transition-colors hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary", (foundNft.iconBgClass || 'bg-primary/20').replace('/20', '/30'))}>
+                      <button key={ownedNft.instanceId} onClick={() => { setSelectedNft({...foundNft, instanceId: ownedNft.instanceId, purchasedAt: ownedNft.purchasedAt, copyNumber: ownedNft.copyNumber}) }} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center transition-colors hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary", (foundNft.iconBgClass || 'bg-primary/20').replace('/20', '/30'))}>
                         <div className={cn("p-2 rounded-full mb-2", foundNft.iconBgClass || 'bg-primary/20')}>{foundNft.imageUrl ? <Image src={foundNft.imageUrl} alt={foundNft.name} width={24} height={24} unoptimized /> : (IconComponent && <IconComponent className={cn("w-6 h-6", foundNft.iconColorClass || 'text-primary')} />)}</div>
                         <span className="text-xs font-medium text-foreground truncate w-full">{foundNft.name}</span>
                       </button>
