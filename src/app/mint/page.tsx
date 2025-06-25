@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, collection, arrayUnion, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, arrayUnion, Timestamp } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
@@ -25,19 +25,12 @@ interface NftItem {
   imageUrl?: string;
   type: 'Простой' | 'Анимированный';
   price: number;
-  iconColorClass: string;
-  iconBgClass: string;
+  iconColorClass?: string;
+  iconBgClass?: string;
   category: string;
   rarity: number;
   edition: number;
 }
-
-const nftItems: NftItem[] = [
-  { id: 'cyberpunk_mask', name: 'Маска Киберпанка', description: 'Стильная маска из будущего, улучшающая нейроинтерфейс.', icon: Cpu, type: 'Простой', price: 15000000, iconColorClass: 'text-cyan-400', iconBgClass: 'bg-cyan-500/20', category: 'Киберпанк', rarity: 5, edition: 5000, },
-  { id: 'magic_staff', name: 'Магический Посох', description: 'Древний посох, наполненный магией первоэлементов.', icon: Wand2, type: 'Анимированный', price: 80000000, iconColorClass: 'text-purple-400', iconBgClass: 'bg-purple-500/20', category: 'Магия', rarity: 1.5, edition: 1000, },
-  { id: 'dragon_egg', name: 'Яйцо Дракона', description: 'Кто знает, что из него вылупится? Ходят слухи о бонусах.', icon: Egg, type: 'Простой', price: 20000000, iconColorClass: 'text-red-400', iconBgClass: 'bg-red-500/20', category: 'Фэнтези', rarity: 3.2, edition: 2500, },
-  { id: 'starship_deed', name: 'Документ на ракету', description: 'Право собственности на межгалактический звёздолёт класса "Исследователь".', imageUrl: '/rocket.gif', type: 'Анимированный', price: 100000000, iconColorClass: 'text-slate-400', iconBgClass: 'bg-slate-500/20', category: 'Sci-Fi', rarity: 0.8, edition: 500, },
-];
 
 interface NftShopState {
   score: number;
@@ -65,11 +58,11 @@ const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
       onMouseLeave={handleMouseLeave}
       className={cn(
         "p-8 rounded-2xl inline-block relative overflow-hidden transition-transform duration-150 ease-out", 
-        nft.iconBgClass
+        nft.iconBgClass || 'bg-primary/20'
       )}
       style={{ transformStyle: "preserve-3d" }}
     >
-      {nft.imageUrl ? <Image src={nft.imageUrl} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain pointer-events-none" unoptimized /> : (Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass)} />)}
+      {nft.imageUrl ? <Image src={nft.imageUrl} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain pointer-events-none" unoptimized /> : (Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass || 'text-primary')} />)}
       <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
         <div className="animate-glare-pass absolute top-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12" />
       </div>
@@ -172,8 +165,8 @@ const NftCard: React.FC<{nft: NftItem, onClick: () => void}> = ({ nft, onClick }
         >
             <CardHeader className="p-4 pb-3 bg-transparent border-b border-border/30 z-10">
                 <div className="flex items-center gap-3">
-                    <div className={cn("p-2.5 rounded-lg", nft.iconBgClass)}>
-                        {nft.imageUrl ? <Image src={nft.imageUrl} alt={nft.name} width={28} height={28} unoptimized /> : (Icon && <Icon className={cn("w-7 h-7", nft.iconColorClass)} />)}
+                    <div className={cn("p-2.5 rounded-lg", nft.iconBgClass || 'bg-primary/20')}>
+                        {nft.imageUrl ? <Image src={nft.imageUrl} alt={nft.name} width={28} height={28} unoptimized /> : (Icon && <Icon className={cn("w-7 h-7", nft.iconColorClass || 'text-primary')} />)}
                     </div>
                     <div>
                         <CardTitle className="text-lg font-semibold text-foreground">{nft.name}</CardTitle>
@@ -196,24 +189,49 @@ export default function NftShopPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { currentUser, loading: authLoading } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
   
   const [selectedNft, setSelectedNft] = useState<NftItem | null>(null);
   const [pageState, setPageState] = useState<NftShopState>({ score: 0, ownedNfts: [] });
+  const [shopItems, setShopItems] = useState<NftItem[]>([]);
   const [isBuying, setIsBuying] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const loadShopData = useCallback(async (userId: string) => {
+  const loadShopData = useCallback(async (userId?: string) => {
     setIsLoading(true);
     try {
-      const userDocRef = doc(db, 'users', userId);
-      const docSnap = await getDoc(userDocRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setPageState({
-          score: data.score || 0,
-          ownedNfts: data.ownedNfts || [],
-        });
+      if (userId) {
+        const userDocRef = doc(db, 'users', userId);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          const data = userDocSnap.data();
+          setPageState({
+            score: data.score || 0,
+            ownedNfts: data.ownedNfts || [],
+          });
+        }
       }
+
+      // Fetch NFT data
+      const nftCollectionRef = collection(db, 'nfts');
+      const nftQuerySnapshot = await getDocs(nftCollectionRef);
+      const fetchedNfts: NftItem[] = nftQuerySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+              id: data.id,
+              name: data.name,
+              description: data.description,
+              type: data.type,
+              price: data.price,
+              category: data.category,
+              rarity: data.rarity,
+              edition: data.edition,
+              imageUrl: data.imageUrl,
+              iconColorClass: 'text-primary',
+              iconBgClass: 'bg-primary/20',
+          } as NftItem;
+      });
+      setShopItems(fetchedNfts);
+
     } catch (error) {
       console.error("Error loading NFT shop data:", error);
       toast({ variant: "destructive", title: "Ошибка", description: "Не удалось загрузить данные магазина." });
@@ -226,8 +244,9 @@ export default function NftShopPage() {
   useEffect(() => {
     if (!authLoading && !currentUser) {
       router.push('/login');
-    } else if (currentUser) {
-      loadShopData(currentUser.uid);
+    } else {
+      // Load data regardless of user, but pass UID if available
+      loadShopData(currentUser?.uid);
     }
   }, [currentUser, authLoading, router, loadShopData]);
 
@@ -301,7 +320,7 @@ export default function NftShopPage() {
         <h1 className="text-4xl font-bold mb-8 text-foreground">Магазин NFT</h1>
         <Card className="max-w-md mx-auto mb-8 bg-card/80 border-border/50 shadow-lg"><CardContent className="p-4 flex items-center justify-center"><Coins className="w-6 h-6 mr-3 text-primary" /><span className="text-lg font-medium text-foreground">Баланс: </span><span className="text-lg font-semibold text-primary ml-1.5">{pageState.score.toLocaleString()}</span></CardContent></Card>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
-            {nftItems.map((nft) => <NftCard key={nft.id} nft={nft} onClick={() => setSelectedNft(nft)} />)}
+            {shopItems.map((nft) => <NftCard key={nft.id} nft={nft} onClick={() => setSelectedNft(nft)} />)}
         </div>
       </div>
 

@@ -25,7 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-// --- TYPES (Copied from mint/page.tsx, can be moved to a types file later) ---
+// --- TYPES ---
 interface NftItem {
   id: string;
   name: string;
@@ -34,20 +34,12 @@ interface NftItem {
   imageUrl?: string;
   type: 'Простой' | 'Анимированный';
   price: number;
-  iconColorClass: string;
-  iconBgClass: string;
+  iconColorClass?: string;
+  iconBgClass?: string;
   category: string;
   rarity: number;
   edition: number;
 }
-
-// Data should be in a separate file, but keeping it here for simplicity of the change
-const nftItems: NftItem[] = [
-  { id: 'cyberpunk_mask', name: 'Маска Киберпанка', description: 'Стильная маска из будущего, улучшающая нейроинтерфейс.', icon: Cpu, type: 'Простой', price: 15000000, iconColorClass: 'text-cyan-400', iconBgClass: 'bg-cyan-500/20', category: 'Киберпанк', rarity: 5, edition: 5000, },
-  { id: 'magic_staff', name: 'Магический Посох', description: 'Древний посох, наполненный магией первоэлементов.', icon: Wand2, type: 'Анимированный', price: 80000000, iconColorClass: 'text-purple-400', iconBgClass: 'bg-purple-500/20', category: 'Магия', rarity: 1.5, edition: 1000, },
-  { id: 'dragon_egg', name: 'Яйцо Дракона', description: 'Кто знает, что из него вылупится? Ходят слухи о бонусах.', icon: Egg, type: 'Простой', price: 20000000, iconColorClass: 'text-red-400', iconBgClass: 'bg-red-500/20', category: 'Фэнтези', rarity: 3.2, edition: 2500, },
-  { id: 'starship_deed', name: 'Документ на ракету', description: 'Право собственности на межгалактический звёздолёт класса "Исследователь".', imageUrl: '/rocket.gif', type: 'Анимированный', price: 100000000, iconColorClass: 'text-slate-400', iconBgClass: 'bg-slate-500/20', category: 'Sci-Fi', rarity: 0.8, edition: 500, },
-];
 
 interface OwnedNft {
   nftId: string;
@@ -444,11 +436,11 @@ const ParallaxIconDisplay: React.FC<{ nft: NftItem }> = ({ nft }) => {
       onMouseLeave={handleMouseLeave}
       className={cn(
         "p-8 rounded-2xl inline-block relative overflow-hidden transition-transform duration-150 ease-out", 
-        nft.iconBgClass
+        nft.iconBgClass || 'bg-primary/20'
       )}
       style={{ transformStyle: "preserve-3d" }}
     >
-      {nft.imageUrl ? <Image src={nft.imageUrl} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain pointer-events-none" unoptimized /> : (Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass)} />)}
+      {nft.imageUrl ? <Image src={nft.imageUrl} alt={nft.name} width={96} height={96} className="w-24 h-24 object-contain pointer-events-none" unoptimized /> : (Icon && <Icon className={cn("w-24 h-24 pointer-events-none", nft.iconColorClass || 'text-primary')} />)}
       <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
         <div className="animate-glare-pass absolute top-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12" />
       </div>
@@ -460,26 +452,51 @@ export default function CollectionsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { currentUser, loading: authLoading } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
   
-  const [selectedNft, setSelectedNft] = useState<SelectedNft | null>(null);
   const [pageState, setPageState] = useState<CollectionState>({ ownedNfts: [] });
-  
+  const [allNfts, setAllNfts] = useState<NftItem[]>([]);
   const [mailbox, setMailbox] = useState<NftTransfer[]>([]);
   const [transferHistory, setTransferHistory] = useState<NftTransfer[]>([]);
+
+  const [selectedNft, setSelectedNft] = useState<SelectedNft | null>(null);
   const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
 
   const loadCollectionData = useCallback(async (userId: string) => {
     setIsLoading(true);
     try {
+      // Fetch user data
       const userDocRef = doc(db, 'users', userId);
-      const docSnap = await getDoc(userDocRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        const data = userDocSnap.data();
         setPageState({
           ownedNfts: data.ownedNfts || [],
         });
       }
+
+      // Fetch all NFT definitions
+      const nftCollectionRef = collection(db, 'nfts');
+      const nftQuerySnapshot = await getDocs(nftCollectionRef);
+      const fetchedNfts: NftItem[] = nftQuerySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+              id: data.id,
+              name: data.name,
+              description: data.description,
+              type: data.type,
+              price: data.price,
+              category: data.category,
+              rarity: data.rarity,
+              edition: data.edition,
+              imageUrl: data.imageUrl,
+              iconColorClass: 'text-primary',
+              iconBgClass: 'bg-primary/20',
+          } as NftItem;
+      });
+      setAllNfts(fetchedNfts);
+
     } catch (error) {
       console.error("Error loading collection data:", error);
       toast({ variant: "destructive", title: "Ошибка", description: "Не удалось загрузить данные коллекции." });
@@ -591,12 +608,12 @@ export default function CollectionsPage() {
             <TabsContent value="inventory">
                 {pageState.ownedNfts.length > 0 ? (<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {pageState.ownedNfts.map((ownedNft) => {
-                    const foundNft = nftItems.find(item => item.id === ownedNft.nftId);
+                    const foundNft = allNfts.find(item => item.id === ownedNft.nftId);
                     if (!foundNft) return null;
                     const IconComponent = foundNft.icon;
                     return (
-                      <button key={ownedNft.instanceId} onClick={() => { setSelectedNft({...foundNft, instanceId: ownedNft.instanceId, purchasedAt: ownedNft.purchasedAt}) }} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center transition-colors hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary", foundNft.iconBgClass.replace('/20', '/30'))}>
-                        <div className={cn("p-2 rounded-full mb-2", foundNft.iconBgClass)}>{foundNft.imageUrl ? <Image src={foundNft.imageUrl} alt={foundNft.name} width={24} height={24} unoptimized /> : (IconComponent && <IconComponent className={cn("w-6 h-6", foundNft.iconColorClass)} />)}</div>
+                      <button key={ownedNft.instanceId} onClick={() => { setSelectedNft({...foundNft, instanceId: ownedNft.instanceId, purchasedAt: ownedNft.purchasedAt}) }} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center transition-colors hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary", (foundNft.iconBgClass || 'bg-primary/20').replace('/20', '/30'))}>
+                        <div className={cn("p-2 rounded-full mb-2", foundNft.iconBgClass || 'bg-primary/20')}>{foundNft.imageUrl ? <Image src={foundNft.imageUrl} alt={foundNft.name} width={24} height={24} unoptimized /> : (IconComponent && <IconComponent className={cn("w-6 h-6", foundNft.iconColorClass || 'text-primary')} />)}</div>
                         <span className="text-xs font-medium text-foreground truncate w-full">{foundNft.name}</span>
                       </button>
                     );
@@ -606,7 +623,7 @@ export default function CollectionsPage() {
             <TabsContent value="mailbox">
                 {mailbox.length > 0 ? (<div className="space-y-3">
                     {mailbox.map(transfer => {
-                        const nft = nftItems.find(n => n.id === transfer.nftId);
+                        const nft = allNfts.find(n => n.id === transfer.nftId);
                         if (!nft) return null;
                         return (<Card key={transfer.id} className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
@@ -648,7 +665,7 @@ export default function CollectionsPage() {
             <TabsContent value="history">
                  {transferHistory.length > 0 ? (<div className="space-y-3">
                     {transferHistory.map(transfer => {
-                        const nft = nftItems.find(n => n.id === transfer.nftId);
+                        const nft = allNfts.find(n => n.id === transfer.nftId);
                         if (!nft) return null;
 
                         const isSender = transfer.senderId === currentUser?.uid;
