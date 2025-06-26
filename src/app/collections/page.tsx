@@ -40,6 +40,7 @@ interface NftItem {
   rarity: number;
   edition: number;
   totalEdition?: number;
+  backgroundSvg?: string;
 }
 
 interface OwnedNft {
@@ -366,14 +367,18 @@ const NftDetailSheet: React.FC<{
     if (!nft) return null;
     const bgPattern = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2L10.5 6H6.5L8 10.5L7 14H17L16 10.5L17.5 6H13.5L12 2Z' fill='hsl(var(--primary))' opacity='0.1'/></svg>`);
     
+    const backgroundStyle = nft.backgroundSvg
+        ? { backgroundImage: `url("data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(nft.backgroundSvg)))}")`, backgroundSize: 'cover' }
+        : { backgroundImage: `url("data:image/svg+xml,${bgPattern}")` };
+
     return (
       <Sheet open={!!nft} onOpenChange={onOpenChange}>
           <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] text-left w-full">
               <div className="flex flex-col lg:flex-row h-full">
                   {/* LEFT PANE (Top on mobile) */}
                   <div 
-                    className="p-6 pt-8 text-center lg:w-1/2 lg:flex lg:flex-col lg:justify-center lg:items-center lg:border-r lg:border-border/50" 
-                    style={{ backgroundImage: `url("data:image/svg+xml,${bgPattern}")` }}>
+                    className="p-6 pt-8 text-center lg:w-1/2 lg:flex lg:flex-col lg:justify-center lg:items-center lg:border-r lg:border-border/50 bg-center" 
+                    style={backgroundStyle}>
                       <ParallaxIconDisplay nft={nft} />
                       <SheetTitle className="text-3xl font-bold mt-4 text-foreground">{nft.name}</SheetTitle>
                       <CardDescription className="text-muted-foreground mt-1">{nft.description}</CardDescription>
@@ -504,6 +509,7 @@ export default function CollectionsPage() {
               edition: data.edition,
               totalEdition: data.totalEdition,
               imageUrl: data.imageUrl,
+              backgroundSvg: data.backgroundSvg,
               iconColorClass: 'text-primary',
               iconBgClass: 'bg-primary/20',
           } as NftItem;

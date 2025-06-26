@@ -29,6 +29,7 @@ const ACCEPTED_IMAGE_TYPES = {
 const createNftSchema = z.object({
     name: z.string().min(3, { message: "Название должно быть не менее 3 символов." }),
     description: z.string().min(10, { message: "Описание должно быть не менее 10 символов." }),
+    backgroundSvg: z.string().optional(),
     type: z.enum(['Анимированный', 'Простой'], { required_error: "Нужно выбрать тип." }),
     rarity: z.coerce.number().min(0.01, "Редкость не может быть 0.").max(100, "Редкость должна быть между 0.01 и 100."),
     edition: z.coerce.number().int("Должно быть целое число.").positive("Количество должно быть положительным числом."),
@@ -87,6 +88,7 @@ export default function CreateNftPage() {
             type: 'Анимированный',
             name: '',
             description: '',
+            backgroundSvg: '',
             category: '',
             price: 0,
             rarity: 0,
@@ -213,6 +215,7 @@ export default function CreateNftPage() {
                 price: data.price,
                 category: data.category,
                 imageUrl: imageUrl,
+                backgroundSvg: data.backgroundSvg || null,
                 createdAt: serverTimestamp(),
             };
 
@@ -395,6 +398,24 @@ export default function CreateNftPage() {
                                                     <FormItem>
                                                         <FormLabel>Описание</FormLabel>
                                                         <FormControl><Textarea placeholder="Описание..." {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="backgroundSvg"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Фон (SVG код)</FormLabel>
+                                                        <FormControl>
+                                                            <Textarea
+                                                                placeholder="<svg>...</svg>"
+                                                                className="font-mono text-xs"
+                                                                rows={6}
+                                                                {...field}
+                                                            />
+                                                        </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
