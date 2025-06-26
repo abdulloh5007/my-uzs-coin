@@ -68,7 +68,12 @@ const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reje
 });
 
 const svgToDataUrl = (svg: string): string => {
-    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+    try {
+        return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+    } catch(e) {
+        console.error("Error converting SVG to data URL", e);
+        return "";
+    }
 }
 
 export default function CreateNftPage() {
@@ -81,6 +86,8 @@ export default function CreateNftPage() {
     const [svgCode, setSvgCode] = useState<string>("");
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [backgroundPreviewStyle, setBackgroundPreviewStyle] = useState<React.CSSProperties>({});
+
 
     const form = useForm<CreateNftFormValues>({
         resolver: zodResolver(createNftSchema),
@@ -98,6 +105,24 @@ export default function CreateNftPage() {
     });
     
     const currentNftType = form.watch('type');
+    const backgroundSvgCode = form.watch('backgroundSvg');
+
+    useEffect(() => {
+        if (backgroundSvgCode && backgroundSvgCode.trim().startsWith('<svg')) {
+            const bgUrl = `url("${svgToDataUrl(backgroundSvgCode)}")`;
+            if (bgUrl.includes('base64,')) { // Check if conversion was successful
+                 setBackgroundPreviewStyle({ 
+                    backgroundImage: bgUrl,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                });
+            } else {
+                 setBackgroundPreviewStyle({});
+            }
+        } else {
+            setBackgroundPreviewStyle({});
+        }
+    }, [backgroundSvgCode]);
 
     useEffect(() => {
         if (authLoading) return;
@@ -150,7 +175,7 @@ export default function CreateNftPage() {
                     const text = e.target?.result as string;
                     setSvgCode(text);
                     form.setValue("svgCode", text, { shouldValidate: true });
-                    setPreviewUrl(`data:image/svg+xml;utf8,${encodeURIComponent(text)}`);
+                    setPreviewUrl(svgToDataUrl(text));
                 };
                 reader.readAsText(file);
                 // We don't set the image field for SVGs, we use svgCode
@@ -163,7 +188,11 @@ export default function CreateNftPage() {
         const newCode = e.target.value;
         setSvgCode(newCode);
         form.setValue('svgCode', newCode, { shouldValidate: true });
-        setPreviewUrl(`data:image/svg+xml;utf8,${encodeURIComponent(newCode)}`);
+        if (newCode && newCode.trim().startsWith('<svg')) {
+             setPreviewUrl(svgToDataUrl(newCode));
+        } else {
+             setPreviewUrl(null);
+        }
     }
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -284,8 +313,9 @@ export default function CreateNftPage() {
                                                         onDragOver={(e) => handleDragEvents(e, true)}
                                                         onDrop={handleDrop}
                                                         onClick={() => fileInputRef.current?.click()}
+                                                        style={backgroundPreviewStyle}
                                                         className={cn(
-                                                            "aspect-square w-full rounded-lg border-2 border-dashed border-border flex items-center justify-center cursor-pointer transition-colors relative",
+                                                            "aspect-square w-full rounded-lg border-2 border-dashed border-border flex items-center justify-center cursor-pointer transition-colors relative bg-cover bg-center",
                                                             isDragging ? "border-primary bg-primary/10" : "hover:border-primary/50"
                                                         )}
                                                     >
@@ -297,9 +327,9 @@ export default function CreateNftPage() {
                                                             accept="image/gif"
                                                         />
                                                         {previewUrl ? (
-                                                            <img src={previewUrl} alt="Предпросмотр" className="max-w-full max-h-full p-4 object-contain rounded-md" />
+                                                            <img src={previewUrl} alt="Предпросмотр" className="max-w-full max-h-full p-4 object-contain rounded-md bg-black/20 backdrop-blur-sm" />
                                                         ) : (
-                                                            <div className="text-center text-muted-foreground p-4">
+                                                            <div className="text-center text-muted-foreground p-4 bg-black/20 backdrop-blur-sm rounded-lg">
                                                                 <UploadCloud className="mx-auto h-12 w-12" />
                                                                 <p className="mt-2 font-semibold">Перетащите GIF сюда</p>
                                                                 <p className="text-xs">или нажмите для выбора</p>
@@ -335,9 +365,12 @@ export default function CreateNftPage() {
                                                     </div>
                                                     <div>
                                                         <FormLabel>Предпросмотр</FormLabel>
-                                                        <div className="mt-1 aspect-square w-full rounded-lg border border-dashed border-border flex items-center justify-center bg-card/50">
+                                                        <div 
+                                                            style={backgroundPreviewStyle}
+                                                            className="mt-1 aspect-square w-full rounded-lg border border-dashed border-border flex items-center justify-center bg-card/50 bg-cover bg-center"
+                                                        >
                                                             {previewUrl ? (
-                                                                <img src={previewUrl} alt="Предпросмотр SVG" className="max-w-full max-h-full p-4 object-contain" />
+                                                                <img src={previewUrl} alt="Предпросмотр SVG" className="max-w-full max-h-full p-4 object-contain bg-black/10 backdrop-blur-sm" />
                                                             ) : (
                                                                 <p className="text-muted-foreground">Здесь будет превью</p>
                                                             )}
@@ -481,3 +514,5 @@ export default function CreateNftPage() {
         </div>
     );
 }
+
+    
