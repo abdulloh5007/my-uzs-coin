@@ -1,12 +1,12 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Sparkles, Cpu, Wand2, Egg, Info, BarChart, Package } from 'lucide-react';
+import { Coins, Sparkles, Cpu, Wand2, Egg, Info, BarChart, Package, Search, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -15,6 +15,18 @@ import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, arrayUnion, 
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu";
 
 // --- TYPES ---
 interface NftItem {
@@ -220,6 +232,11 @@ export default function NftShopPage() {
   const [isBuying, setIsBuying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState<string>("all"); // 'all', 'Анимированный', 'Простой'
+  const [filterInStock, setFilterInStock] = useState(false);
+
   const loadShopData = useCallback(async (userId?: string) => {
     setIsLoading(true);
     try {
@@ -344,6 +361,21 @@ export default function NftShopPage() {
         setIsBuying(false);
     }
   };
+
+  const filteredShopItems = useMemo(() => {
+    return shopItems
+      .filter((item) =>
+        item.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      .filter((item) => {
+        if (filterType === "all") return true;
+        return item.type === filterType;
+      })
+      .filter((item) => {
+        if (!filterInStock) return true;
+        return item.edition > 0;
+      });
+  }, [shopItems, searchQuery, filterType, filterInStock]);
   
   const handleNavigation = (path: string) => router.push(path);
   
@@ -363,9 +395,59 @@ export default function NftShopPage() {
             <Sparkles className="w-10 h-10 text-primary" />
         </div>
         <h1 className="text-4xl font-bold mb-8 text-foreground">Магазин NFT</h1>
-        <Card className="max-w-md mx-auto mb-8 bg-card/80 border-border/50 shadow-lg"><CardContent className="p-4 flex items-center justify-center"><Coins className="w-6 h-6 mr-3 text-primary" /><span className="text-lg font-medium text-foreground">Баланс: </span><span className="text-lg font-semibold text-primary ml-1.5">{pageState.score.toLocaleString()}</span></CardContent></Card>
+        <Card className="max-w-md mx-auto mb-6 bg-card/80 border-border/50 shadow-lg"><CardContent className="p-4 flex items-center justify-center"><Coins className="w-6 h-6 mr-3 text-primary" /><span className="text-lg font-medium text-foreground">Баланс: </span><span className="text-lg font-semibold text-primary ml-1.5">{pageState.score.toLocaleString()}</span></CardContent></Card>
+        
+        {/* Search and Filter Controls */}
+        <div className="flex flex-col sm:flex-row gap-2 max-w-4xl mx-auto w-full mb-6">
+            <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Поиск по названию..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 w-full"
+                />
+            </div>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="shrink-0">
+                    <Filter className="mr-2 h-4 w-4" />
+                    Фильтр
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56">
+                    <DropdownMenuLabel>Фильтровать по</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuCheckboxItem
+                        checked={filterInStock}
+                        onCheckedChange={setFilterInStock}
+                    >
+                        Только в наличии
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup value={filterType} onValueChange={setFilterType}>
+                        <DropdownMenuLabel>Тип NFT</DropdownMenuLabel>
+                        <DropdownMenuRadioItem value="all">Все</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="Анимированный">Анимированные</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="Простой">Простые</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { setFilterInStock(false); setFilterType('all'); }}>
+                        Сбросить фильтры
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
-            {shopItems.map((nft) => <NftCard key={nft.id} nft={nft} onClick={() => setSelectedNft(nft)} />)}
+            {filteredShopItems.length > 0 ? (
+                 filteredShopItems.map((nft) => <NftCard key={nft.id} nft={nft} onClick={() => setSelectedNft(nft)} />)
+            ) : (
+                <div className="md:col-span-2 text-center py-10">
+                    <p className="text-muted-foreground">Ничего не найдено.</p>
+                    <p className="text-sm text-muted-foreground">Попробуйте изменить параметры поиска или фильтра.</p>
+                </div>
+            )}
         </div>
       </div>
 
