@@ -14,6 +14,7 @@ import RewardCard from '@/components/rewards/RewardCard';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, arrayRemove, arrayUnion } from 'firebase/firestore';
+import TopBar from '@/components/TopBar';
 
 
 export interface DisplayableReward {
@@ -160,7 +161,8 @@ export default function RewardsPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
-      <div className="flex-grow container mx-auto px-4 pt-10 md:pt-16 pb-20 md:pb-24 text-center">
+      <TopBar />
+      <div className="flex-grow container mx-auto px-4 pt-24 md:pt-28 pb-20 md:pb-24 text-center">
         <h1 className="text-4xl font-bold mb-6">Награды</h1>
 
         <div className="flex justify-center items-center gap-6 mb-8 text-sm">
@@ -206,4 +208,3 @@ export default function RewardsPage() {
     </div>
   );
 }
-    

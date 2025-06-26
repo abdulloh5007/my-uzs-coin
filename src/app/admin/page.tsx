@@ -9,6 +9,7 @@ import { db } from '@/lib/firebase';
 import { Sparkles, Shield, PlusCircle } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import TopBar from '@/components/TopBar';
 
 export default function AdminPage() {
     const { currentUser, loading: authLoading } = useAuth();
@@ -70,7 +71,8 @@ export default function AdminPage() {
 
     return (
         <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased">
-            <div className="flex-grow container mx-auto px-4 pt-10 md:pt-16 pb-20 md:pb-24 text-center">
+            <TopBar />
+            <div className="flex-grow container mx-auto px-4 pt-24 md:pt-28 pb-20 md:pb-24 text-center">
                  <div className="mx-auto flex justify-center items-center mb-4 h-20 w-20 rounded-full bg-primary/20">
                     <Shield className="w-10 h-10 text-primary" />
                 </div>

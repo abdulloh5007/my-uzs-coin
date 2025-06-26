@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from 'next/link';
+import TopBar from '@/components/TopBar';
 
 
 const INITIAL_CLICK_POWER_BASE = 1;
@@ -392,7 +393,8 @@ export default function ProfilePage() {
   
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
-      <main className="flex-grow container mx-auto px-4 pt-10 md:pt-16 pb-20 md:pb-24">
+      <TopBar />
+      <main className="flex-grow container mx-auto px-4 pt-24 md:pt-28 pb-20 md:pb-24">
         
         <input
             type="file"

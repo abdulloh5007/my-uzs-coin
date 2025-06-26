@@ -28,6 +28,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
+import TopBar from '@/components/TopBar';
 
 // --- TYPES ---
 interface NftItem {
@@ -391,12 +392,12 @@ export default function NftShopPage() {
   
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased">
-      <div className="flex-grow container mx-auto px-4 pt-10 md:pt-16 pb-20 md:pb-24 text-center">
+      <TopBar />
+      <div className="flex-grow container mx-auto px-4 pt-24 md:pt-28 pb-20 md:pb-24 text-center">
         <div className="mx-auto flex justify-center items-center mb-4 h-20 w-20 rounded-full bg-primary/20">
             <Sparkles className="w-10 h-10 text-primary" />
         </div>
         <h1 className="text-4xl font-bold mb-8 text-foreground">Магазин NFT</h1>
-        <Card className="max-w-md mx-auto mb-6 bg-card/80 border-border/50 shadow-lg"><CardContent className="p-4 flex items-center justify-center"><Coins className="w-6 h-6 mr-3 text-primary" /><span className="text-lg font-medium text-foreground">Баланс: </span><span className="text-lg font-semibold text-primary ml-1.5">{pageState.score.toLocaleString()}</span></CardContent></Card>
         
         {/* Search and Filter Controls */}
         <div className="flex flex-col sm:flex-row gap-2 max-w-4xl mx-auto w-full mb-6">

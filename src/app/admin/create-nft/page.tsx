@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Sparkles, UploadCloud } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import { cn } from '@/lib/utils';
+import TopBar from '@/components/TopBar';
 
 const MAX_FILE_SIZE = 5000000; // 5MB
 const ACCEPTED_IMAGE_TYPES = {
@@ -98,8 +99,8 @@ export default function CreateNftPage() {
             backgroundSvg: '',
             category: '',
             price: 0,
-            rarity: 0,
-            edition: 0,
+            rarity: 0.1,
+            edition: 1,
             svgCode: '',
         },
     });
@@ -287,7 +288,8 @@ export default function CreateNftPage() {
 
     return (
         <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased">
-             <div className="flex-grow container mx-auto px-4 pt-10 md:pt-16 pb-20 md:pb-24">
+             <TopBar />
+             <div className="flex-grow container mx-auto px-4 pt-24 md:pt-28 pb-20 md:pb-24">
                 <div className="max-w-4xl mx-auto">
                     <Button variant="ghost" onClick={() => router.push('/admin')} className="mb-4">
                         <ArrowLeft className="mr-2 h-4 w-4" />
@@ -514,5 +516,3 @@ export default function CreateNftPage() {
         </div>
     );
 }
-
-    

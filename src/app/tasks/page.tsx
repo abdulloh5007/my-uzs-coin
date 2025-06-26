@@ -14,6 +14,7 @@ import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import TopBar from '@/components/TopBar';
 
 
 export default function TasksPage() {
@@ -112,7 +113,8 @@ export default function TasksPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
-      <div className="flex-grow container mx-auto px-4 pt-10 md:pt-16 pb-20 md:pb-24">
+      <TopBar />
+      <div className="flex-grow container mx-auto px-4 pt-24 md:pt-28 pb-20 md:pb-24">
         <h1 className="text-4xl font-bold mb-8 text-center">Задания</h1>
 
         <Tabs defaultValue="daily" className="w-full max-w-2xl mx-auto" onValueChange={setActiveTab}>
@@ -153,4 +155,3 @@ export default function TasksPage() {
     </div>
   );
 }
-    
