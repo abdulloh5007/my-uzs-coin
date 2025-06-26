@@ -16,6 +16,7 @@ import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/com
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -440,14 +441,37 @@ export default function NftShopPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
-            {filteredShopItems.length > 0 ? (
-                 filteredShopItems.map((nft) => <NftCard key={nft.id} nft={nft} onClick={() => setSelectedNft(nft)} />)
-            ) : (
-                <div className="md:col-span-2 text-center py-10">
+            <AnimatePresence>
+              {filteredShopItems.length > 0 ? (
+                filteredShopItems.map((nft) => (
+                  <motion.div
+                    key={nft.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.3 }}
+                    className="h-full"
+                  >
+                    <NftCard nft={nft} onClick={() => setSelectedNft(nft)} />
+                  </motion.div>
+                ))
+              ) : (
+                !isLoading && (
+                  <motion.div
+                    key="not-found"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="md:col-span-2 text-center py-10"
+                  >
                     <p className="text-muted-foreground">Ничего не найдено.</p>
                     <p className="text-sm text-muted-foreground">Попробуйте изменить параметры поиска или фильтра.</p>
-                </div>
-            )}
+                  </motion.div>
+                )
+              )}
+            </AnimatePresence>
         </div>
       </div>
 
