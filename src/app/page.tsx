@@ -316,7 +316,7 @@ export default function HomePage() {
       boostEndTime,
       daily_clickBoostsAvailable: dailyClickBoostsAvailable,
       daily_lastClickBoostResetDate: lastClickBoostResetDate,
-      daily_fullEnergyBoostsAvailable,
+      daily_fullEnergyBoostsAvailable: dailyFullEnergyBoostsAvailable,
       daily_lastFullEnergyBoostResetDate: lastFullEnergyBoostResetDate,
       isBotOwned,
       lastSeenTimestamp,
@@ -1023,7 +1023,7 @@ export default function HomePage() {
         clickPowerLevel={clickPowerLevel}
         energyRegenLevel={energyRegenLevel}
         currentMaxEnergy={maxEnergy}
-        currentClickPower={clickPower}
+        currentClickPower={currentClickPower}
         baseClickPower={originalClickPowerBeforeBoost}
         currentEnergyRegenRate={energyRegenRatePerSecond}
         onPurchase={handlePurchase}
