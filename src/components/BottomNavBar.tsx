@@ -1,7 +1,7 @@
 
 import type React from 'react';
-import { useState, useEffect } from 'react'; 
-import { User, MousePointerClick, Gift, Sparkles, Users, LayoutGrid, Box } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User, MousePointerClick, Gift, Sparkles, Users, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { usePathname, useRouter } from 'next/navigation';
@@ -73,7 +73,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
     { icon: MousePointerClick, label: 'Кликер', path: '/' }, 
     { icon: Users, label: 'Друзья', path: '/friends' },
     { icon: Sparkles, label: 'Магазин', path: '/mint' },
-    { icon: Box, label: 'Кейсы', path: '/cases' },
+    { icon: Gift, label: 'Награды', path: '/rewards' },
     { icon: LayoutGrid, label: 'Коллекция', path: '/collections' },
     { icon: User, label: 'Профиль', path: '/profile' },
   ];
@@ -95,9 +95,6 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
     <div className="fixed bottom-0 left-0 right-0 z-20 bg-card shadow-up h-16 md:h-20">
       <div className="container mx-auto flex items-stretch justify-around h-full px-0">
         {navItems.map((item) => {
-          // Rewards page is removed from nav, so we skip it.
-          if (item.path === '/rewards') return null;
-
           const currentItemIsActive = (currentPathForActivity === item.path || (currentPathForActivity === '/' && item.path === '/') || (item.path === '/' && currentPathForActivity.startsWith('/?')));
           let itemHasNotification = false;
           // Only show notification for mail on collections tab
@@ -105,7 +102,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
             itemHasNotification = hasNewMail;
           }
 
-          const isHiddenOnMobile = item.path === '/rewards' || item.path === '/mint';
+          const isHiddenOnMobile = item.path === '/mint';
 
           return (
             <NavItem

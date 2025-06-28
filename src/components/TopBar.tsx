@@ -127,17 +127,6 @@ const TopBar: React.FC = () => {
                       >
                         <Sparkles className="w-5 h-5 text-primary" /> Магазин
                       </Button>
-                      <Button
-                        variant="ghost"
-                        className={cn(
-                          "relative w-full justify-start text-base py-6 gap-3",
-                          pathname === '/collections' && "bg-accent text-accent-foreground"
-                        )}
-                        onClick={() => handleDrawerNavigate('/collections')}
-                      >
-                        <LayoutGrid className="w-5 h-5 text-primary" /> Коллекция
-                        {hasCollectionNotification && renderNotificationBadge()}
-                      </Button>
                        <Button
                         variant="ghost"
                         className={cn(
