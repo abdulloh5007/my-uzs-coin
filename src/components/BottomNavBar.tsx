@@ -1,7 +1,7 @@
 
 import type React from 'react';
 import { useState, useEffect } from 'react'; 
-import { User, MousePointerClick, Gift, Sparkles, Users, LayoutGrid } from 'lucide-react';
+import { User, MousePointerClick, Gift, Sparkles, Users, LayoutGrid, Box } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { usePathname, useRouter } from 'next/navigation';
@@ -54,15 +54,18 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
   const { currentUser } = useAuth();
   const [hasUnclaimedRewards, setHasUnclaimedRewards] = useState(false);
   const [hasNewMail, setHasNewMail] = useState(false);
+  const [hasUnopenedCases, setHasUnopenedCases] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
       const userDocRef = doc(db, 'users', currentUser.uid);
-      const unsubscribeRewards = onSnapshot(userDocRef, (doc) => {
+      const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
         if (doc.exists()) {
           const data = doc.data();
           const unclaimed = data.completedUnclaimedTaskTierIds || [];
           setHasUnclaimedRewards(unclaimed.length > 0);
+          const unopenedCases = data.ownedCases || [];
+          setHasUnopenedCases(unopenedCases.length > 0);
         }
       });
 
@@ -73,7 +76,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
       });
 
       return () => {
-        unsubscribeRewards();
+        unsubscribeUser();
         unsubscribeMail();
       };
     }
@@ -83,8 +86,8 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
   const navItems: Omit<NavItemProps, 'isActive' | 'onClick' | 'hasNotification' | 'className'>[] = [
     { icon: MousePointerClick, label: 'Кликер', path: '/' }, 
     { icon: Users, label: 'Друзья', path: '/friends' },
-    { icon: Gift, label: 'Награды', path: '/rewards' },
     { icon: Sparkles, label: 'Магазин', path: '/mint' },
+    { icon: Box, label: 'Кейсы', path: '/cases' },
     { icon: LayoutGrid, label: 'Коллекция', path: '/collections' },
     { icon: User, label: 'Профиль', path: '/profile' },
   ];
@@ -106,12 +109,17 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
     <div className="fixed bottom-0 left-0 right-0 z-20 bg-card shadow-up h-16 md:h-20">
       <div className="container mx-auto flex items-stretch justify-around h-full px-0">
         {navItems.map((item) => {
+          // Rewards page is removed from nav, so we skip it.
+          if (item.path === '/rewards') return null;
+
           const currentItemIsActive = (currentPathForActivity === item.path || (currentPathForActivity === '/' && item.path === '/') || (item.path === '/' && currentPathForActivity.startsWith('/?')));
           let itemHasNotification = false;
-          if (item.path === '/rewards') itemHasNotification = hasUnclaimedRewards;
-          if (item.path === '/collections') itemHasNotification = hasNewMail;
+          // Combine notifications for "Collections"
+          if (item.path === '/collections') {
+            itemHasNotification = hasNewMail || hasUnopenedCases || hasUnclaimedRewards;
+          }
 
-          const isHiddenOnMobile = item.path === '/rewards' || item.path === '/collections';
+          const isHiddenOnMobile = item.path === '/rewards' || item.path === '/mint';
 
           return (
             <NavItem

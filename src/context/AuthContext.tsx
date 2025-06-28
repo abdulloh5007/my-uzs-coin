@@ -24,7 +24,8 @@ import {
     writeBatch,
     increment,
     arrayUnion,
-    serverTimestamp
+    serverTimestamp,
+    Timestamp,
 } from 'firebase/firestore';
 
 const REFERRAL_BONUS = 25000;
@@ -133,6 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           completedUnclaimedTaskTierIds: [],
           claimedTaskTierIds: [],
           ownedNfts: [],
+          ownedCases: [],
           referralCode: newReferralCode,
           referredBy: referredBy,
           referredUsers: [],

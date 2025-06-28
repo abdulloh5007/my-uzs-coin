@@ -5,12 +5,12 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Sparkles, Cpu, Wand2, Egg, ShoppingCart, Check, Info, User, Shield, BarChart, Package, Send, Cog, Mail, History, Inbox, ArrowRight, X, LayoutGrid, Clock, CheckCircle2, Gem } from 'lucide-react';
+import { Coins, Sparkles, Cpu, Wand2, Egg, ShoppingCart, Check, Info, User, Shield, BarChart, Package, Send, Cog, Mail, History, Inbox, ArrowRight, X, LayoutGrid, Clock, CheckCircle2, Gem, Box } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, arrayUnion, onSnapshot, collection, query, where, writeBatch, getDocs, Timestamp, orderBy, limit } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, arrayUnion, onSnapshot, collection, query, where, writeBatch, getDocs, Timestamp, orderBy, limit, arrayRemove } from 'firebase/firestore';
 import { Dialog, DialogContent as DialogModalContent, DialogDescription as DialogModalDescription, DialogFooter as DialogModalFooter, DialogHeader as DialogModalHeader, DialogTitle as DialogModalTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { motion, AnimatePresence } from 'framer-motion';
 import AppLayout from '@/components/AppLayout';
 import { getRarityById } from '@/data/rarities';
+import CaseOpeningDialog from '@/components/collections/CaseOpeningDialog';
 
 // --- TYPES ---
 interface NftItem {
@@ -60,6 +61,19 @@ interface SelectedNft extends NftItem {
   copyNumber?: number;
 }
 
+interface OwnedCase {
+  caseId: string;
+  instanceId: string;
+  purchasedAt: Timestamp;
+}
+
+interface CaseDefinition {
+  docId: string;
+  name: string;
+  imageUrl: string;
+  itemPool: string[];
+}
+
 interface NftTransfer {
   id: string;
   nftId: string;
@@ -81,6 +95,7 @@ interface NftTransfer {
 
 interface CollectionState {
   ownedNfts: OwnedNft[];
+  ownedCases: OwnedCase[];
 }
 
 interface FoundUser {
@@ -201,8 +216,8 @@ const SendNftDialog: React.FC<{
           
           const batch = writeBatch(db);
           const userDocRef = doc(db, 'users', currentUser.uid);
+          
           const newOwnedNfts = pageState.ownedNfts.filter(item => item.instanceId !== selectedNft.instanceId);
-
           batch.update(userDocRef, { ownedNfts: newOwnedNfts });
 
           const transferDocRef = doc(collection(db, 'nft_transfers'));
@@ -494,20 +509,22 @@ export default function CollectionsPage() {
   const { toast } = useToast();
   const { currentUser, loading: authLoading } = useAuth();
   
-  const [pageState, setPageState] = useState<CollectionState>({ ownedNfts: [] });
+  const [pageState, setPageState] = useState<CollectionState>({ ownedNfts: [], ownedCases: [] });
   const [allNfts, setAllNfts] = useState<NftItem[]>([]);
+  const [allCases, setAllCases] = useState<CaseDefinition[]>([]);
   const [mailbox, setMailbox] = useState<NftTransfer[]>([]);
   const [transferHistory, setTransferHistory] = useState<NftTransfer[]>([]);
 
   const [selectedNft, setSelectedNft] = useState<SelectedNft | null>(null);
+  const [selectedCaseToOpen, setSelectedCaseToOpen] = useState<OwnedCase | null>(null);
   const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
   
   const [isUserLoading, setIsUserLoading] = useState(true);
-  const [isNftsLoading, setIsNftsLoading] = useState(true);
+  const [isDefinitionsLoading, setIsDefinitionsLoading] = useState(true);
 
-  const isLoading = authLoading || isUserLoading || isNftsLoading;
+  const isLoading = authLoading || isUserLoading || isDefinitionsLoading;
 
-  // Real-time listener for user's owned NFTs
+  // Real-time listener for user data (NFTs, Cases)
   useEffect(() => {
     if (!currentUser) {
       setIsUserLoading(false);
@@ -518,7 +535,10 @@ export default function CollectionsPage() {
     const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setPageState({ ownedNfts: data.ownedNfts || [] });
+        setPageState({ 
+            ownedNfts: data.ownedNfts || [],
+            ownedCases: data.ownedCases || [],
+        });
       }
       setIsUserLoading(false);
     }, (error) => {
@@ -530,41 +550,44 @@ export default function CollectionsPage() {
     return () => unsubscribe();
   }, [currentUser, toast]);
 
-  // One-time fetch for all NFT definitions
+  // One-time fetch for all NFT & Case definitions
   useEffect(() => {
-    const fetchAllNfts = async () => {
-      setIsNftsLoading(true);
+    const fetchAllDefinitions = async () => {
+      setIsDefinitionsLoading(true);
       try {
         const nftCollectionRef = collection(db, 'nfts');
         const nftQuerySnapshot = await getDocs(nftCollectionRef);
         const fetchedNfts: NftItem[] = nftQuerySnapshot.docs.map(doc => {
             const data = doc.data();
             return {
-                id: data.id,
-                name: data.name,
-                description: data.description,
-                type: data.type,
-                price: data.price,
-                rarity: data.rarity,
-                rarityId: data.rarityId || 'common',
-                rarityName: data.rarityName || 'Обычный',
-                edition: data.edition,
-                totalEdition: data.totalEdition,
-                imageUrl: data.imageUrl,
-                backgroundSvg: data.backgroundSvg,
-                iconColorClass: 'text-primary',
+                id: data.id, name: data.name, description: data.description, type: data.type,
+                price: data.price, rarity: data.rarity, rarityId: data.rarityId || 'common',
+                rarityName: data.rarityName || 'Обычный', edition: data.edition,
+                totalEdition: data.totalEdition, imageUrl: data.imageUrl,
+                backgroundSvg: data.backgroundSvg, iconColorClass: 'text-primary',
                 iconBgClass: 'bg-primary/20',
             } as NftItem;
         });
         setAllNfts(fetchedNfts);
+        
+        const caseCollectionRef = collection(db, 'cases');
+        const caseQuerySnapshot = await getDocs(caseCollectionRef);
+        const fetchedCases: CaseDefinition[] = caseQuerySnapshot.docs.map(d => ({
+            docId: d.id,
+            name: d.data().name,
+            imageUrl: d.data().imageUrl,
+            itemPool: d.data().itemPool,
+        }));
+        setAllCases(fetchedCases);
+
       } catch (error) {
-        console.error("Error fetching all NFTs:", error);
-        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось загрузить определения NFT." });
+        console.error("Error fetching all definitions:", error);
+        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось загрузить справочники." });
       } finally {
-        setIsNftsLoading(false);
+        setIsDefinitionsLoading(false);
       }
     };
-    fetchAllNfts();
+    fetchAllDefinitions();
   }, [toast]);
   
   // Real-time listeners for mailbox and transfer history
@@ -573,14 +596,12 @@ export default function CollectionsPage() {
 
     const transfersRef = collection(db, 'nft_transfers');
 
-    // Mailbox listener for pending items
     const qMailbox = query(transfersRef, where('recipientId', '==', currentUser.uid), where('status', '==', 'pending'), orderBy('sentAt', 'desc'));
     const unsubscribeMailbox = onSnapshot(qMailbox, (snapshot) => {
       const received: NftTransfer[] = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp)?.toDate() ?? new Date() } as NftTransfer));
       setMailbox(received);
     }, (error) => console.error("Mailbox listener error:", error));
     
-    // History listeners
     let sentItems: NftTransfer[] = [];
     let receivedClaimedItems: NftTransfer[] = [];
 
@@ -590,20 +611,17 @@ export default function CollectionsPage() {
       setTransferHistory(combined);
     };
 
-    // Listener for items sent by the user
     const qSent = query(transfersRef, where('senderId', '==', currentUser.uid), orderBy('sentAt', 'desc'));
     const unsubscribeSent = onSnapshot(qSent, (snapshot) => {
       sentItems = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp)?.toDate() ?? new Date() } as NftTransfer));
       combineAndSetHistory();
     }, (error) => console.error("Sent history listener error:", error));
 
-    // Listener for items received and claimed by the user
     const qReceivedClaimed = query(transfersRef, where('recipientId', '==', currentUser.uid), where('status', '==', 'claimed'), orderBy('sentAt', 'desc'));
     const unsubscribeReceivedClaimed = onSnapshot(qReceivedClaimed, (snapshot) => {
       receivedClaimedItems = snapshot.docs.map(d => ({ id: d.id, ...d.data(), sentAt: (d.data().sentAt as Timestamp)?.toDate() ?? new Date() } as NftTransfer));
       combineAndSetHistory();
     }, (error) => console.error("Received claimed history listener error:", error));
-
 
     return () => {
       unsubscribeMailbox();
@@ -643,6 +661,36 @@ export default function CollectionsPage() {
     }
   };
   
+  const handleClaimFromCase = async (caseInstanceId: string, wonNft: NftItem) => {
+    if (!currentUser) return;
+    
+    try {
+        const batch = writeBatch(db);
+        const userDocRef = doc(db, 'users', currentUser.uid);
+
+        const caseToRemove = pageState.ownedCases.find(c => c.instanceId === caseInstanceId);
+        if (caseToRemove) {
+            batch.update(userDocRef, { ownedCases: arrayRemove(caseToRemove) });
+        }
+        
+        const newNftInstanceId = doc(collection(db, "dummy")).id;
+        const newOwnedNft = {
+            nftId: wonNft.id,
+            instanceId: newNftInstanceId,
+            purchasedAt: Timestamp.now(),
+            copyNumber: undefined // Cases don't have copy numbers in this implementation
+        };
+        batch.update(userDocRef, { ownedNfts: arrayUnion(newOwnedNft) });
+
+        await batch.commit();
+
+    } catch (error) {
+        console.error("Error claiming item from case:", error);
+        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось забрать предмет из кейса." });
+    }
+  };
+
+
   if (isLoading) {
     return (
       <AppLayout activeItem="/collections" contentClassName="text-center">
@@ -672,8 +720,9 @@ export default function CollectionsPage() {
       <h1 className="text-4xl font-bold mb-8 text-foreground">Моя коллекция</h1>
       
       <Tabs defaultValue="inventory" className="w-full max-w-4xl mx-auto">
-          <TabsList className="grid w-full grid-cols-3 mb-6 bg-card/80">
+          <TabsList className="grid w-full grid-cols-4 mb-6 bg-card/80">
               <TabsTrigger value="inventory">Мои NFT ({pageState.ownedNfts.length})</TabsTrigger>
+              <TabsTrigger value="cases">Кейсы ({pageState.ownedCases.length})</TabsTrigger>
               <TabsTrigger value="mailbox">Почта ({mailbox.length})</TabsTrigger>
               <TabsTrigger value="history">История ({transferHistory.length})</TabsTrigger>
           </TabsList>
@@ -710,6 +759,45 @@ export default function CollectionsPage() {
                       className="col-span-full"
                     >
                        <div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><ShoppingCart className="w-8 h-8 mb-2" /><p>Ваша коллекция пуста.</p></div>
+                    </motion.div>
+                  )}
+                 </AnimatePresence>
+              </div>
+          </TabsContent>
+          <TabsContent value="cases">
+             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <AnimatePresence>
+                  {pageState.ownedCases.length > 0 ? (
+                    pageState.ownedCases.map((ownedCase) => {
+                      const caseDef = allCases.find(c => c.docId === ownedCase.caseId);
+                      if (!caseDef) return null;
+                      return (
+                         <motion.div
+                            key={ownedCase.instanceId}
+                            layout
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            transition={{ duration: 0.3 }}
+                            className="h-full"
+                         >
+                          <button onClick={() => setSelectedCaseToOpen(ownedCase)} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center transition-colors hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary w-full h-full bg-card/90")}>
+                             <div className="relative w-20 h-20 mb-2">
+                                <Image src={caseDef.imageUrl} alt={caseDef.name} layout="fill" objectFit="contain" unoptimized />
+                             </div>
+                            <span className="text-xs font-medium text-foreground truncate w-full">{caseDef.name}</span>
+                          </button>
+                         </motion.div>
+                      );
+                    })
+                  ) : (
+                    !isLoading && <motion.div
+                      key="empty-cases"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="col-span-full"
+                    >
+                       <div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><Box className="w-8 h-8 mb-2" /><p>У вас нет кейсов.</p></div>
                     </motion.div>
                   )}
                  </AnimatePresence>
@@ -855,6 +943,14 @@ export default function CollectionsPage() {
           currentUser={currentUser}
           pageState={pageState}
           setSelectedNft={setSelectedNft}
+      />
+      <CaseOpeningDialog
+        isOpen={!!selectedCaseToOpen}
+        onOpenChange={(isOpen) => !isOpen && setSelectedCaseToOpen(null)}
+        ownedCase={selectedCaseToOpen}
+        allCases={allCases}
+        allNfts={allNfts}
+        onClaim={handleClaimFromCase}
       />
     </AppLayout>
   );

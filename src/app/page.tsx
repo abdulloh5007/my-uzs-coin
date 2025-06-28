@@ -92,6 +92,8 @@ interface UserGameState {
   claimedTaskTierIds: string[];
   
   ownedNfts: Array<{ nftId: string; instanceId: string; }>; // For mint page
+  ownedCases: Array<{ caseId: string; instanceId: string; purchasedAt: Timestamp }>;
+
 
   // Referral System Fields
   referralCode?: string;
@@ -139,6 +141,7 @@ const initialGameState: UserGameState = {
   completedUnclaimedTaskTierIds: [],
   claimedTaskTierIds: [],
   ownedNfts: [],
+  ownedCases: [],
   
   referralCode: '',
   referredBy: '',
@@ -206,8 +209,9 @@ export default function HomePage() {
   const [completedUnclaimedTaskTierIds, setCompletedUnclaimedTaskTierIds] = useState<string[]>([]);
   const [claimedTaskTierIds, setClaimedTaskTierIds] = useState<string[]>([]);
   
-  // NFTs
+  // NFTs and Cases
   const [ownedNfts, setOwnedNfts] = useState<UserGameState['ownedNfts']>([]);
+  const [ownedCases, setOwnedCases] = useState<UserGameState['ownedCases']>([]);
 
   // Referral
   const [referralCode, setReferralCode] = useState('');
@@ -312,7 +316,7 @@ export default function HomePage() {
       boostEndTime,
       daily_clickBoostsAvailable: dailyClickBoostsAvailable,
       daily_lastClickBoostResetDate: lastClickBoostResetDate,
-      daily_fullEnergyBoostsAvailable: dailyFullEnergyBoostsAvailable,
+      daily_fullEnergyBoostsAvailable,
       daily_lastFullEnergyBoostResetDate: lastFullEnergyBoostResetDate,
       isBotOwned,
       lastSeenTimestamp,
@@ -322,6 +326,7 @@ export default function HomePage() {
       completedUnclaimedTaskTierIds,
       claimedTaskTierIds,
       ownedNfts,
+      ownedCases,
       referralCode,
       referredUsers,
       totalReferralBonus,
@@ -341,7 +346,7 @@ export default function HomePage() {
     dailyFullEnergyBoostsAvailable, lastFullEnergyBoostResetDate,
     isBotOwned, lastSeenTimestamp, unclaimedBotCoins,
     ownedSkins, currentSkin.id,
-    completedUnclaimedTaskTierIds, claimedTaskTierIds, ownedNfts, 
+    completedUnclaimedTaskTierIds, claimedTaskTierIds, ownedNfts, ownedCases,
     referralCode, referredUsers, totalReferralBonus, toast
   ]);
 
@@ -433,6 +438,7 @@ export default function HomePage() {
         setCompletedUnclaimedTaskTierIds(stateToSet.completedUnclaimedTaskTierIds);
         setClaimedTaskTierIds(stateToSet.claimedTaskTierIds);
         setOwnedNfts(stateToSet.ownedNfts || []);
+        setOwnedCases(stateToSet.ownedCases || []);
         
         setReferralCode(stateToSet.referralCode || '');
         setReferredUsers(stateToSet.referredUsers || []);
@@ -528,6 +534,7 @@ export default function HomePage() {
         setCompletedUnclaimedTaskTierIds(initialGameState.completedUnclaimedTaskTierIds);
         setClaimedTaskTierIds(initialGameState.claimedTaskTierIds);
         setOwnedNfts(initialGameState.ownedNfts);
+        setOwnedCases(initialGameState.ownedCases);
         setReferralCode(initialGameState.referralCode || '');
         setReferredUsers(initialGameState.referredUsers || []);
         setTotalReferralBonus(initialGameState.totalReferralBonus || 0);

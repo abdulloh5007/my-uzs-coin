@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Coins, LogOut, Menu, Gift, LayoutGrid } from 'lucide-react';
+import { Coins, LogOut, Menu, Gift, LayoutGrid, Box } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
@@ -17,30 +17,26 @@ const TopBar: React.FC = () => {
   const [score, setScore] = useState<number | null>(null);
   const [hasUnclaimedRewards, setHasUnclaimedRewards] = useState(false);
   const [hasNewMail, setHasNewMail] = useState(false);
+  const [hasUnopenedCases, setHasUnopenedCases] = useState(false);
+
 
   useEffect(() => {
     if (currentUser) {
       const userDocRef = doc(db, 'users', currentUser.uid);
       
-      // Score listener
-      const unsubscribeScore = onSnapshot(userDocRef, (doc) => {
-        if (doc.exists()) {
-          setScore(doc.data().score);
-        }
-      }, (error) => {
-        console.error("Error fetching score:", error);
-      });
-
-      // Rewards listener
-      const unsubscribeRewards = onSnapshot(userDocRef, (doc) => {
+      const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
         if (doc.exists()) {
           const data = doc.data();
+          setScore(data.score);
           const unclaimed = data.completedUnclaimedTaskTierIds || [];
           setHasUnclaimedRewards(unclaimed.length > 0);
+          const unopenedCases = data.ownedCases || [];
+          setHasUnopenedCases(unopenedCases.length > 0);
         }
+      }, (error) => {
+        console.error("Error fetching user data:", error);
       });
       
-      // Mail listener
       const transfersRef = collection(db, 'nft_transfers');
       const qMailbox = query(transfersRef, where('recipientId', '==', currentUser.uid), where('status', '==', 'pending'));
       const unsubscribeMail = onSnapshot(qMailbox, (snapshot) => {
@@ -48,8 +44,7 @@ const TopBar: React.FC = () => {
       });
 
       return () => {
-        unsubscribeScore();
-        unsubscribeRewards();
+        unsubscribeUser();
         unsubscribeMail();
       };
     }
@@ -69,6 +64,8 @@ const TopBar: React.FC = () => {
     }
   };
   
+  const hasCollectionNotification = hasNewMail || hasUnopenedCases || hasUnclaimedRewards;
+
   // Helper for notification badge
   const renderNotificationBadge = () => (
     <span className="absolute top-3 right-3 flex h-3 w-3">
@@ -130,12 +127,11 @@ const TopBar: React.FC = () => {
                         variant="ghost"
                         className={cn(
                           "relative w-full justify-start text-base py-6 gap-3",
-                          pathname === '/rewards' && "bg-accent text-accent-foreground"
+                          pathname === '/mint' && "bg-accent text-accent-foreground"
                         )}
-                        onClick={() => handleDrawerNavigate('/rewards')}
+                        onClick={() => handleDrawerNavigate('/mint')}
                       >
-                        <Gift className="w-5 h-5 text-primary" /> Награды
-                        {hasUnclaimedRewards && renderNotificationBadge()}
+                        <Sparkles className="w-5 h-5 text-primary" /> Магазин
                       </Button>
                       <Button
                         variant="ghost"
@@ -146,7 +142,18 @@ const TopBar: React.FC = () => {
                         onClick={() => handleDrawerNavigate('/collections')}
                       >
                         <LayoutGrid className="w-5 h-5 text-primary" /> Коллекция
-                        {hasNewMail && renderNotificationBadge()}
+                        {hasCollectionNotification && renderNotificationBadge()}
+                      </Button>
+                       <Button
+                        variant="ghost"
+                        className={cn(
+                          "relative w-full justify-start text-base py-6 gap-3",
+                          pathname === '/rewards' && "bg-accent text-accent-foreground"
+                        )}
+                        onClick={() => handleDrawerNavigate('/rewards')}
+                      >
+                        <Gift className="w-5 h-5 text-primary" /> Награды
+                        {hasUnclaimedRewards && renderNotificationBadge()}
                       </Button>
                     </nav>
                     <SheetFooter className="p-4 mt-auto border-t border-border/50">

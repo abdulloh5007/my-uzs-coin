@@ -1,12 +1,12 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, 'useState', useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Sparkles, Shield, PlusCircle } from 'lucide-react';
+import { Sparkles, Shield, PlusCircle, PackagePlus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import AppLayout from '@/components/AppLayout';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -58,8 +58,17 @@ export default function AdminPage() {
                 <Skeleton className="h-10 w-3/5 mx-auto mb-2" />
                 <Skeleton className="h-5 w-2/5 mx-auto mb-8" />
 
-                <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto text-left">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto text-left">
                     <Card className="bg-card/80">
+                        <CardHeader>
+                            <Skeleton className="h-6 w-32 mb-2" />
+                            <Skeleton className="h-4 w-48" />
+                        </CardHeader>
+                        <CardContent>
+                            <Skeleton className="h-4 w-full" />
+                        </CardContent>
+                    </Card>
+                     <Card className="bg-card/80">
                         <CardHeader>
                             <Skeleton className="h-6 w-32 mb-2" />
                             <Skeleton className="h-4 w-48" />
@@ -99,7 +108,7 @@ export default function AdminPage() {
             <h1 className="text-4xl font-bold mb-2 text-foreground">Панель администратора</h1>
             <p className="text-muted-foreground mb-8">Добро пожаловать, владелец!</p>
 
-            <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto text-left">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto text-left">
                 <Card className="bg-card/80">
                     <CardHeader>
                         <CardTitle>Статус системы</CardTitle>
@@ -119,6 +128,18 @@ export default function AdminPage() {
                     </CardHeader>
                     <CardContent>
                         <p>Форма для создания новых анимированных или простых NFT для игроков.</p>
+                    </CardContent>
+                </Card>
+                 <Card 
+                    onClick={() => handleNavigation('/admin/create-case')} 
+                    className="bg-card/80 hover:bg-card/90 cursor-pointer transition-colors"
+                >
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><PackagePlus className="text-primary"/>Создать Кейс</CardTitle>
+                        <CardDescription>Добавить новый кейс с предметами.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <p>Форма для создания кейсов, из которых могут выпадать случайные NFT.</p>
                     </CardContent>
                 </Card>
             </div>
