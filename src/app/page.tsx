@@ -1023,7 +1023,7 @@ export default function HomePage() {
         clickPowerLevel={clickPowerLevel}
         energyRegenLevel={energyRegenLevel}
         currentMaxEnergy={maxEnergy}
-        currentClickPower={currentClickPower}
+        currentClickPower={clickPower}
         baseClickPower={originalClickPowerBeforeBoost}
         currentEnergyRegenRate={energyRegenRatePerSecond}
         onPurchase={handlePurchase}
