@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -75,6 +76,7 @@ interface NftTransfer {
   recipientIsVerified?: boolean;
   status: 'pending' | 'claimed';
   sentAt: Date;
+  comment?: string;
 }
 
 interface CollectionState {
@@ -105,6 +107,7 @@ const SendNftDialog: React.FC<{
   const [searchResults, setSearchResults] = useState<FoundUser[]>([]);
   const [selectedRecipient, setSelectedRecipient] = useState<FoundUser | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [comment, setComment] = useState('');
 
   const handleSearchQueryChange = (query: string) => {
     setSearchQuery(query);
@@ -131,6 +134,7 @@ const SendNftDialog: React.FC<{
       setSearchResults([]);
       setSelectedRecipient(null);
       setIsSending(false);
+      setComment('');
     }
   }, [isOpen]);
 
@@ -216,7 +220,8 @@ const SendNftDialog: React.FC<{
               recipientPhotoURL: selectedRecipient.photoURL || null,
               recipientIsVerified: selectedRecipient.isVerified || false,
               status: 'pending',
-              sentAt: serverTimestamp()
+              sentAt: serverTimestamp(),
+              comment: comment.trim() || null,
           });
 
           await batch.commit();
@@ -298,14 +303,27 @@ const SendNftDialog: React.FC<{
                 )}
             </div>
 
-            <div className="flex-1 p-6 pt-3 overflow-y-auto">
-                {!selectedRecipient && (
+            <div className="flex-1 p-6 pt-0 overflow-y-auto">
+                {selectedRecipient ? (
+                     <div className="space-y-2 mt-4">
+                        <Label htmlFor="comment">Комментарий (необязательно)</Label>
+                        <Textarea
+                            id="comment"
+                            value={comment}
+                            onChange={(e) => setComment(e.target.value)}
+                            placeholder="Поздравляю с новым предметом!"
+                            className="mt-1 bg-input/80 border-border"
+                            maxLength={200}
+                        />
+                        <p className="text-xs text-right text-muted-foreground">{comment.length} / 200</p>
+                    </div>
+                ) : (
                     isSearching ? (
-                        <div className="space-y-2">
+                        <div className="space-y-2 pt-4">
                             {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
                         </div>
                     ) : searchResults.length > 0 ? (
-                        <div className="space-y-2">
+                        <div className="space-y-2 pt-4">
                              <p className="text-sm text-muted-foreground mb-2">Результаты поиска:</p>
                              {searchResults.map(user => (
                                 <Card key={user.uid} className="cursor-pointer hover:bg-accent transition-colors" onClick={() => onRecipientSelect(user)}>
@@ -712,40 +730,49 @@ export default function CollectionsPage() {
                         exit={{ opacity: 0, x: -300 }}
                         transition={{ duration: 0.3 }}
                       >
-                        <Card className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              <div className="relative">
-                                    {transfer.senderIsVerified ? (
-                                        <TooltipProvider delayDuration={0}>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div className="relative">
-                                                        <Avatar>
-                                                            <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
-                                                            <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
-                                                        </Avatar>
-                                                        <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
-                                                    </div>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>Верифицированный пользователь</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    ) : (
-                                        <Avatar>
-                                            <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
-                                            <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
-                                        </Avatar>
-                                    )}
+                        <Card className="bg-card/80 text-left">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className="relative">
+                                      {transfer.senderIsVerified ? (
+                                          <TooltipProvider delayDuration={0}>
+                                              <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                      <div className="relative">
+                                                          <Avatar>
+                                                              <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
+                                                              <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
+                                                          </Avatar>
+                                                          <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                                      </div>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                      <p>Верифицированный пользователь</p>
+                                                  </TooltipContent>
+                                              </Tooltip>
+                                          </TooltipProvider>
+                                      ) : (
+                                          <Avatar>
+                                              <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
+                                              <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
+                                          </Avatar>
+                                      )}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-semibold">{nft.name}</p>
+                                  <p className="text-xs text-muted-foreground">от {transfer.senderUsername || transfer.senderNickname}</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-sm font-semibold">{nft.name}</p>
-                                <p className="text-xs text-muted-foreground">от {transfer.senderUsername || transfer.senderNickname}</p>
-                              </div>
+                              <Button size="sm" onClick={() => handleClaimNft(transfer)}>Получить</Button>
                             </div>
-                            <Button size="sm" onClick={() => handleClaimNft(transfer)}>Получить</Button>
-                        </CardContent></Card>
+                            {transfer.comment && (
+                                <p className="text-sm text-muted-foreground italic pt-2 mt-3 border-t border-border/30">
+                                    "{transfer.comment}"
+                                </p>
+                            )}
+                          </CardContent>
+                        </Card>
                       </motion.div>
                       );
                   })}
@@ -765,40 +792,51 @@ export default function CollectionsPage() {
                       const otherPartyIsVerified = isSender ? (transfer.recipientIsVerified || false) : (transfer.senderIsVerified || false);
                       const actionText = isSender ? `Отправлено ${otherPartyUsername}` : `Получено от ${otherPartyUsername}`;
                       
-                      return (<Card key={transfer.id} className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
-                         <div className="flex items-center gap-3">
-                             <div className="relative">
-                                 {otherPartyIsVerified ? (
-                                      <TooltipProvider delayDuration={0}>
-                                          <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                 <div className="relative">
-                                                     <Avatar>
-                                                          <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
-                                                          <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
-                                                     </Avatar>
-                                                     <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
-                                                 </div>
-                                              </TooltipTrigger>
-                                              <TooltipContent>
-                                                  <p>Верифицированный пользователь</p>
-                                              </TooltipContent>
-                                          </Tooltip>
-                                      </TooltipProvider>
-                                 ) : (
-                                     <Avatar>
-                                          <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
-                                          <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
-                                     </Avatar>
-                                 )}
-                             </div>
-                             <div>
-                                 <p className="text-sm font-semibold">{nft.name}</p>
-                                 <p className="text-xs text-muted-foreground">{actionText} • {formatDistanceToNow(transfer.sentAt, { addSuffix: true, locale: ru })}</p>
-                             </div>
-                         </div>
-                         <Badge variant={transfer.status === 'claimed' ? 'default' : 'secondary'} className={cn(transfer.status === 'claimed' ? 'bg-green-500/80' : 'bg-yellow-500/80')}>{transfer.status === 'claimed' ? 'Получено' : 'В ожидании'}</Badge>
-                      </CardContent></Card>);
+                      return (
+                        <Card key={transfer.id} className="bg-card/80 text-left">
+                          <CardContent className="p-4">
+                             <div className="flex items-center justify-between gap-3">
+                               <div className="flex items-center gap-3">
+                                   <div className="relative">
+                                       {otherPartyIsVerified ? (
+                                            <TooltipProvider delayDuration={0}>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                      <div className="relative">
+                                                          <Avatar>
+                                                                <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
+                                                                <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
+                                                          </Avatar>
+                                                          <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                                      </div>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Верифицированный пользователь</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                       ) : (
+                                           <Avatar>
+                                                <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
+                                                <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
+                                           </Avatar>
+                                       )}
+                                   </div>
+                                   <div>
+                                       <p className="text-sm font-semibold">{nft.name}</p>
+                                       <p className="text-xs text-muted-foreground">{actionText} • {formatDistanceToNow(transfer.sentAt, { addSuffix: true, locale: ru })}</p>
+                                   </div>
+                               </div>
+                               <Badge variant={transfer.status === 'claimed' ? 'default' : 'secondary'} className={cn(transfer.status === 'claimed' ? 'bg-green-500/80' : 'bg-yellow-500/80')}>{transfer.status === 'claimed' ? 'Получено' : 'В ожидании'}</Badge>
+                            </div>
+                            {transfer.comment && (
+                                <p className="text-sm text-muted-foreground italic pt-2 mt-3 border-t border-border/30">
+                                    "{transfer.comment}"
+                                </p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
                   })}
               </div>) : (<div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><History className="w-8 h-8 mb-2" /><p>История транзакций пуста.</p></div>)}
           </TabsContent>
@@ -821,5 +859,3 @@ export default function CollectionsPage() {
     </AppLayout>
   );
 }
-
-    
