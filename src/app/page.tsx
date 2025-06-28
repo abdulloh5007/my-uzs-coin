@@ -16,13 +16,15 @@ import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
 import type { Skin } from '@/types/skins';
 import { initialSkins, defaultSkin } from '@/data/skins';
 import { cn } from '@/lib/utils';
-import { Bot, Coins as CoinsIcon, Sparkles, ShoppingCart, ListChecks } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Bot, Coins as CoinsIcon, Sparkles, ShoppingCart, ListChecks, ChevronRight } from 'lucide-react';
 import type { ToastActionElement } from "@/components/ui/toast";
 import { ToastAction } from "@/components/ui/toast";
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 // --- Game Balance Constants ---
 const INITIAL_MAX_ENERGY_BASE = 500;
@@ -438,7 +440,7 @@ export default function HomePage() {
           await setDoc(userDocRef, { ...updatesToPersist, lastUpdated: serverTimestamp() }, { merge: true });
         }
 
-        if (stateToSet.isBotOwned && totalUnclaimedCoins > 0) {
+        if (stateToSet.isBotOwned && totalUnclaimedCoins > 10000) {
             toast({
                 title: <div className="flex items-center gap-2"><Bot className="h-5 w-5 text-primary" /><span className="font-semibold text-foreground">Бот ждет!</span></div>,
                 description: `Ваш бот накопил ${totalUnclaimedCoins.toLocaleString()} монет. Заберите их!`,
@@ -867,6 +869,31 @@ export default function HomePage() {
           <span className="text-4xl font-bold text-primary tracking-tighter">{score.toLocaleString()}</span>
           <span className="text-xs -mt-1 text-muted-foreground">монет</span>
         </div>
+
+        {isBotOwned && unclaimedBotCoins > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="flex justify-center mb-4"
+            >
+              <Card 
+                className="bg-primary/10 border-primary/30 cursor-pointer hover:bg-primary/20 transition-colors max-w-sm w-full shadow-lg"
+                onClick={() => handleClaimBotCoins(unclaimedBotCoins)}
+              >
+                <CardContent className="p-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Bot className="w-8 h-8 text-primary" />
+                      <div>
+                        <p className="font-semibold text-foreground">Бот готов к сбору</p>
+                        <p className="text-sm text-primary/90">+{unclaimedBotCoins.toLocaleString()} монет</p>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon" className="text-muted-foreground"><ChevronRight className="w-5 h-5"/></Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+        )}
       
         <div className="flex-grow flex flex-col items-center justify-center gap-4 pb-12">
           {isBoostActive && (
