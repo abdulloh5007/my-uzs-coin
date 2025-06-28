@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Coins, LogOut, Menu, Gift, LayoutGrid, Box } from 'lucide-react';
+import { Coins, LogOut, Menu, Gift, LayoutGrid, Box, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
