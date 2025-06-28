@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,8 +23,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import TopBar from '@/components/TopBar';
 import { motion, AnimatePresence } from 'framer-motion';
+import AppLayout from '@/components/AppLayout';
 
 // --- TYPES ---
 interface NftItem {
@@ -616,197 +615,200 @@ export default function CollectionsPage() {
        toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось получить NFT.' });
     }
   };
-
-  const handleNavigation = (path: string) => router.push(path);
   
   if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body items-center justify-center">
-        <Sparkles className="w-16 h-16 animate-spin text-primary" />
-        <p className="mt-4 text-lg">Загрузка коллекции...</p>
-      </div>
+      <AppLayout activeItem="/collections" contentClassName="text-center">
+          <Skeleton className="h-20 w-20 rounded-full mx-auto mb-4" />
+          <Skeleton className="h-10 w-3/5 mx-auto mb-8" />
+          
+          <div className="w-full max-w-4xl mx-auto">
+              <Skeleton className="h-10 w-full mb-6" />
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="flex flex-col items-center p-3 rounded-lg bg-card/50">
+                        <Skeleton className="w-8 h-8 rounded-full mb-2" />
+                        <Skeleton className="h-4 w-16" />
+                    </div>
+                ))}
+              </div>
+          </div>
+      </AppLayout>
     );
   }
   
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased">
-      <TopBar />
-      <div className="flex-grow container mx-auto px-4 pt-24 md:pt-28 pb-20 md:pb-24 text-center">
-        <div className="mx-auto flex justify-center items-center mb-4 h-20 w-20 rounded-full bg-primary/20">
-            <LayoutGrid className="w-10 h-10 text-primary" />
-        </div>
-        <h1 className="text-4xl font-bold mb-8 text-foreground">Моя коллекция</h1>
-        
-        <Tabs defaultValue="inventory" className="w-full max-w-4xl mx-auto">
-            <TabsList className="grid w-full grid-cols-3 mb-6 bg-card/80">
-                <TabsTrigger value="inventory">Мои NFT ({pageState.ownedNfts.length})</TabsTrigger>
-                <TabsTrigger value="mailbox">Почта ({mailbox.length})</TabsTrigger>
-                <TabsTrigger value="history">История ({transferHistory.length})</TabsTrigger>
-            </TabsList>
-            <TabsContent value="inventory">
-                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+    <AppLayout activeItem="/collections" contentClassName="text-center">
+      <div className="mx-auto flex justify-center items-center mb-4 h-20 w-20 rounded-full bg-primary/20">
+          <LayoutGrid className="w-10 h-10 text-primary" />
+      </div>
+      <h1 className="text-4xl font-bold mb-8 text-foreground">Моя коллекция</h1>
+      
+      <Tabs defaultValue="inventory" className="w-full max-w-4xl mx-auto">
+          <TabsList className="grid w-full grid-cols-3 mb-6 bg-card/80">
+              <TabsTrigger value="inventory">Мои NFT ({pageState.ownedNfts.length})</TabsTrigger>
+              <TabsTrigger value="mailbox">Почта ({mailbox.length})</TabsTrigger>
+              <TabsTrigger value="history">История ({transferHistory.length})</TabsTrigger>
+          </TabsList>
+          <TabsContent value="inventory">
+               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <AnimatePresence>
+                  {pageState.ownedNfts.length > 0 ? (
+                    pageState.ownedNfts.map((ownedNft) => {
+                      const foundNft = allNfts.find(item => item.id === ownedNft.nftId);
+                      if (!foundNft) return null;
+                      const IconComponent = foundNft.icon;
+                      return (
+                         <motion.div
+                            key={ownedNft.instanceId}
+                            layout
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            transition={{ duration: 0.3 }}
+                            className="h-full"
+                         >
+                          <button onClick={() => { setSelectedNft({...foundNft, instanceId: ownedNft.instanceId, purchasedAt: ownedNft.purchasedAt, copyNumber: ownedNft.copyNumber}) }} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center transition-colors hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary w-full h-full", (foundNft.iconBgClass || 'bg-primary/20').replace('/20', '/30'))}>
+                            <div className={cn("p-2 rounded-full mb-2", foundNft.iconBgClass || 'bg-primary/20')}>{foundNft.imageUrl ? <Image src={foundNft.imageUrl} alt={foundNft.name} width={24} height={24} unoptimized /> : (IconComponent && <IconComponent className={cn("w-6 h-6", foundNft.iconColorClass || 'text-primary')} />)}</div>
+                            <span className="text-xs font-medium text-foreground truncate w-full">{foundNft.name}</span>
+                          </button>
+                         </motion.div>
+                      );
+                    })
+                  ) : (
+                    !isLoading && <motion.div
+                      key="empty-inventory"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="col-span-full"
+                    >
+                       <div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><ShoppingCart className="w-8 h-8 mb-2" /><p>Ваша коллекция пуста.</p></div>
+                    </motion.div>
+                  )}
+                 </AnimatePresence>
+              </div>
+          </TabsContent>
+          <TabsContent value="mailbox">
+              {mailbox.length > 0 ? (<div className="space-y-3">
                   <AnimatePresence>
-                    {pageState.ownedNfts.length > 0 ? (
-                      pageState.ownedNfts.map((ownedNft) => {
-                        const foundNft = allNfts.find(item => item.id === ownedNft.nftId);
-                        if (!foundNft) return null;
-                        const IconComponent = foundNft.icon;
-                        return (
-                           <motion.div
-                              key={ownedNft.instanceId}
-                              layout
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.8 }}
-                              transition={{ duration: 0.3 }}
-                              className="h-full"
-                           >
-                            <button onClick={() => { setSelectedNft({...foundNft, instanceId: ownedNft.instanceId, purchasedAt: ownedNft.purchasedAt, copyNumber: ownedNft.copyNumber}) }} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center transition-colors hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary w-full h-full", (foundNft.iconBgClass || 'bg-primary/20').replace('/20', '/30'))}>
-                              <div className={cn("p-2 rounded-full mb-2", foundNft.iconBgClass || 'bg-primary/20')}>{foundNft.imageUrl ? <Image src={foundNft.imageUrl} alt={foundNft.name} width={24} height={24} unoptimized /> : (IconComponent && <IconComponent className={cn("w-6 h-6", foundNft.iconColorClass || 'text-primary')} />)}</div>
-                              <span className="text-xs font-medium text-foreground truncate w-full">{foundNft.name}</span>
-                            </button>
-                           </motion.div>
-                        );
-                      })
-                    ) : (
-                      !isLoading && <motion.div
-                        key="empty-inventory"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="col-span-full"
+                  {mailbox.map(transfer => {
+                      const nft = allNfts.find(n => n.id === transfer.nftId);
+                      if (!nft) return null;
+                      return (
+                      <motion.div 
+                        key={transfer.id}
+                        layout
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -300 }}
+                        transition={{ duration: 0.3 }}
                       >
-                         <div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><ShoppingCart className="w-8 h-8 mb-2" /><p>Ваша коллекция пуста.</p></div>
-                      </motion.div>
-                    )}
-                   </AnimatePresence>
-                </div>
-            </TabsContent>
-            <TabsContent value="mailbox">
-                {mailbox.length > 0 ? (<div className="space-y-3">
-                    <AnimatePresence>
-                    {mailbox.map(transfer => {
-                        const nft = allNfts.find(n => n.id === transfer.nftId);
-                        if (!nft) return null;
-                        return (
-                        <motion.div 
-                          key={transfer.id}
-                          layout
-                          initial={{ opacity: 0, y: -20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, x: -300 }}
-                          transition={{ duration: 0.3 }}
-                        >
-                          <Card className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-3">
-                                <div className="relative">
-                                      {transfer.senderIsVerified ? (
-                                          <TooltipProvider delayDuration={0}>
-                                              <Tooltip>
-                                                  <TooltipTrigger asChild>
-                                                      <div className="relative">
-                                                          <Avatar>
-                                                              <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
-                                                              <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
-                                                          </Avatar>
-                                                          <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
-                                                      </div>
-                                                  </TooltipTrigger>
-                                                  <TooltipContent>
-                                                      <p>Верифицированный пользователь</p>
-                                                  </TooltipContent>
-                                              </Tooltip>
-                                          </TooltipProvider>
-                                      ) : (
-                                          <Avatar>
-                                              <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
-                                              <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
-                                          </Avatar>
-                                      )}
-                                </div>
-                                <div>
-                                  <p className="text-sm font-semibold">{nft.name}</p>
-                                  <p className="text-xs text-muted-foreground">от {transfer.senderUsername || transfer.senderNickname}</p>
-                                </div>
-                              </div>
-                              <Button size="sm" onClick={() => handleClaimNft(transfer)}>Получить</Button>
-                          </CardContent></Card>
-                        </motion.div>
-                        );
-                    })}
-                    </AnimatePresence>
-                </div>) : (<div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><Inbox className="w-8 h-8 mb-2" /><p>Ваша почта пуста.</p></div>)}
-            </TabsContent>
-            <TabsContent value="history">
-                 {transferHistory.length > 0 ? (<div className="space-y-3">
-                    {transferHistory.map(transfer => {
-                        const nft = allNfts.find(n => n.id === transfer.nftId);
-                        if (!nft) return null;
-
-                        const isSender = transfer.senderId === currentUser?.uid;
-                        const otherPartyUsername = isSender ? transfer.recipientUsername : (transfer.senderUsername || transfer.senderNickname);
-                        const otherPartyPhotoURL = isSender ? transfer.recipientPhotoURL : transfer.senderPhotoURL;
-                        const otherPartyId = isSender ? transfer.recipientId : transfer.senderId;
-                        const otherPartyIsVerified = isSender ? (transfer.recipientIsVerified || false) : (transfer.senderIsVerified || false);
-                        const actionText = isSender ? `Отправлено ${otherPartyUsername}` : `Получено от ${otherPartyUsername}`;
-                        
-                        return (<Card key={transfer.id} className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
-                           <div className="flex items-center gap-3">
-                               <div className="relative">
-                                   {otherPartyIsVerified ? (
+                        <Card className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                    {transfer.senderIsVerified ? (
                                         <TooltipProvider delayDuration={0}>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                   <div className="relative">
-                                                       <Avatar>
-                                                            <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
-                                                            <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
-                                                       </Avatar>
-                                                       <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
-                                                   </div>
+                                                    <div className="relative">
+                                                        <Avatar>
+                                                            <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
+                                                            <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
+                                                        </Avatar>
+                                                        <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                                    </div>
                                                 </TooltipTrigger>
                                                 <TooltipContent>
                                                     <p>Верифицированный пользователь</p>
                                                 </TooltipContent>
                                             </Tooltip>
                                         </TooltipProvider>
-                                   ) : (
-                                       <Avatar>
-                                            <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
-                                            <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
-                                       </Avatar>
-                                   )}
-                               </div>
-                               <div>
-                                   <p className="text-sm font-semibold">{nft.name}</p>
-                                   <p className="text-xs text-muted-foreground">{actionText} • {formatDistanceToNow(transfer.sentAt, { addSuffix: true, locale: ru })}</p>
-                               </div>
-                           </div>
-                           <Badge variant={transfer.status === 'claimed' ? 'default' : 'secondary'} className={cn(transfer.status === 'claimed' ? 'bg-green-500/80' : 'bg-yellow-500/80')}>{transfer.status === 'claimed' ? 'Получено' : 'В ожидании'}</Badge>
-                        </CardContent></Card>);
-                    })}
-                </div>) : (<div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><History className="w-8 h-8 mb-2" /><p>История транзакций пуста.</p></div>)}
-            </TabsContent>
-        </Tabs>
-      </div>
+                                    ) : (
+                                        <Avatar>
+                                            <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
+                                            <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
+                                        </Avatar>
+                                    )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold">{nft.name}</p>
+                                <p className="text-xs text-muted-foreground">от {transfer.senderUsername || transfer.senderNickname}</p>
+                              </div>
+                            </div>
+                            <Button size="sm" onClick={() => handleClaimNft(transfer)}>Получить</Button>
+                        </CardContent></Card>
+                      </motion.div>
+                      );
+                  })}
+                  </AnimatePresence>
+              </div>) : (<div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><Inbox className="w-8 h-8 mb-2" /><p>Ваша почта пуста.</p></div>)}
+          </TabsContent>
+          <TabsContent value="history">
+               {transferHistory.length > 0 ? (<div className="space-y-3">
+                  {transferHistory.map(transfer => {
+                      const nft = allNfts.find(n => n.id === transfer.nftId);
+                      if (!nft) return null;
 
-       <NftDetailSheet
-           nft={selectedNft} 
-           onOpenChange={(isOpen) => !isOpen && setSelectedNft(null)}
-           currentUser={currentUser}
-           setIsSendDialogOpen={setIsSendDialogOpen}
-       />
-       <SendNftDialog
-            isOpen={isSendDialogOpen}
-            onOpenChange={setIsSendDialogOpen}
-            selectedNft={selectedNft}
-            currentUser={currentUser}
-            pageState={pageState}
-            setSelectedNft={setSelectedNft}
-        />
+                      const isSender = transfer.senderId === currentUser?.uid;
+                      const otherPartyUsername = isSender ? transfer.recipientUsername : (transfer.senderUsername || transfer.senderNickname);
+                      const otherPartyPhotoURL = isSender ? transfer.recipientPhotoURL : transfer.senderPhotoURL;
+                      const otherPartyId = isSender ? transfer.recipientId : transfer.senderId;
+                      const otherPartyIsVerified = isSender ? (transfer.recipientIsVerified || false) : (transfer.senderIsVerified || false);
+                      const actionText = isSender ? `Отправлено ${otherPartyUsername}` : `Получено от ${otherPartyUsername}`;
+                      
+                      return (<Card key={transfer.id} className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
+                         <div className="flex items-center gap-3">
+                             <div className="relative">
+                                 {otherPartyIsVerified ? (
+                                      <TooltipProvider delayDuration={0}>
+                                          <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                 <div className="relative">
+                                                     <Avatar>
+                                                          <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
+                                                          <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
+                                                     </Avatar>
+                                                     <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                                 </div>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                  <p>Верифицированный пользователь</p>
+                                              </TooltipContent>
+                                          </Tooltip>
+                                      </TooltipProvider>
+                                 ) : (
+                                     <Avatar>
+                                          <AvatarImage src={otherPartyPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${otherPartyId}`} alt={otherPartyUsername}/>
+                                          <AvatarFallback>{otherPartyUsername?.charAt(isSender ? 1 : 0) || '?'}</AvatarFallback>
+                                     </Avatar>
+                                 )}
+                             </div>
+                             <div>
+                                 <p className="text-sm font-semibold">{nft.name}</p>
+                                 <p className="text-xs text-muted-foreground">{actionText} • {formatDistanceToNow(transfer.sentAt, { addSuffix: true, locale: ru })}</p>
+                             </div>
+                         </div>
+                         <Badge variant={transfer.status === 'claimed' ? 'default' : 'secondary'} className={cn(transfer.status === 'claimed' ? 'bg-green-500/80' : 'bg-yellow-500/80')}>{transfer.status === 'claimed' ? 'Получено' : 'В ожидании'}</Badge>
+                      </CardContent></Card>);
+                  })}
+              </div>) : (<div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><History className="w-8 h-8 mb-2" /><p>История транзакций пуста.</p></div>)}
+          </TabsContent>
+      </Tabs>
 
-      <BottomNavBar onNavigate={handleNavigation} activeItem="/collections" />
-    </div>
+     <NftDetailSheet
+         nft={selectedNft} 
+         onOpenChange={(isOpen) => !isOpen && setSelectedNft(null)}
+         currentUser={currentUser}
+         setIsSendDialogOpen={setIsSendDialogOpen}
+     />
+     <SendNftDialog
+          isOpen={isSendDialogOpen}
+          onOpenChange={setIsSendDialogOpen}
+          selectedNft={selectedNft}
+          currentUser={currentUser}
+          pageState={pageState}
+          setSelectedNft={setSelectedNft}
+      />
+    </AppLayout>
   );
 }
-
-    

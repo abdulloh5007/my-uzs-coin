@@ -4,7 +4,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User, Coins, Star, Clock4, Mail, Sparkles, Target, History, TrendingUp, Trophy, AtSign, KeyRound, Edit, Info, Settings, BarChartHorizontal, Camera, CheckCircle2, Shield } from 'lucide-react';
-import BottomNavBar from '@/components/BottomNavBar';
 import LeagueInfoCard from '@/components/profile/LeagueInfoCard';
 import StatCard from '@/components/profile/StatCard';
 import LeaderboardModal from '@/components/profile/LeaderboardModal';
@@ -25,7 +24,8 @@ import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from 'next/link';
-import TopBar from '@/components/TopBar';
+import AppLayout from '@/components/AppLayout';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 const INITIAL_CLICK_POWER_BASE = 1;
@@ -375,27 +375,35 @@ export default function ProfilePage() {
     }
   };
 
-
-  const handleNavigation = (path: string) => {
-    router.push(path);
-  };
-
   if (authLoading || isDataLoading) {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-background to-indigo-900/50">
-        <Sparkles className="w-16 h-16 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-foreground">Загрузка профиля...</p>
-      </div>
+      <AppLayout activeItem="/profile">
+          <div className="max-w-2xl mx-auto text-center">
+              <div className="flex flex-col items-center text-center">
+                  <Skeleton className="w-24 h-24 mb-4 rounded-full" />
+                  <Skeleton className="h-10 w-48 mb-2" />
+                  <Skeleton className="h-5 w-64" />
+              </div>
+              <div className="mt-6">
+                  <Skeleton className="h-32 w-full rounded-lg" />
+              </div>
+              <div className="w-full mt-8">
+                  <Skeleton className="h-10 w-full mb-6" />
+                  <div className="space-y-4">
+                      <Skeleton className="h-20 w-full rounded-lg" />
+                      <Skeleton className="h-20 w-full rounded-lg" />
+                      <Skeleton className="h-20 w-full rounded-lg" />
+                  </div>
+              </div>
+          </div>
+      </AppLayout>
     );
   }
   
   if (!currentUser) return null;
   
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
-      <TopBar />
-      <main className="flex-grow container mx-auto px-4 pt-24 md:pt-28 pb-20 md:pb-24">
-        
+    <AppLayout activeItem="/profile">
         <input
             type="file"
             ref={fileInputRef}
@@ -539,11 +547,7 @@ export default function ProfilePage() {
               </TabsContent>
             </Tabs>
         </div>
-
-      </main>
       
-      <BottomNavBar activeItem="/profile" onNavigate={handleNavigation} />
-
       <LeaderboardModal
         isOpen={isLeaderboardOpen}
         onOpenChange={setIsLeaderboardOpen}
@@ -553,6 +557,6 @@ export default function ProfilePage() {
         isLoading={isLeaderboardLoading}
         currentLeagueName={currentLeague.name}
       />
-    </div>
+    </AppLayout>
   );
 }

@@ -20,6 +20,8 @@ import { ArrowLeft, Sparkles, UploadCloud } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
 import { cn } from '@/lib/utils';
 import TopBar from '@/components/TopBar';
+import AppLayout from '@/components/AppLayout';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const MAX_FILE_SIZE = 5000000; // 5MB
 const ACCEPTED_IMAGE_TYPES = {
@@ -271,10 +273,34 @@ export default function CreateNftPage() {
 
     if (isLoading || authLoading) {
         return (
-            <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-background to-indigo-900/50">
-                <Sparkles className="w-16 h-16 animate-spin text-primary" />
-                <p className="mt-4 text-lg text-foreground">Проверка доступа...</p>
-            </div>
+            <AppLayout>
+                <div className="max-w-4xl mx-auto">
+                    <Skeleton className="h-9 w-48 mb-4" />
+                    <Card className="bg-card/80">
+                        <CardHeader>
+                            <Skeleton className="h-8 w-64 mb-2" />
+                            <Skeleton className="h-4 w-96" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                <Skeleton className="aspect-square w-full rounded-lg" />
+                                <div className="space-y-6">
+                                    <Skeleton className="h-10 w-full" />
+                                    <Skeleton className="h-10 w-full" />
+                                    <Skeleton className="h-20 w-full" />
+                                    <Skeleton className="h-10 w-full" />
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                    </div>
+                                </div>
+                            </div>
+                            <Skeleton className="h-10 w-full mt-8" />
+                        </CardContent>
+                    </Card>
+                </div>
+            </AppLayout>
         );
     }
     
@@ -287,232 +313,228 @@ export default function CreateNftPage() {
     }
 
     return (
-        <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased">
-             <TopBar />
-             <div className="flex-grow container mx-auto px-4 pt-24 md:pt-28 pb-20 md:pb-24">
-                <div className="max-w-4xl mx-auto">
-                    <Button variant="ghost" onClick={() => router.push('/admin')} className="mb-4">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Назад в админ-панель
-                    </Button>
-                    <Card className="bg-card/80">
-                        <CardHeader>
-                            <CardTitle className="text-2xl">Создать новый NFT</CardTitle>
-                            <CardDescription>Заполните форму, чтобы добавить новый предмет в магазин.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Form {...form}>
-                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                        
-                                        <div className="space-y-4">
-                                           {currentNftType === 'Анимированный' ? (
-                                                <div className="space-y-2">
-                                                    <FormLabel>Файл NFT (GIF)</FormLabel>
+        <AppLayout>
+             <div className="max-w-4xl mx-auto">
+                <Button variant="ghost" onClick={() => router.push('/admin')} className="mb-4">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Назад в админ-панель
+                </Button>
+                <Card className="bg-card/80">
+                    <CardHeader>
+                        <CardTitle className="text-2xl">Создать новый NFT</CardTitle>
+                        <CardDescription>Заполните форму, чтобы добавить новый предмет в магазин.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Form {...form}>
+                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    
+                                    <div className="space-y-4">
+                                       {currentNftType === 'Анимированный' ? (
+                                            <div className="space-y-2">
+                                                <FormLabel>Файл NFT (GIF)</FormLabel>
+                                                <div
+                                                    onDragEnter={(e) => handleDragEvents(e, true)}
+                                                    onDragLeave={(e) => handleDragEvents(e, false)}
+                                                    onDragOver={(e) => handleDragEvents(e, true)}
+                                                    onDrop={handleDrop}
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    style={backgroundPreviewStyle}
+                                                    className={cn(
+                                                        "aspect-square w-full rounded-lg border-2 border-dashed border-border flex items-center justify-center cursor-pointer transition-colors relative bg-cover bg-center",
+                                                        isDragging ? "border-primary bg-primary/10" : "hover:border-primary/50"
+                                                    )}
+                                                >
+                                                    <input
+                                                        type="file"
+                                                        ref={fileInputRef}
+                                                        className="hidden"
+                                                        onChange={(e) => handleFileSelect(e.target.files?.[0])}
+                                                        accept="image/gif"
+                                                    />
+                                                    {previewUrl ? (
+                                                        <img src={previewUrl} alt="Предпросмотр" className="max-w-full max-h-full p-4 object-contain rounded-md bg-black/20 backdrop-blur-sm" />
+                                                    ) : (
+                                                        <div className="text-center text-muted-foreground p-4 bg-black/20 backdrop-blur-sm rounded-lg">
+                                                            <UploadCloud className="mx-auto h-12 w-12" />
+                                                            <p className="mt-2 font-semibold">Перетащите GIF сюда</p>
+                                                            <p className="text-xs">или нажмите для выбора</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <FormField control={form.control} name="image" render={() => (<FormItem><FormMessage /></FormItem>)} />
+                                            </div>
+                                       ) : (
+                                            <div className="space-y-6">
+                                                <div>
+                                                    <FormLabel>Загрузить SVG файл</FormLabel>
                                                     <div
-                                                        onDragEnter={(e) => handleDragEvents(e, true)}
-                                                        onDragLeave={(e) => handleDragEvents(e, false)}
-                                                        onDragOver={(e) => handleDragEvents(e, true)}
-                                                        onDrop={handleDrop}
+                                                        onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
                                                         onClick={() => fileInputRef.current?.click()}
-                                                        style={backgroundPreviewStyle}
-                                                        className={cn(
-                                                            "aspect-square w-full rounded-lg border-2 border-dashed border-border flex items-center justify-center cursor-pointer transition-colors relative bg-cover bg-center",
-                                                            isDragging ? "border-primary bg-primary/10" : "hover:border-primary/50"
-                                                        )}
+                                                        className="mt-1 p-4 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
                                                     >
-                                                        <input
-                                                            type="file"
-                                                            ref={fileInputRef}
-                                                            className="hidden"
-                                                            onChange={(e) => handleFileSelect(e.target.files?.[0])}
-                                                            accept="image/gif"
-                                                        />
+                                                        <UploadCloud className="mx-auto h-8 w-8 text-muted-foreground" />
+                                                        <p className="mt-1 text-sm text-center text-muted-foreground">Перетащите или выберите SVG</p>
+                                                        <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => handleFileSelect(e.target.files?.[0])} accept="image/svg+xml" />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <FormLabel>или отредактировать SVG код</FormLabel>
+                                                    <Textarea
+                                                        value={svgCode}
+                                                        onChange={handleSvgCodeChange}
+                                                        placeholder="<svg>...</svg>"
+                                                        className="mt-1 font-mono text-xs"
+                                                        rows={8}
+                                                    />
+                                                    <FormField control={form.control} name="svgCode" render={() => (<FormItem><FormMessage /></FormItem>)} />
+                                                </div>
+                                                <div>
+                                                    <FormLabel>Предпросмотр</FormLabel>
+                                                    <div 
+                                                        style={backgroundPreviewStyle}
+                                                        className="mt-1 aspect-square w-full rounded-lg border border-dashed border-border flex items-center justify-center bg-card/50 bg-cover bg-center"
+                                                    >
                                                         {previewUrl ? (
-                                                            <img src={previewUrl} alt="Предпросмотр" className="max-w-full max-h-full p-4 object-contain rounded-md bg-black/20 backdrop-blur-sm" />
+                                                            <img src={previewUrl} alt="Предпросмотр SVG" className="max-w-full max-h-full p-4 object-contain bg-black/10 backdrop-blur-sm" />
                                                         ) : (
-                                                            <div className="text-center text-muted-foreground p-4 bg-black/20 backdrop-blur-sm rounded-lg">
-                                                                <UploadCloud className="mx-auto h-12 w-12" />
-                                                                <p className="mt-2 font-semibold">Перетащите GIF сюда</p>
-                                                                <p className="text-xs">или нажмите для выбора</p>
-                                                            </div>
+                                                            <p className="text-muted-foreground">Здесь будет превью</p>
                                                         )}
                                                     </div>
-                                                    <FormField control={form.control} name="image" render={() => (<FormItem><FormMessage /></FormItem>)} />
                                                 </div>
-                                           ) : (
-                                                <div className="space-y-6">
-                                                    <div>
-                                                        <FormLabel>Загрузить SVG файл</FormLabel>
-                                                        <div
-                                                            onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
-                                                            onClick={() => fileInputRef.current?.click()}
-                                                            className="mt-1 p-4 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
-                                                        >
-                                                            <UploadCloud className="mx-auto h-8 w-8 text-muted-foreground" />
-                                                            <p className="mt-1 text-sm text-center text-muted-foreground">Перетащите или выберите SVG</p>
-                                                            <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => handleFileSelect(e.target.files?.[0])} accept="image/svg+xml" />
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <FormLabel>или отредактировать SVG код</FormLabel>
-                                                        <Textarea
-                                                            value={svgCode}
-                                                            onChange={handleSvgCodeChange}
-                                                            placeholder="<svg>...</svg>"
-                                                            className="mt-1 font-mono text-xs"
-                                                            rows={8}
-                                                        />
-                                                        <FormField control={form.control} name="svgCode" render={() => (<FormItem><FormMessage /></FormItem>)} />
-                                                    </div>
-                                                    <div>
-                                                        <FormLabel>Предпросмотр</FormLabel>
-                                                        <div 
-                                                            style={backgroundPreviewStyle}
-                                                            className="mt-1 aspect-square w-full rounded-lg border border-dashed border-border flex items-center justify-center bg-card/50 bg-cover bg-center"
-                                                        >
-                                                            {previewUrl ? (
-                                                                <img src={previewUrl} alt="Предпросмотр SVG" className="max-w-full max-h-full p-4 object-contain bg-black/10 backdrop-blur-sm" />
-                                                            ) : (
-                                                                <p className="text-muted-foreground">Здесь будет превью</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                           )}
-                                        </div>
+                                            </div>
+                                       )}
+                                    </div>
 
-                                        <div className="space-y-4 flex flex-col">
-                                             <FormField
-                                                control={form.control}
-                                                name="type"
-                                                render={({ field }) => (
-                                                    <FormItem className="space-y-3">
-                                                    <FormLabel>Тип NFT</FormLabel>
+                                    <div className="space-y-4 flex flex-col">
+                                         <FormField
+                                            control={form.control}
+                                            name="type"
+                                            render={({ field }) => (
+                                                <FormItem className="space-y-3">
+                                                <FormLabel>Тип NFT</FormLabel>
+                                                <FormControl>
+                                                    <RadioGroup
+                                                        onValueChange={(value) => {
+                                                            field.onChange(value);
+                                                            // Reset inputs on type change
+                                                            handleFileSelect(undefined);
+                                                            form.setValue("image", undefined);
+                                                            form.setValue("svgCode", "");
+                                                        }}
+                                                        defaultValue={field.value}
+                                                        className="flex flex-row space-x-4"
+                                                    >
+                                                    <FormItem className="flex items-center space-x-3 space-y-0">
+                                                        <FormControl><RadioGroupItem value="Анимированный" /></FormControl>
+                                                        <FormLabel className="font-normal">Анимированный</FormLabel>
+                                                    </FormItem>
+                                                    <FormItem className="flex items-center space-x-3 space-y-0">
+                                                        <FormControl><RadioGroupItem value="Простой" /></FormControl>
+                                                        <FormLabel className="font-normal">Простой</FormLabel>
+                                                    </FormItem>
+                                                    </RadioGroup>
+                                                </FormControl>
+                                                <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="name"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Название NFT</FormLabel>
+                                                    <FormControl><Input placeholder="Название..." {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="description"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Описание</FormLabel>
+                                                    <FormControl><Textarea placeholder="Описание..." {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="backgroundSvg"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Фон (SVG код)</FormLabel>
                                                     <FormControl>
-                                                        <RadioGroup
-                                                            onValueChange={(value) => {
-                                                                field.onChange(value);
-                                                                // Reset inputs on type change
-                                                                handleFileSelect(undefined);
-                                                                form.setValue("image", undefined);
-                                                                form.setValue("svgCode", "");
-                                                            }}
-                                                            defaultValue={field.value}
-                                                            className="flex flex-row space-x-4"
-                                                        >
-                                                        <FormItem className="flex items-center space-x-3 space-y-0">
-                                                            <FormControl><RadioGroupItem value="Анимированный" /></FormControl>
-                                                            <FormLabel className="font-normal">Анимированный</FormLabel>
-                                                        </FormItem>
-                                                        <FormItem className="flex items-center space-x-3 space-y-0">
-                                                            <FormControl><RadioGroupItem value="Простой" /></FormControl>
-                                                            <FormLabel className="font-normal">Простой</FormLabel>
-                                                        </FormItem>
-                                                        </RadioGroup>
+                                                        <Textarea
+                                                            placeholder="<svg>...</svg>"
+                                                            className="font-mono text-xs"
+                                                            rows={6}
+                                                            {...field}
+                                                        />
                                                     </FormControl>
                                                     <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="category"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Категория</FormLabel>
+                                                    <FormControl><Input placeholder="Киберпанк" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <FormField
                                                 control={form.control}
-                                                name="name"
+                                                name="price"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Название NFT</FormLabel>
-                                                        <FormControl><Input placeholder="Название..." {...field} /></FormControl>
+                                                        <FormLabel>Цена (монеты)</FormLabel>
+                                                        <FormControl><Input type="number" placeholder="15000000" {...field} /></FormControl>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
                                             />
                                             <FormField
                                                 control={form.control}
-                                                name="description"
+                                                name="rarity"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Описание</FormLabel>
-                                                        <FormControl><Textarea placeholder="Описание..." {...field} /></FormControl>
+                                                        <FormLabel>Редкость (%)</FormLabel>
+                                                        <FormControl><Input type="number" step="0.1" placeholder="5" {...field} /></FormControl>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
                                             />
                                             <FormField
                                                 control={form.control}
-                                                name="backgroundSvg"
+                                                name="edition"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Фон (SVG код)</FormLabel>
-                                                        <FormControl>
-                                                            <Textarea
-                                                                placeholder="<svg>...</svg>"
-                                                                className="font-mono text-xs"
-                                                                rows={6}
-                                                                {...field}
-                                                            />
-                                                        </FormControl>
+                                                        <FormLabel>Количество</FormLabel>
+                                                        <FormControl><Input type="number" placeholder="5000" {...field} /></FormControl>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
                                             />
-                                            <FormField
-                                                control={form.control}
-                                                name="category"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Категория</FormLabel>
-                                                        <FormControl><Input placeholder="Киберпанк" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <FormField
-                                                    control={form.control}
-                                                    name="price"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>Цена (монеты)</FormLabel>
-                                                            <FormControl><Input type="number" placeholder="15000000" {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                                <FormField
-                                                    control={form.control}
-                                                    name="rarity"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>Редкость (%)</FormLabel>
-                                                            <FormControl><Input type="number" step="0.1" placeholder="5" {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                                <FormField
-                                                    control={form.control}
-                                                    name="edition"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>Количество</FormLabel>
-                                                            <FormControl><Input type="number" placeholder="5000" {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            </div>
                                         </div>
                                     </div>
-                                    <Button type="submit" disabled={form.formState.isSubmitting} className="w-full mt-8">
-                                        {form.formState.isSubmitting ? 'Сохранение...' : 'Создать NFT'}
-                                    </Button>
-                                </form>
-                            </Form>
-                        </CardContent>
-                    </Card>
-                </div>
-             </div>
-             <BottomNavBar onNavigate={(path) => router.push(path)} />
-        </div>
+                                </div>
+                                <Button type="submit" disabled={form.formState.isSubmitting} className="w-full mt-8">
+                                    {form.formState.isSubmitting ? 'Сохранение...' : 'Создать NFT'}
+                                </Button>
+                            </form>
+                        </Form>
+                    </CardContent>
+                </Card>
+            </div>
+        </AppLayout>
     );
 }

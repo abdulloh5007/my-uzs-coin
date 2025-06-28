@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,7 +27,8 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
-import TopBar from '@/components/TopBar';
+import AppLayout from '@/components/AppLayout';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // --- TYPES ---
 interface NftItem {
@@ -379,112 +379,134 @@ export default function NftShopPage() {
       });
   }, [shopItems, searchQuery, filterType, filterInStock]);
   
-  const handleNavigation = (path: string) => router.push(path);
-  
   if (authLoading || isLoading) {
     return (
-      <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body items-center justify-center">
-        <Sparkles className="w-16 h-16 animate-spin text-primary" />
-        <p className="mt-4 text-lg">Загрузка магазина...</p>
-      </div>
+      <AppLayout activeItem="/mint" contentClassName="text-center">
+        <Skeleton className="h-20 w-20 rounded-full mx-auto mb-4" />
+        <Skeleton className="h-10 w-3/5 mx-auto mb-8" />
+        
+        <div className="flex flex-col sm:flex-row gap-2 max-w-4xl mx-auto w-full mb-6">
+          <Skeleton className="h-10 flex-grow" />
+          <Skeleton className="h-10 w-28" />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="border-border/50 text-left h-full flex flex-col">
+              <CardHeader className="p-4 pb-3 border-b border-border/30">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="w-12 h-12 rounded-lg" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-6 w-32" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3 flex-grow flex flex-col justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-5 w-full" />
+                </div>
+                <Skeleton className="h-10 w-full mt-4" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </AppLayout>
     );
   }
   
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased">
-      <TopBar />
-      <div className="flex-grow container mx-auto px-4 pt-24 md:pt-28 pb-20 md:pb-24 text-center">
-        <div className="mx-auto flex justify-center items-center mb-4 h-20 w-20 rounded-full bg-primary/20">
-            <Sparkles className="w-10 h-10 text-primary" />
-        </div>
-        <h1 className="text-4xl font-bold mb-8 text-foreground">Магазин NFT</h1>
-        
-        {/* Search and Filter Controls */}
-        <div className="flex flex-col sm:flex-row gap-2 max-w-4xl mx-auto w-full mb-6">
-            <div className="relative flex-grow">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="Поиск по названию..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 w-full"
-                />
-            </div>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="shrink-0">
-                    <Filter className="mr-2 h-4 w-4" />
-                    Фильтр
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56">
-                    <DropdownMenuLabel>Фильтровать по</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuCheckboxItem
-                        checked={filterInStock}
-                        onCheckedChange={setFilterInStock}
-                    >
-                        Только в наличии
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuRadioGroup value={filterType} onValueChange={setFilterType}>
-                        <DropdownMenuLabel>Тип NFT</DropdownMenuLabel>
-                        <DropdownMenuRadioItem value="all">Все</DropdownMenuRadioItem>
-                        <DropdownMenuRadioItem value="Анимированный">Анимированные</DropdownMenuRadioItem>
-                        <DropdownMenuRadioItem value="Простой">Простые</DropdownMenuRadioItem>
-                    </DropdownMenuRadioGroup>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => { setFilterInStock(false); setFilterType('all'); }}>
-                        Сбросить фильтры
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
-            <AnimatePresence>
-              {filteredShopItems.length > 0 ? (
-                filteredShopItems.map((nft) => (
-                  <motion.div
-                    key={nft.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.3 }}
-                    className="h-full"
+    <AppLayout activeItem="/mint" contentClassName="text-center">
+      <div className="mx-auto flex justify-center items-center mb-4 h-20 w-20 rounded-full bg-primary/20">
+          <Sparkles className="w-10 h-10 text-primary" />
+      </div>
+      <h1 className="text-4xl font-bold mb-8 text-foreground">Магазин NFT</h1>
+      
+      {/* Search and Filter Controls */}
+      <div className="flex flex-col sm:flex-row gap-2 max-w-4xl mx-auto w-full mb-6">
+          <div className="relative flex-grow">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                  placeholder="Поиск по названию..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 w-full"
+              />
+          </div>
+          <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="shrink-0">
+                  <Filter className="mr-2 h-4 w-4" />
+                  Фильтр
+                  </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56">
+                  <DropdownMenuLabel>Фильтровать по</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                      checked={filterInStock}
+                      onCheckedChange={setFilterInStock}
                   >
-                    <NftCard nft={nft} onClick={() => setSelectedNft(nft)} />
-                  </motion.div>
-                ))
-              ) : (
-                !isLoading && (
-                  <motion.div
-                    key="not-found"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="md:col-span-2 text-center py-10"
-                  >
-                    <p className="text-muted-foreground">Ничего не найдено.</p>
-                    <p className="text-sm text-muted-foreground">Попробуйте изменить параметры поиска или фильтра.</p>
-                  </motion.div>
-                )
-              )}
-            </AnimatePresence>
-        </div>
+                      Только в наличии
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup value={filterType} onValueChange={setFilterType}>
+                      <DropdownMenuLabel>Тип NFT</DropdownMenuLabel>
+                      <DropdownMenuRadioItem value="all">Все</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="Анимированный">Анимированные</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="Простой">Простые</DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => { setFilterInStock(false); setFilterType('all'); }}>
+                      Сбросить фильтры
+                  </DropdownMenuItem>
+              </DropdownMenuContent>
+          </DropdownMenu>
       </div>
 
-       <NftDetailSheet
-           nft={selectedNft} 
-           onOpenChange={(isOpen) => !isOpen && setSelectedNft(null)}
-           pageState={pageState}
-           handleBuyNft={handleBuyNft}
-           isBuying={isBuying}
-       />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
+          <AnimatePresence>
+            {filteredShopItems.length > 0 ? (
+              filteredShopItems.map((nft) => (
+                <motion.div
+                  key={nft.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.3 }}
+                  className="h-full"
+                >
+                  <NftCard nft={nft} onClick={() => setSelectedNft(nft)} />
+                </motion.div>
+              ))
+            ) : (
+              !isLoading && (
+                <motion.div
+                  key="not-found"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="md:col-span-2 text-center py-10"
+                >
+                  <p className="text-muted-foreground">Ничего не найдено.</p>
+                  <p className="text-sm text-muted-foreground">Попробуйте изменить параметры поиска или фильтра.</p>
+                </motion.div>
+              )
+            )}
+          </AnimatePresence>
+      </div>
 
-      <BottomNavBar onNavigate={handleNavigation} activeItem="/mint" />
-    </div>
+     <NftDetailSheet
+         nft={selectedNft} 
+         onOpenChange={(isOpen) => !isOpen && setSelectedNft(null)}
+         pageState={pageState}
+         handleBuyNft={handleBuyNft}
+         isBuying={isBuying}
+     />
+    </AppLayout>
   );
 }

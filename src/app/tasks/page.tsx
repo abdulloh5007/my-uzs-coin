@@ -5,16 +5,16 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TaskCard from '@/components/tasks/TaskCard';
 import type { Task } from '@/types/tasks';
-import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
-import { Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast'; 
 import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/data/tasks';
 import { checkAndNotifyTaskCompletion } from '@/lib/taskUtils';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import TopBar from '@/components/TopBar';
+import AppLayout from '@/components/AppLayout';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 
 
 export default function TasksPage() {
@@ -91,18 +91,37 @@ export default function TasksPage() {
       loadProgress(currentUser.uid);
     }
   }, [currentUser, authLoading, router, loadProgress]);
-
-
-  const handleNavigation = (path: string) => {
-    router.push(path);
-  };
   
   if (authLoading || isLoading) {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-background to-indigo-900/50">
-        <Sparkles className="w-16 h-16 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-foreground">Загрузка заданий...</p>
-      </div>
+      <AppLayout activeItem="/tasks">
+        <Skeleton className="h-10 w-48 mx-auto mb-8" />
+        <div className="w-full max-w-2xl mx-auto">
+          <Skeleton className="h-10 w-full mb-6" />
+          <div className="space-y-6">
+              {Array.from({ length: 3 }).map((_, i) => (
+                  <Card key={i} className="bg-card/80 border-border/50 shadow-lg w-full">
+                      <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-3">
+                                  <Skeleton className="w-12 h-12 rounded-full" />
+                                  <div className="space-y-2">
+                                      <Skeleton className="h-6 w-40" />
+                                      <Skeleton className="h-4 w-48" />
+                                  </div>
+                              </div>
+                              <Skeleton className="h-5 w-24" />
+                          </div>
+                      </CardHeader>
+                      <CardContent className="pt-0 space-y-2">
+                          <Skeleton className="h-12 w-full" />
+                          <Skeleton className="h-12 w-full" />
+                      </CardContent>
+                  </Card>
+              ))}
+          </div>
+        </div>
+      </AppLayout>
     );
   }
 
@@ -112,46 +131,42 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
-      <TopBar />
-      <div className="flex-grow container mx-auto px-4 pt-24 md:pt-28 pb-20 md:pb-24">
-        <h1 className="text-4xl font-bold mb-8 text-center">Задания</h1>
+    <AppLayout activeItem="/tasks">
+      <h1 className="text-4xl font-bold mb-8 text-center">Задания</h1>
 
-        <Tabs defaultValue="daily" className="w-full max-w-2xl mx-auto" onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3 mb-6 bg-card/80">
-            <TabsTrigger value="daily" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Ежедневные</TabsTrigger>
-            <TabsTrigger value="main" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Основные</TabsTrigger>
-            <TabsTrigger value="league" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Лиги</TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="daily" className="w-full max-w-2xl mx-auto" onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3 mb-6 bg-card/80">
+          <TabsTrigger value="daily" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Ежедневные</TabsTrigger>
+          <TabsTrigger value="main" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Основные</TabsTrigger>
+          <TabsTrigger value="league" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Лиги</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="daily">
-            <div className="space-y-6">
-              {initialDailyTasks.map(task => (
-                <TaskCard key={task.id} task={task} userTierProgressGetter={getTierProgress} completedTierIds={[...completedUnclaimedTaskTierIds, ...claimedTaskTierIds]} />
-              ))}
-            </div>
-          </TabsContent>
-          <TabsContent value="main">
-             <div className="space-y-6">
-              {initialMainTasks.length > 0 ? initialMainTasks.map(task => (
-                <TaskCard key={task.id} task={task} userTierProgressGetter={getTierProgress} completedTierIds={[...completedUnclaimedTaskTierIds, ...claimedTaskTierIds]} />
+        <TabsContent value="daily">
+          <div className="space-y-6">
+            {initialDailyTasks.map(task => (
+              <TaskCard key={task.id} task={task} userTierProgressGetter={getTierProgress} completedTierIds={[...completedUnclaimedTaskTierIds, ...claimedTaskTierIds]} />
+            ))}
+          </div>
+        </TabsContent>
+        <TabsContent value="main">
+           <div className="space-y-6">
+            {initialMainTasks.length > 0 ? initialMainTasks.map(task => (
+              <TaskCard key={task.id} task={task} userTierProgressGetter={getTierProgress} completedTierIds={[...completedUnclaimedTaskTierIds, ...claimedTaskTierIds]} />
+            )) : (
+              <p className="text-center text-muted-foreground py-8">Основные задания скоро появятся!</p>
+            )}
+          </div>
+        </TabsContent>
+        <TabsContent value="league">
+          <div className="space-y-6">
+              {initialLeagueTasks.length > 0 ? initialLeagueTasks.map(task => (
+                  <TaskCard key={task.id} task={task} userTierProgressGetter={getTierProgress} completedTierIds={[...completedUnclaimedTaskTierIds, ...claimedTaskTierIds]}/>
               )) : (
-                <p className="text-center text-muted-foreground py-8">Основные задания скоро появятся!</p>
+                  <p className="text-center text-muted-foreground py-8">Задания лиг появятся по мере вашего продвижения!</p>
               )}
-            </div>
-          </TabsContent>
-          <TabsContent value="league">
-            <div className="space-y-6">
-                {initialLeagueTasks.length > 0 ? initialLeagueTasks.map(task => (
-                    <TaskCard key={task.id} task={task} userTierProgressGetter={getTierProgress} completedTierIds={[...completedUnclaimedTaskTierIds, ...claimedTaskTierIds]}/>
-                )) : (
-                    <p className="text-center text-muted-foreground py-8">Задания лиг появятся по мере вашего продвижения!</p>
-                )}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-      <BottomNavBar onNavigate={handleNavigation} activeItem="/tasks" />
-    </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </AppLayout>
   );
 }

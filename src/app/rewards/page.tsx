@@ -2,10 +2,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Gift, CheckCircle2, Coins, History, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Task, TaskTier } from '@/types/tasks';
@@ -13,8 +11,9 @@ import { initialDailyTasks, initialMainTasks, initialLeagueTasks } from '@/data/
 import RewardCard from '@/components/rewards/RewardCard';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, arrayRemove, arrayUnion } from 'firebase/firestore';
-import TopBar from '@/components/TopBar';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import AppLayout from '@/components/AppLayout';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 export interface DisplayableReward {
@@ -143,16 +142,36 @@ export default function RewardsPage() {
     }
   };
 
-  const handleNavigation = (path: string) => {
-    router.push(path);
-  };
-
   if (authLoading || isLoading) {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-background to-indigo-900/50">
-        <Sparkles className="w-16 h-16 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-foreground">Загрузка наград...</p>
-      </div>
+      <AppLayout activeItem="/rewards" contentClassName="text-center">
+        <Skeleton className="h-10 w-48 mx-auto mb-6" />
+
+        <div className="flex justify-center items-center gap-6 mb-8">
+          <Skeleton className="h-10 w-36 rounded-lg" />
+          <Skeleton className="h-10 w-36 rounded-lg" />
+        </div>
+        
+        <div className="max-w-2xl mx-auto text-left">
+          <Skeleton className="h-8 w-56 mb-4" />
+          <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                  <Card key={i} className="bg-card/90 border-border/60">
+                      <CardContent className="p-4 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3 flex-1">
+                              <Skeleton className="w-12 h-12 rounded-full" />
+                              <div className="flex-1 space-y-2">
+                                  <Skeleton className="h-5 w-48" />
+                                  <Skeleton className="h-4 w-32" />
+                              </div>
+                          </div>
+                          <Skeleton className="h-9 w-28 rounded-md" />
+                      </CardContent>
+                  </Card>
+              ))}
+          </div>
+        </div>
+      </AppLayout>
     );
   }
 
@@ -160,51 +179,47 @@ export default function RewardsPage() {
   const totalClaimed = claimedRewardsList.length;
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
-      <TopBar />
-      <div className="flex-grow container mx-auto px-4 pt-24 md:pt-28 pb-20 md:pb-24 text-center">
-        <h1 className="text-4xl font-bold mb-6">Награды</h1>
+    <AppLayout activeItem="/rewards" contentClassName="text-center">
+      <h1 className="text-4xl font-bold mb-6">Награды</h1>
 
-        <div className="flex justify-center items-center gap-6 mb-8 text-sm">
-          <div className="flex items-center p-2 bg-card/80 rounded-lg shadow">
-            <Gift className="w-5 h-5 mr-2 text-primary" />
-            <span className="text-muted-foreground">Доступно: </span>
-            <span className="font-semibold text-primary ml-1">{totalAvailable}</span>
-          </div>
-          <div className="flex items-center p-2 bg-card/80 rounded-lg shadow">
-            <History className="w-5 h-5 mr-2 text-green-500" />
-            <span className="text-muted-foreground">Получено: </span>
-            <span className="font-semibold text-green-500 ml-1">{totalClaimed}</span>
+      <div className="flex justify-center items-center gap-6 mb-8 text-sm">
+        <div className="flex items-center p-2 bg-card/80 rounded-lg shadow">
+          <Gift className="w-5 h-5 mr-2 text-primary" />
+          <span className="text-muted-foreground">Доступно: </span>
+          <span className="font-semibold text-primary ml-1">{totalAvailable}</span>
+        </div>
+        <div className="flex items-center p-2 bg-card/80 rounded-lg shadow">
+          <History className="w-5 h-5 mr-2 text-green-500" />
+          <span className="text-muted-foreground">Получено: </span>
+          <span className="font-semibold text-green-500 ml-1">{totalClaimed}</span>
+        </div>
+      </div>
+      
+      {totalAvailable === 0 && totalClaimed === 0 && (
+          <p className="text-muted-foreground text-center py-10">Пока нет доступных или полученных наград. Выполняйте задания!</p>
+      )}
+
+      {totalAvailable > 0 && (
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4 text-left text-primary">Забрать награды</h2>
+          <div className="space-y-4 max-w-2xl mx-auto">
+            {availableRewards.map(reward => (
+              <RewardCard key={reward.id} reward={reward} onClaim={handleClaimReward} />
+            ))}
           </div>
         </div>
-        
-        {totalAvailable === 0 && totalClaimed === 0 && (
-            <p className="text-muted-foreground text-center py-10">Пока нет доступных или полученных наград. Выполняйте задания!</p>
-        )}
+      )}
 
-        {totalAvailable > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4 text-left text-primary">Забрать награды</h2>
-            <div className="space-y-4 max-w-2xl mx-auto">
-              {availableRewards.map(reward => (
-                <RewardCard key={reward.id} reward={reward} onClaim={handleClaimReward} />
-              ))}
-            </div>
+      {totalClaimed > 0 && (
+        <div>
+          <h2 className="text-2xl font-semibold mb-4 text-left text-green-500">Полученные награды</h2>
+          <div className="space-y-4 max-w-2xl mx-auto">
+            {claimedRewardsList.map(reward => (
+              <RewardCard key={reward.id} reward={reward} onClaim={() => {}} />
+            ))}
           </div>
-        )}
-
-        {totalClaimed > 0 && (
-          <div>
-            <h2 className="text-2xl font-semibold mb-4 text-left text-green-500">Полученные награды</h2>
-            <div className="space-y-4 max-w-2xl mx-auto">
-              {claimedRewardsList.map(reward => (
-                <RewardCard key={reward.id} reward={reward} onClaim={() => {}} />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-      <BottomNavBar onNavigate={handleNavigation} activeItem="/rewards" />
-    </div>
+        </div>
+      )}
+    </AppLayout>
   );
 }

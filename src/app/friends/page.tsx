@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import BottomNavBar from '@/components/BottomNavBar';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import TopBar from '@/components/TopBar';
+import AppLayout from '@/components/AppLayout';
 
 const REFERRAL_BONUS = 25000;
 
@@ -134,93 +133,106 @@ export default function FriendsPage() {
     });
   };
 
-  const handleNavigation = (path: string) => {
-    router.push(path);
-  };
-  
-  const PageLoader = () => (
-    <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-background to-indigo-900/50">
-      <Sparkles className="w-16 h-16 animate-spin text-primary" />
-      <p className="mt-4 text-lg text-foreground">Загрузка...</p>
-    </div>
-  );
-  
   if (authLoading || isLoading) {
-    return <PageLoader />;
+    return (
+      <AppLayout activeItem="/friends" contentClassName="text-center">
+        <div className="max-w-md mx-auto space-y-6">
+            <Skeleton className="h-20 w-20 rounded-full mx-auto" />
+            <Skeleton className="h-10 w-3/4 mx-auto mb-8" />
+            <div className="space-y-6">
+                <Card className="bg-card/80 border-border/50 shadow-lg text-left">
+                    <CardHeader>
+                        <Skeleton className="h-6 w-3/4" />
+                    </CardHeader>
+                    <CardContent>
+                        <Skeleton className="h-10 w-full" />
+                    </CardContent>
+                </Card>
+                <Card className="bg-card/80 border-border/50 shadow-lg text-left">
+                    <CardHeader>
+                        <Skeleton className="h-6 w-1/2" />
+                        <Skeleton className="h-4 w-3/4" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-3">
+                            <Skeleton className="h-12 w-full" />
+                            <Skeleton className="h-12 w-full" />
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+      </AppLayout>
+    );
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased selection:bg-primary selection:text-primary-foreground">
-      <TopBar />
-      <div className="flex-grow container mx-auto px-4 pt-24 md:pt-28 pb-20 md:pb-24 text-center">
-        <div className="mx-auto flex justify-center items-center mb-4 h-20 w-20 rounded-full bg-primary/20">
-            <Users className="w-10 h-10 text-primary" />
-        </div>
-        <h1 className="text-4xl font-bold mb-8">Пригласить друзей</h1>
-
-        <div className="max-w-md mx-auto space-y-6">
-          <Card className="bg-card/80 border-border/50 shadow-lg text-left">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-xl">Ваша реферальная ссылка</CardTitle>
-                <TooltipProvider delayDuration={0}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-5 w-5 p-0">
-                        <Info className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" align="start" className="max-w-xs text-sm p-3">
-                      <p>Поделитесь этой ссылкой с друзьями, чтобы они присоединились к игре. от каждого приглашенного вы и приглашенный пользователь получаете по 25.000 UZSCOIN в качестве бонуса.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </CardHeader>
-            <CardContent>
-                {isLoading ? (
-                    <Skeleton className="h-10 w-full" />
-                ) : (
-                    <div className="flex items-center space-x-2">
-                        <Input value={referralLink} readOnly className="bg-input/80 border-border text-foreground" />
-                        <Button variant="outline" size="icon" onClick={handleCopyToClipboard}>
-                            {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                    </div>
-                )}
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card/80 border-border/50 shadow-lg text-left">
-             <CardHeader>
-                <div className="flex items-center justify-between">
-                    <CardTitle className="text-xl flex items-center gap-2"><Gift className="w-5 h-5 text-primary"/>Приглашённые друзья</CardTitle>
-                    <span className="text-lg font-bold text-primary">{pageState.referredUsers.length}</span>
-                </div>
-              <CardDescription>Вы получите бонус за каждого друга, который зарегистрируется по вашей ссылке.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {pageState.referredUsers.length > 0 ? (
-                <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                  {pageState.referredUsers.map((friend) => (
-                    <div key={friend.uid} className="flex items-center justify-between p-3 rounded-lg bg-input/80">
-                      <span className="font-medium text-foreground">{friend.nickname}</span>
-                      <span className="text-sm font-semibold text-green-400">+25,000 монет</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  <p>Вы пока никого не пригласили.</p>
-                  <p className="text-xs">Начните делиться своей ссылкой!</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
+    <AppLayout activeItem="/friends" contentClassName="text-center">
+      <div className="mx-auto flex justify-center items-center mb-4 h-20 w-20 rounded-full bg-primary/20">
+          <Users className="w-10 h-10 text-primary" />
       </div>
-      <BottomNavBar onNavigate={handleNavigation} activeItem="/friends" />
-    </div>
+      <h1 className="text-4xl font-bold mb-8">Пригласить друзей</h1>
+
+      <div className="max-w-md mx-auto space-y-6">
+        <Card className="bg-card/80 border-border/50 shadow-lg text-left">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-xl">Ваша реферальная ссылка</CardTitle>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-5 w-5 p-0">
+                      <Info className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" align="start" className="max-w-xs text-sm p-3">
+                    <p>Поделитесь этой ссылкой с друзьями, чтобы они присоединились к игре. от каждого приглашенного вы и приглашенный пользователь получаете по 25.000 UZSCOIN в качестве бонуса.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </CardHeader>
+          <CardContent>
+              {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+              ) : (
+                  <div className="flex items-center space-x-2">
+                      <Input value={referralLink} readOnly className="bg-input/80 border-border text-foreground" />
+                      <Button variant="outline" size="icon" onClick={handleCopyToClipboard}>
+                          {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                  </div>
+              )}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card/80 border-border/50 shadow-lg text-left">
+           <CardHeader>
+              <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl flex items-center gap-2"><Gift className="w-5 h-5 text-primary"/>Приглашённые друзья</CardTitle>
+                  <span className="text-lg font-bold text-primary">{pageState.referredUsers.length}</span>
+              </div>
+            <CardDescription>Вы получите бонус за каждого друга, который зарегистрируется по вашей ссылке.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {pageState.referredUsers.length > 0 ? (
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                {pageState.referredUsers.map((friend) => (
+                  <div key={friend.uid} className="flex items-center justify-between p-3 rounded-lg bg-input/80">
+                    <span className="font-medium text-foreground">{friend.nickname}</span>
+                    <span className="text-sm font-semibold text-green-400">+25,000 монет</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-muted-foreground">
+                <p>Вы пока никого не пригласили.</p>
+                <p className="text-xs">Начните делиться своей ссылкой!</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </AppLayout>
   );
 }

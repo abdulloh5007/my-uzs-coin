@@ -25,6 +25,7 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // --- Game Balance Constants ---
 const INITIAL_MAX_ENERGY_BASE = 500;
@@ -898,9 +899,31 @@ export default function HomePage() {
 
   if (authLoading || (!currentUser && !authLoading) || (currentUser && isGameDataLoading && !gameDataLoadedRef.current)) {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-background to-indigo-900/50">
-        <Sparkles className="w-16 h-16 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-foreground">Загрузка игры...</p>
+      <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body antialiased">
+        <TopBar />
+        <main className="flex flex-col flex-grow pt-16 pb-20 md:pb-24 px-4">
+          <div className="flex flex-col items-center justify-center py-4 space-y-2">
+            <Skeleton className="h-10 w-48" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+          
+          <div className="flex-grow flex flex-col items-center justify-center gap-4 pb-12">
+            <Skeleton className="w-64 h-64 rounded-full" />
+          </div>
+          
+          <div className="w-full max-w-md mx-auto flex items-center gap-4 mt-auto">
+             <div className="flex-grow space-y-2">
+                <div className="flex justify-between">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-24" />
+                </div>
+                <Skeleton className="h-4 w-full" />
+             </div>
+             <Skeleton className="w-12 h-12 rounded-full" />
+             <Skeleton className="w-12 h-12 rounded-full" />
+          </div>
+        </main>
+        <BottomNavBar onNavigate={handleNavigation} activeItem="/" />
       </div>
     );
   }
