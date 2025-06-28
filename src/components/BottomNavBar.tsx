@@ -53,27 +53,40 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
   const pathname = usePathname();
   const { currentUser } = useAuth();
   const [hasNewMail, setHasNewMail] = useState(false);
+  const [hasNewRewards, setHasNewRewards] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
+      // Mail notifications
       const transfersRef = collection(db, 'nft_transfers');
       const qMailbox = query(transfersRef, where('recipientId', '==', currentUser.uid), where('status', '==', 'pending'));
       const unsubscribeMail = onSnapshot(qMailbox, (snapshot) => {
           setHasNewMail(!snapshot.empty);
       });
 
+      // Rewards notifications
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const unsubscribeRewards = onSnapshot(userDocRef, (doc) => {
+        if (doc.exists()) {
+          const data = doc.data();
+          const unclaimed = data.completedUnclaimedTaskTierIds || [];
+          setHasNewRewards(unclaimed.length > 0);
+        }
+      });
+
       return () => {
         unsubscribeMail();
+        unsubscribeRewards();
       };
     }
   }, [currentUser]);
 
 
   const navItems: Omit<NavItemProps, 'isActive' | 'onClick' | 'hasNotification' | 'className'>[] = [
-    { icon: MousePointerClick, label: 'Кликер', path: '/' }, 
+    { icon: MousePointerClick, label: 'Кликер', path: '/' },
     { icon: Users, label: 'Друзья', path: '/friends' },
-    { icon: Sparkles, label: 'Магазин', path: '/mint' },
     { icon: Gift, label: 'Награды', path: '/rewards' },
+    { icon: Sparkles, label: 'Магазин', path: '/mint' },
     { icon: LayoutGrid, label: 'Коллекция', path: '/collections' },
     { icon: User, label: 'Профиль', path: '/profile' },
   ];
@@ -96,13 +109,16 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
       <div className="container mx-auto flex items-stretch justify-around h-full px-0">
         {navItems.map((item) => {
           const currentItemIsActive = (currentPathForActivity === item.path || (currentPathForActivity === '/' && item.path === '/') || (item.path === '/' && currentPathForActivity.startsWith('/?')));
+          
           let itemHasNotification = false;
-          // Only show notification for mail on collections tab
           if (item.path === '/collections') {
             itemHasNotification = hasNewMail;
           }
+          if (item.path === '/rewards') {
+            itemHasNotification = hasNewRewards;
+          }
 
-          const isHiddenOnMobile = item.path === '/mint';
+          const isHiddenOnMobile = item.path === '/rewards' || item.path === '/collections';
 
           return (
             <NavItem

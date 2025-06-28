@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Coins, LogOut, Menu, Gift, LayoutGrid, Box, Sparkles } from 'lucide-react';
+import { Coins, LogOut, Menu, Gift, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
@@ -16,6 +16,7 @@ const TopBar: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [score, setScore] = useState<number | null>(null);
   const [hasNewMail, setHasNewMail] = useState(false);
+  const [hasNewRewards, setHasNewRewards] = useState(false);
 
 
   useEffect(() => {
@@ -26,6 +27,7 @@ const TopBar: React.FC = () => {
         if (doc.exists()) {
           const data = doc.data();
           setScore(data.score);
+          setHasNewRewards((data.completedUnclaimedTaskTierIds || []).length > 0);
         }
       }, (error) => {
         console.error("Error fetching user data:", error);
@@ -58,9 +60,6 @@ const TopBar: React.FC = () => {
     }
   };
   
-  const hasCollectionNotification = hasNewMail;
-
-  // Helper for notification badge
   const renderNotificationBadge = () => (
     <span className="absolute top-3 right-3 flex h-3 w-3">
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -85,7 +84,6 @@ const TopBar: React.FC = () => {
                   <Coins className="w-5 h-5 text-primary" />
                 </div>
               )}
-              {/* Desktop Logout Button */}
               <div className="hidden md:flex">
                 <Button variant="destructive" size="sm" onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
@@ -93,7 +91,6 @@ const TopBar: React.FC = () => {
                 </Button>
               </div>
 
-              {/* Mobile Hamburger Menu */}
               <div className="md:hidden">
                 <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
                   <SheetTrigger asChild>
@@ -121,21 +118,23 @@ const TopBar: React.FC = () => {
                         variant="ghost"
                         className={cn(
                           "relative w-full justify-start text-base py-6 gap-3",
-                          pathname === '/mint' && "bg-accent text-accent-foreground"
-                        )}
-                        onClick={() => handleDrawerNavigate('/mint')}
-                      >
-                        <Sparkles className="w-5 h-5 text-primary" /> Магазин
-                      </Button>
-                       <Button
-                        variant="ghost"
-                        className={cn(
-                          "relative w-full justify-start text-base py-6 gap-3",
                           pathname === '/rewards' && "bg-accent text-accent-foreground"
                         )}
                         onClick={() => handleDrawerNavigate('/rewards')}
                       >
                         <Gift className="w-5 h-5 text-primary" /> Награды
+                        {hasNewRewards && renderNotificationBadge()}
+                      </Button>
+                       <Button
+                        variant="ghost"
+                        className={cn(
+                          "relative w-full justify-start text-base py-6 gap-3",
+                          pathname === '/collections' && "bg-accent text-accent-foreground"
+                        )}
+                        onClick={() => handleDrawerNavigate('/collections')}
+                      >
+                        <LayoutGrid className="w-5 h-5 text-primary" /> Коллекция
+                        {hasNewMail && renderNotificationBadge()}
                       </Button>
                     </nav>
                     <SheetFooter className="p-4 mt-auto border-t border-border/50">
