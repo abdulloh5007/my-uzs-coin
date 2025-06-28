@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -5,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Sparkles, Shield, PlusCircle, PackagePlus } from 'lucide-react';
+import { Sparkles, Shield, PlusCircle, PackagePlus, Wrench } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import AppLayout from '@/components/AppLayout';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -107,17 +108,8 @@ export default function AdminPage() {
             <h1 className="text-4xl font-bold mb-2 text-foreground">Панель администратора</h1>
             <p className="text-muted-foreground mb-8">Добро пожаловать, владелец!</p>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto text-left">
-                <Card className="bg-card/80">
-                    <CardHeader>
-                        <CardTitle>Статус системы</CardTitle>
-                        <CardDescription>Этот раздел находится в разработке.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p>Здесь будет отображаться информация о пользователях, статистика и инструменты управления.</p>
-                    </CardContent>
-                </Card>
-                 <Card 
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto text-left">
+                <Card 
                     onClick={() => handleNavigation('/admin/create-nft')} 
                     className="bg-card/80 hover:bg-card/90 cursor-pointer transition-colors"
                 >
@@ -138,7 +130,40 @@ export default function AdminPage() {
                         <CardDescription>Добавить новый кейс с предметами.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <p>Форма для создания кейсов, из которых могут выпадать случайные NFT.</p>
+                        <p>Форма для создания кейсов, из которых могут выпадать случайные предметы.</p>
+                    </CardContent>
+                </Card>
+                <Card 
+                    onClick={() => handleNavigation('/admin/manage-nfts')} 
+                    className="bg-card/80 hover:bg-card/90 cursor-pointer transition-colors"
+                >
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Wrench className="text-primary"/>Управление NFT</CardTitle>
+                        <CardDescription>Редактирование и удаление предметов.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <p>Просмотр списка всех созданных NFT и их удаление.</p>
+                    </CardContent>
+                </Card>
+                <Card 
+                    onClick={() => handleNavigation('/admin/manage-cases')} 
+                    className="bg-card/80 hover:bg-card/90 cursor-pointer transition-colors"
+                >
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Wrench className="text-primary"/>Управление кейсами</CardTitle>
+                        <CardDescription>Редактирование и удаление кейсов.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <p>Просмотр списка всех созданных кейсов и их удаление.</p>
+                    </CardContent>
+                </Card>
+                 <Card className="bg-card/80">
+                    <CardHeader>
+                        <CardTitle>Статус системы</CardTitle>
+                        <CardDescription>Этот раздел находится в разработке.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <p>Здесь будет отображаться информация о пользователях, статистика и инструменты управления.</p>
                     </CardContent>
                 </Card>
             </div>

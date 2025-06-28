@@ -1,21 +1,21 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Sparkles, Box, Info } from 'lucide-react';
+import { Coins, Box, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, collection, getDocs, Timestamp, runTransaction, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import AppLayout from '@/components/AppLayout';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import OpenCaseDialog from '@/components/cases/OpenCaseDialog';
 
 
 // --- TYPES ---
@@ -25,20 +25,18 @@ interface CaseItem {
   description: string;
   imageUrl: string;
   price: number;
-  itemPool: string[]; // Array of NFT IDs
+  itemPool: string[]; // For future use
 }
 
 interface CaseShopState {
   score: number;
-  ownedCases: { caseId: string; instanceId: string }[];
 }
 
 const CaseCard: React.FC<{
     caseItem: CaseItem, 
-    onBuy: () => void,
+    onOpen: () => void,
     canAfford: boolean,
-    isBuying: boolean,
-}> = ({ caseItem, onBuy, canAfford, isBuying }) => {
+}> = ({ caseItem, onOpen, canAfford }) => {
     
     return (
         <Card
@@ -60,7 +58,7 @@ const CaseCard: React.FC<{
                          </TooltipTrigger>
                          <TooltipContent side="top" align="start" className="max-w-xs text-sm p-3">
                            <p className="font-semibold">Возможное содержимое:</p>
-                           <p className="text-xs text-muted-foreground">Содержит один случайный NFT из пула предметов. Открыть можно в коллекции.</p>
+                           <p className="text-xs text-muted-foreground">Содержит один случайный ценный приз.</p>
                          </TooltipContent>
                        </Tooltip>
                      </TooltipProvider>
@@ -72,8 +70,8 @@ const CaseCard: React.FC<{
                       <span className="text-muted-foreground">Цена:</span>
                       <span className="font-semibold text-primary flex items-center gap-1"><Coins className="w-4 h-4"/>{caseItem.price.toLocaleString()}</span>
                   </div>
-                   <Button onClick={onBuy} className="w-full" disabled={isBuying || !canAfford}>
-                    {isBuying ? 'Покупка...' : !canAfford ? 'Недостаточно монет' : 'Купить'}
+                   <Button onClick={onOpen} className="w-full" disabled={!canAfford}>
+                    {canAfford ? 'Открыть' : 'Недостаточно монет'}
                   </Button>
                 </div>
             </CardContent>
@@ -86,9 +84,9 @@ export default function CasesShopPage() {
   const { toast } = useToast();
   const { currentUser, loading: authLoading } = useAuth();
   
-  const [shopState, setShopState] = useState<CaseShopState>({ score: 0, ownedCases: [] });
+  const [shopState, setShopState] = useState<CaseShopState>({ score: 0 });
   const [cases, setCases] = useState<CaseItem[]>([]);
-  const [buyingCaseId, setBuyingCaseId] = useState<string | null>(null);
+  const [selectedCase, setSelectedCase] = useState<CaseItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadShopData = useCallback(async (userId?: string) => {
@@ -101,7 +99,6 @@ export default function CasesShopPage() {
           const data = userDocSnap.data();
           setShopState({
             score: data.score || 0,
-            ownedCases: data.ownedCases || [],
           });
         }
       }
@@ -133,63 +130,10 @@ export default function CasesShopPage() {
   useEffect(() => {
     if (!authLoading && !currentUser) {
       router.push('/login');
-    } else {
-      loadShopData(currentUser?.uid);
+    } else if (currentUser) {
+      loadShopData(currentUser.uid);
     }
   }, [currentUser, authLoading, router, loadShopData]);
-
-  const handleBuyCase = async (caseItem: CaseItem) => {
-    if (!currentUser || buyingCaseId) return;
-
-    if (shopState.score < caseItem.price) {
-        toast({ variant: "destructive", title: "Недостаточно монет", description: `Вам не хватает ${(caseItem.price - shopState.score).toLocaleString()} монет.` });
-        return;
-    }
-    
-    setBuyingCaseId(caseItem.docId);
-    const userDocRef = doc(db, 'users', currentUser.uid);
-
-    try {
-        await runTransaction(db, async (transaction) => {
-            const userDoc = await transaction.get(userDocRef);
-            if (!userDoc.exists()) throw "Документ пользователя не найден!";
-
-            const userData = userDoc.data();
-            if (userData.score < caseItem.price) throw "Недостаточно монет.";
-            
-            const newInstanceId = doc(collection(db, "dummy")).id;
-            const newOwnedCase = { 
-                caseId: caseItem.docId, 
-                instanceId: newInstanceId,
-                purchasedAt: Timestamp.now()
-            };
-
-            transaction.update(userDocRef, {
-                score: userData.score - caseItem.price,
-                ownedCases: arrayUnion(newOwnedCase),
-                lastUpdated: serverTimestamp()
-            });
-        });
-        
-        toast({
-          title: `Кейс "${caseItem.name}" куплен!`,
-          description: `Вы можете открыть его в своей коллекции.`,
-          duration: 5000,
-        });
-        loadShopData(currentUser.uid);
-
-    } catch (e: any) {
-        console.error("Transaction failed: ", e);
-        toast({
-            variant: "destructive",
-            title: "Ошибка покупки",
-            description: typeof e === 'string' ? e : "Не удалось совершить покупку. Попробуйте снова.",
-        });
-        loadShopData(currentUser.uid);
-    } finally {
-        setBuyingCaseId(null);
-    }
-  };
   
   if (authLoading || isLoading) {
     return (
@@ -239,9 +183,8 @@ export default function CasesShopPage() {
                 >
                   <CaseCard 
                     caseItem={caseItem}
-                    onBuy={() => handleBuyCase(caseItem)}
+                    onOpen={() => setSelectedCase(caseItem)}
                     canAfford={shopState.score >= caseItem.price}
-                    isBuying={buyingCaseId === caseItem.docId}
                   />
                 </motion.div>
               ))
@@ -262,6 +205,15 @@ export default function CasesShopPage() {
             )}
           </AnimatePresence>
       </div>
+
+      <OpenCaseDialog
+        isOpen={!!selectedCase}
+        onOpenChange={(isOpen) => !isOpen && setSelectedCase(null)}
+        caseItem={selectedCase}
+        userScore={shopState.score}
+        userId={currentUser!.uid}
+        onSuccessfulOpen={() => loadShopData(currentUser!.uid)}
+      />
 
     </AppLayout>
   );

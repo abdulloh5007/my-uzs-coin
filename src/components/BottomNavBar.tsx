@@ -54,7 +54,6 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
   const { currentUser } = useAuth();
   const [hasUnclaimedRewards, setHasUnclaimedRewards] = useState(false);
   const [hasNewMail, setHasNewMail] = useState(false);
-  const [hasUnopenedCases, setHasUnopenedCases] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -64,8 +63,6 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
           const data = doc.data();
           const unclaimed = data.completedUnclaimedTaskTierIds || [];
           setHasUnclaimedRewards(unclaimed.length > 0);
-          const unopenedCases = data.ownedCases || [];
-          setHasUnopenedCases(unopenedCases.length > 0);
         }
       });
 
@@ -116,7 +113,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
           let itemHasNotification = false;
           // Combine notifications for "Collections"
           if (item.path === '/collections') {
-            itemHasNotification = hasNewMail || hasUnopenedCases || hasUnclaimedRewards;
+            itemHasNotification = hasNewMail || hasUnclaimedRewards;
           }
 
           const isHiddenOnMobile = item.path === '/rewards' || item.path === '/mint';
