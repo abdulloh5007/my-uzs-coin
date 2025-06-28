@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Sparkles, Cpu, Wand2, Egg, ShoppingCart, Check, Info, User, Shield, BarChart, Package, Send, Cog, Mail, History, Inbox, ArrowRight, X, LayoutGrid, Clock, CheckCircle2 } from 'lucide-react';
+import { Coins, Sparkles, Cpu, Wand2, Egg, ShoppingCart, Check, Info, User, Shield, BarChart, Package, Send, Cog, Mail, History, Inbox, ArrowRight, X, LayoutGrid, Clock, CheckCircle2, Gem } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from 'framer-motion';
 import AppLayout from '@/components/AppLayout';
+import { getRarityById } from '@/data/rarities';
 
 // --- TYPES ---
 interface NftItem {
@@ -37,8 +38,9 @@ interface NftItem {
   price: number;
   iconColorClass?: string;
   iconBgClass?: string;
-  category: string;
   rarity: number;
+  rarityId: string;
+  rarityName: string;
   edition: number;
   totalEdition?: number;
   backgroundSvg?: string;
@@ -369,6 +371,8 @@ const NftDetailSheet: React.FC<{
         ? { backgroundImage: `url("data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(nft.backgroundSvg)))}")`, backgroundSize: 'cover' }
         : { backgroundImage: `url("data:image/svg+xml,${bgPattern}")` };
 
+    const rarityInfo = getRarityById(nft.rarityId);
+
     return (
       <Sheet open={!!nft} onOpenChange={onOpenChange}>
           <SheetContent side="bottom" className="bg-background border-t-border/50 rounded-t-2xl p-0 max-h-[90vh] text-left w-full">
@@ -395,7 +399,11 @@ const NftDetailSheet: React.FC<{
                                 <Badge variant={nft.type === 'Анимированный' ? 'default' : 'secondary'} className={cn(nft.type === 'Анимированный' ? 'bg-purple-500/80 border-purple-400/50 hover:bg-purple-500/80' : 'bg-cyan-500/80 border-cyan-400/50')}>{nft.type}</Badge>
                             </div>
                             <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                                <span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span>
+                                <span className="text-muted-foreground flex items-center gap-2"><Gem className="w-4 h-4"/>Редкость</span>
+                                <span className={cn("font-semibold", rarityInfo?.color || 'text-foreground')}>{nft.rarityName}</span>
+                            </div>
+                             <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                <span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Шанс</span>
                                 <span className="font-semibold text-primary">{nft.rarity}%</span>
                             </div>
                              {nft.copyNumber && nft.totalEdition ? (
@@ -519,8 +527,9 @@ export default function CollectionsPage() {
                 description: data.description,
                 type: data.type,
                 price: data.price,
-                category: data.category,
                 rarity: data.rarity,
+                rarityId: data.rarityId || 'common',
+                rarityName: data.rarityName || 'Обычный',
                 edition: data.edition,
                 totalEdition: data.totalEdition,
                 imageUrl: data.imageUrl,
@@ -812,3 +821,5 @@ export default function CollectionsPage() {
     </AppLayout>
   );
 }
+
+    

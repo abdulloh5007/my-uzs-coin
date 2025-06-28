@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Sparkles, Cpu, Wand2, Egg, Info, BarChart, Package, Search, Filter } from 'lucide-react';
+import { Coins, Sparkles, Cpu, Wand2, Egg, Info, BarChart, Package, Search, Filter, Gem } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import AppLayout from '@/components/AppLayout';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getRarityById } from '@/data/rarities';
 
 // --- TYPES ---
 interface NftItem {
@@ -42,8 +43,9 @@ interface NftItem {
   price: number;
   iconColorClass?: string;
   iconBgClass?: string;
-  category: string;
   rarity: number;
+  rarityId: string;
+  rarityName: string;
   edition: number;
   totalEdition: number;
   backgroundSvg?: string;
@@ -111,6 +113,8 @@ const NftDetailSheet: React.FC<NftDetailSheetProps> = ({
     const backgroundStyle = nft.backgroundSvg
         ? { backgroundImage: `url("data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(nft.backgroundSvg)))}")`, backgroundSize: 'cover' }
         : { backgroundImage: `url("data:image/svg+xml,${bgPattern}")` };
+        
+    const rarityInfo = getRarityById(nft.rarityId);
 
     return (
       <Sheet open={!!nft} onOpenChange={onOpenChange}>
@@ -134,11 +138,11 @@ const NftDetailSheet: React.FC<NftDetailSheetProps> = ({
                                 <span className="font-semibold text-primary flex items-center gap-1.5">{nft.price.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                                <span className="text-muted-foreground flex items-center gap-2"><Info className="w-4 h-4"/>Категория</span>
-                                <span className="font-semibold text-foreground">{nft.category}</span>
+                                <span className="text-muted-foreground flex items-center gap-2"><Gem className="w-4 h-4"/>Редкость</span>
+                                <span className={cn("font-semibold", rarityInfo?.color || 'text-foreground')}>{nft.rarityName}</span>
                             </div>
-                            <div className="flex justify-between items-center border-b border-border/30 pb-3">
-                                <span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Редкость</span>
+                             <div className="flex justify-between items-center border-b border-border/30 pb-3">
+                                <span className="text-muted-foreground flex items-center gap-2"><BarChart className="w-4 h-4"/>Шанс</span>
                                 <span className="font-semibold text-primary">{nft.rarity}%</span>
                             </div>
                             <div className="flex justify-between items-center border-b border-border/30 pb-3">
@@ -179,6 +183,8 @@ const NftCard: React.FC<{nft: NftItem, onClick: () => void}> = ({ nft, onClick }
         e.currentTarget.style.removeProperty('--x');
         e.currentTarget.style.removeProperty('--y');
     };
+    
+    const rarityInfo = getRarityById(nft.rarityId);
 
     return (
         <Card
@@ -200,7 +206,7 @@ const NftCard: React.FC<{nft: NftItem, onClick: () => void}> = ({ nft, onClick }
                     </div>
                     <div>
                         <CardTitle className="text-lg font-semibold text-foreground">{nft.name}</CardTitle>
-                        <CardDescription className="text-xs text-muted-foreground mt-0.5">{nft.category}</CardDescription>
+                        <CardDescription className={cn("text-xs mt-0.5", rarityInfo?.color || 'text-muted-foreground')}>{nft.rarityName}</CardDescription>
                     </div>
                 </div>
             </CardHeader>
@@ -265,8 +271,9 @@ export default function NftShopPage() {
               description: data.description,
               type: data.type,
               price: data.price,
-              category: data.category,
               rarity: data.rarity,
+              rarityId: data.rarityId || 'common',
+              rarityName: data.rarityName || 'Обычный',
               edition: data.edition,
               totalEdition: data.totalEdition || data.edition,
               imageUrl: data.imageUrl,
@@ -510,3 +517,5 @@ export default function NftShopPage() {
     </AppLayout>
   );
 }
+
+    

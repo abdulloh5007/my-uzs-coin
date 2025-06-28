@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Sparkles, UploadCloud } from 'lucide-react';
 import BottomNavBar from '@/components/BottomNavBar';
@@ -22,6 +23,7 @@ import { cn } from '@/lib/utils';
 import TopBar from '@/components/TopBar';
 import AppLayout from '@/components/AppLayout';
 import { Skeleton } from '@/components/ui/skeleton';
+import { rarities, calculateRarityValue, getRarityById } from '@/data/rarities';
 
 const MAX_FILE_SIZE = 5000000; // 5MB
 const ACCEPTED_IMAGE_TYPES = {
@@ -34,10 +36,9 @@ const createNftSchema = z.object({
     description: z.string().min(10, { message: "Описание должно быть не менее 10 символов." }),
     backgroundSvg: z.string().optional(),
     type: z.enum(['Анимированный', 'Простой'], { required_error: "Нужно выбрать тип." }),
-    rarity: z.coerce.number().min(0.01, "Редкость не может быть 0.").max(100, "Редкость должна быть между 0.01 и 100."),
+    rarityId: z.string({ required_error: "Нужно выбрать редкость." }),
     edition: z.coerce.number().int("Должно быть целое число.").positive("Количество должно быть положительным числом."),
     price: z.coerce.number().int("Должно быть целое число.").positive("Цена должна быть положительным числом."),
-    category: z.string().min(2, { message: "Категория должна быть не менее 2 символов." }),
     image: z.any().optional(),
     svgCode: z.string().optional(),
 }).superRefine((data, ctx) => {
@@ -99,9 +100,8 @@ export default function CreateNftPage() {
             name: '',
             description: '',
             backgroundSvg: '',
-            category: '',
+            rarityId: 'common',
             price: 0,
-            rarity: 0.1,
             edition: 1,
             svgCode: '',
         },
@@ -235,17 +235,20 @@ export default function CreateNftPage() {
             }
 
             const newNftId = data.name.toLowerCase().replace(/\s+/g, '_');
+            const selectedRarity = getRarityById(data.rarityId);
+            const calculatedRarity = calculateRarityValue(data.rarityId);
 
             const newNftData = {
                 id: newNftId,
                 name: data.name,
                 description: data.description,
                 type: data.type,
-                rarity: data.rarity,
-                edition: data.edition, // Current count
-                totalEdition: data.edition, // Total count
+                rarity: calculatedRarity,
+                rarityId: data.rarityId,
+                rarityName: selectedRarity?.name || 'Обычный',
+                edition: data.edition,
+                totalEdition: data.edition,
                 price: data.price,
-                category: data.category,
                 imageUrl: imageUrl,
                 backgroundSvg: data.backgroundSvg || null,
                 createdAt: serverTimestamp(),
@@ -481,16 +484,27 @@ export default function CreateNftPage() {
                                         />
                                         <FormField
                                             control={form.control}
-                                            name="category"
+                                            name="rarityId"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Категория</FormLabel>
-                                                    <FormControl><Input placeholder="Киберпанк" {...field} /></FormControl>
+                                                    <FormLabel>Редкость</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Выберите редкость" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {rarities.map(r => (
+                                                                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
                                         />
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <FormField
                                                 control={form.control}
                                                 name="price"
@@ -498,17 +512,6 @@ export default function CreateNftPage() {
                                                     <FormItem>
                                                         <FormLabel>Цена (монеты)</FormLabel>
                                                         <FormControl><Input type="number" placeholder="15000000" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={form.control}
-                                                name="rarity"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Редкость (%)</FormLabel>
-                                                        <FormControl><Input type="number" step="0.1" placeholder="5" {...field} /></FormControl>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
@@ -538,3 +541,5 @@ export default function CreateNftPage() {
         </AppLayout>
     );
 }
+
+    
