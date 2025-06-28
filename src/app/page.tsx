@@ -152,9 +152,11 @@ export default function HomePage() {
   const { currentUser, loading: authLoading } = useAuth();
   const [isGameDataLoading, setIsGameDataLoading] = useState(true);
   const gameDataLoadedRef = useRef(false);
+  const animationFrameRef = useRef<number | null>(null);
 
   // --- React State Variables ---
   const [score, setScore] = useState(INITIAL_SCORE);
+  const [displayScore, setDisplayScore] = useState(INITIAL_SCORE);
   const [totalScoreCollected, setTotalScoreCollected] = useState(INITIAL_SCORE);
   const [maxEnergyLevel, setMaxEnergyLevel] = useState(0);
   const [clickPowerLevel, setClickPowerLevel] = useState(0);
@@ -214,6 +216,48 @@ export default function HomePage() {
 
   const allTasksForNotification = useMemo(() => [...initialDailyTasks, ...initialMainTasks, ...initialLeagueTasks], []);
 
+  // Score Animation Effect
+  useEffect(() => {
+    const animateScore = () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+
+      const animate = () => {
+        const diff = score - displayScore;
+        if (Math.abs(diff) < 1) {
+          setDisplayScore(score); // Snap to final value
+          animationFrameRef.current = null;
+          return;
+        }
+
+        // Animate only for positive changes (increments from bot/rewards)
+        if (diff > 0) {
+            const step = diff / 15; // Animate over ~15 frames
+            setDisplayScore(displayScore + step);
+            animationFrameRef.current = requestAnimationFrame(animate);
+        } else {
+            // For decrements, update instantly to avoid weird animations on spending
+            setDisplayScore(score);
+            animationFrameRef.current = null;
+        }
+      };
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    if (displayScore !== score) {
+      animateScore();
+    }
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [score, displayScore]);
+
+
   // --- Firestore Functions ---
   const handleClaimBotCoins = useCallback(async (coinsToClaim: number) => {
     if (!currentUser || coinsToClaim <= 0) return;
@@ -222,7 +266,7 @@ export default function HomePage() {
     const newTotalScoreCollected = totalScoreCollected + coinsToClaim;
     const newSeen = new Date().toISOString();
 
-    setScore(newScore);
+    setScore(newScore); // Set the target score, animation will trigger
     setTotalScoreCollected(newTotalScoreCollected);
     setUnclaimedBotCoins(0);
     setLastSeenTimestamp(newSeen);
@@ -239,7 +283,7 @@ export default function HomePage() {
       await setDoc(userDocRef, gameStateUpdate, { merge: true });
       toast({
           title: "💰 Монеты зачислены!",
-          description: `${coinsToClaim.toLocaleString()} монет добавлено на ваш баланс.`,
+          description: `Ваш баланс пополнен на ${coinsToClaim.toLocaleString()} монет.`,
           duration: 3000,
       });
     } catch (error) {
@@ -327,6 +371,7 @@ export default function HomePage() {
         }
         
         setScore(stateToSet.score);
+        setDisplayScore(stateToSet.score);
         setTotalScoreCollected(stateToSet.totalScoreCollected);
         setMaxEnergyLevel(stateToSet.maxEnergyLevel);
         setClickPowerLevel(stateToSet.clickPowerLevel);
@@ -457,6 +502,7 @@ export default function HomePage() {
         stateToSet = initialGameState;
         setGameStartTime(new Date(initialGameState.gameStartTime!));
         setScore(initialGameState.score);
+        setDisplayScore(initialGameState.score);
         setTotalScoreCollected(initialGameState.totalScoreCollected);
         setEnergy(initialGameState.energy);
         setMaxEnergyLevel(initialGameState.maxEnergyLevel);
@@ -595,7 +641,9 @@ export default function HomePage() {
     if (!currentUser || isGameDataLoading) return;
     if (energy >= clickPower) {
       const scoreIncrease = clickPower;
-      setScore(prevScore => prevScore + scoreIncrease);
+      const newScore = score + scoreIncrease;
+      setScore(newScore);
+      setDisplayScore(newScore);
       setTotalScoreCollected(prev => prev + scoreIncrease);
       setEnergy(prevEnergy => Math.max(0, prevEnergy - clickPower));
       setTotalClicks(prevClicks => prevClicks + 1);
@@ -607,7 +655,7 @@ export default function HomePage() {
         setTimeout(() => setIsAnimatingClick(false), CLICK_ANIMATION_DURATION);
       }
     }
-  }, [currentUser, isGameDataLoading, energy, clickPower, isAnimatingClick]);
+  }, [currentUser, isGameDataLoading, energy, clickPower, isAnimatingClick, score]);
 
   useEffect(() => {
     if (!currentUser || isGameDataLoading) return;
@@ -691,6 +739,7 @@ export default function HomePage() {
 
     if (canPurchase) {
       setScore(newScore);
+      setDisplayScore(newScore);
       setMaxEnergyLevel(newMaxEnergyLevel);
       setClickPowerLevel(newClickPowerLevel);
       setEnergyRegenLevel(newEnergyRegenLevel);
@@ -793,6 +842,7 @@ export default function HomePage() {
       
     // Optimistic UI update
     setScore(newBalance);
+    setDisplayScore(newBalance);
     setOwnedSkins(newOwnedSkins);
     handleSelectSkin(skinId); // Auto-select new skin
 
@@ -866,7 +916,7 @@ export default function HomePage() {
       <main className="flex flex-col flex-grow pt-16 pb-20 md:pb-24 px-4">
         
         <div className="flex flex-col items-center justify-center py-4">
-          <span className="text-4xl font-bold text-primary tracking-tighter">{score.toLocaleString()}</span>
+          <span className="text-4xl font-bold text-primary tracking-tighter">{Math.round(displayScore).toLocaleString()}</span>
           <span className="text-xs -mt-1 text-muted-foreground">монет</span>
         </div>
 
