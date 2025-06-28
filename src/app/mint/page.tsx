@@ -337,10 +337,24 @@ export default function NftShopPage() {
                 throw "Недостаточно монет.";
             }
             
-            const copyNumber = nftData.totalEdition ? (nftData.totalEdition - nftData.edition + 1) : undefined;
             const newInstanceId = doc(collection(db, "dummy")).id;
             const purchaseTimestamp = Timestamp.now();
-            const newOwnedNft = { nftId: nft.id, instanceId: newInstanceId, purchasedAt: purchaseTimestamp, copyNumber };
+            
+            const newOwnedNft: {
+                nftId: string;
+                instanceId: string;
+                purchasedAt: Timestamp;
+                copyNumber?: number;
+            } = {
+                nftId: nft.id,
+                instanceId: newInstanceId,
+                purchasedAt: purchaseTimestamp,
+            };
+
+            const copyNumber = nftData.totalEdition ? (nftData.totalEdition - nftData.edition + 1) : null;
+            if (copyNumber) {
+                newOwnedNft.copyNumber = copyNumber;
+            }
 
             transaction.update(nftDocRef, { edition: increment(-1) });
             transaction.update(userDocRef, {
@@ -517,5 +531,3 @@ export default function NftShopPage() {
     </AppLayout>
   );
 }
-
-    

@@ -641,12 +641,16 @@ export default function CollectionsPage() {
     try {
       const batch = writeBatch(db);
       const userDocRef = doc(db, 'users', currentUser.uid);
-      const newOwnedNft = { 
-        nftId: transfer.nftId, 
-        instanceId: transfer.instanceId, 
-        purchasedAt: Timestamp.now(),
-        copyNumber: transfer.copyNumber || undefined,
+      
+      const newOwnedNft: OwnedNft = {
+          nftId: transfer.nftId,
+          instanceId: transfer.instanceId,
+          purchasedAt: Timestamp.now(),
       };
+      
+      if (transfer.copyNumber) {
+          newOwnedNft.copyNumber = transfer.copyNumber;
+      }
 
       batch.update(userDocRef, { ownedNfts: arrayUnion(newOwnedNft) });
       
@@ -674,11 +678,10 @@ export default function CollectionsPage() {
         }
         
         const newNftInstanceId = doc(collection(db, "dummy")).id;
-        const newOwnedNft = {
+        const newOwnedNft: OwnedNft = {
             nftId: wonNft.id,
             instanceId: newNftInstanceId,
             purchasedAt: Timestamp.now(),
-            copyNumber: undefined // Cases don't have copy numbers in this implementation
         };
         batch.update(userDocRef, { ownedNfts: arrayUnion(newOwnedNft) });
 
