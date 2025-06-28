@@ -15,9 +15,7 @@ const TopBar: React.FC = () => {
   const pathname = usePathname();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [score, setScore] = useState<number | null>(null);
-  const [hasUnclaimedRewards, setHasUnclaimedRewards] = useState(false);
   const [hasNewMail, setHasNewMail] = useState(false);
-  const [hasUnopenedCases, setHasUnopenedCases] = useState(false);
 
 
   useEffect(() => {
@@ -28,10 +26,6 @@ const TopBar: React.FC = () => {
         if (doc.exists()) {
           const data = doc.data();
           setScore(data.score);
-          const unclaimed = data.completedUnclaimedTaskTierIds || [];
-          setHasUnclaimedRewards(unclaimed.length > 0);
-          const unopenedCases = data.ownedCases || [];
-          setHasUnopenedCases(unopenedCases.length > 0);
         }
       }, (error) => {
         console.error("Error fetching user data:", error);
@@ -64,7 +58,7 @@ const TopBar: React.FC = () => {
     }
   };
   
-  const hasCollectionNotification = hasNewMail || hasUnopenedCases || hasUnclaimedRewards;
+  const hasCollectionNotification = hasNewMail;
 
   // Helper for notification badge
   const renderNotificationBadge = () => (
@@ -153,7 +147,6 @@ const TopBar: React.FC = () => {
                         onClick={() => handleDrawerNavigate('/rewards')}
                       >
                         <Gift className="w-5 h-5 text-primary" /> Награды
-                        {hasUnclaimedRewards && renderNotificationBadge()}
                       </Button>
                     </nav>
                     <SheetFooter className="p-4 mt-auto border-t border-border/50">

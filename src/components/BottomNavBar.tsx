@@ -52,20 +52,10 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
   const router = useRouter();
   const pathname = usePathname();
   const { currentUser } = useAuth();
-  const [hasUnclaimedRewards, setHasUnclaimedRewards] = useState(false);
   const [hasNewMail, setHasNewMail] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
-        if (doc.exists()) {
-          const data = doc.data();
-          const unclaimed = data.completedUnclaimedTaskTierIds || [];
-          setHasUnclaimedRewards(unclaimed.length > 0);
-        }
-      });
-
       const transfersRef = collection(db, 'nft_transfers');
       const qMailbox = query(transfersRef, where('recipientId', '==', currentUser.uid), where('status', '==', 'pending'));
       const unsubscribeMail = onSnapshot(qMailbox, (snapshot) => {
@@ -73,7 +63,6 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
       });
 
       return () => {
-        unsubscribeUser();
         unsubscribeMail();
       };
     }
@@ -111,9 +100,9 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onNavigate, activeItem }) =
 
           const currentItemIsActive = (currentPathForActivity === item.path || (currentPathForActivity === '/' && item.path === '/') || (item.path === '/' && currentPathForActivity.startsWith('/?')));
           let itemHasNotification = false;
-          // Combine notifications for "Collections"
+          // Only show notification for mail on collections tab
           if (item.path === '/collections') {
-            itemHasNotification = hasNewMail || hasUnclaimedRewards;
+            itemHasNotification = hasNewMail;
           }
 
           const isHiddenOnMobile = item.path === '/rewards' || item.path === '/mint';
