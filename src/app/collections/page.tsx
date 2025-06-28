@@ -25,6 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import TopBar from '@/components/TopBar';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // --- TYPES ---
 interface NftItem {
@@ -95,9 +96,8 @@ const SendNftDialog: React.FC<{
   selectedNft: SelectedNft | null;
   currentUser: any;
   pageState: CollectionState;
-  setPageState: React.Dispatch<React.SetStateAction<CollectionState>>;
   setSelectedNft: React.Dispatch<React.SetStateAction<SelectedNft | null>>;
-}> = ({ isOpen, onOpenChange, selectedNft, currentUser, pageState, setPageState, setSelectedNft }) => {
+}> = ({ isOpen, onOpenChange, selectedNft, currentUser, pageState, setSelectedNft }) => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -219,8 +219,6 @@ const SendNftDialog: React.FC<{
           });
 
           await batch.commit();
-          
-          setPageState(prev => ({ ...prev, ownedNfts: newOwnedNfts }));
           
           toast({ title: 'Успешно!', description: `NFT "${selectedNft.name}" отправлен пользователю ${selectedRecipient.username}.` });
           
@@ -478,53 +476,72 @@ export default function CollectionsPage() {
 
   const [selectedNft, setSelectedNft] = useState<SelectedNft | null>(null);
   const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  const [isUserLoading, setIsUserLoading] = useState(true);
+  const [isNftsLoading, setIsNftsLoading] = useState(true);
 
+  const isLoading = authLoading || isUserLoading || isNftsLoading;
 
-  const loadCollectionData = useCallback(async (userId: string) => {
-    setIsLoading(true);
-    try {
-      // Fetch user data
-      const userDocRef = doc(db, 'users', userId);
-      const userDocSnap = await getDoc(userDocRef);
-      if (userDocSnap.exists()) {
-        const data = userDocSnap.data();
-        setPageState({
-          ownedNfts: data.ownedNfts || [],
-        });
-      }
-
-      // Fetch all NFT definitions
-      const nftCollectionRef = collection(db, 'nfts');
-      const nftQuerySnapshot = await getDocs(nftCollectionRef);
-      const fetchedNfts: NftItem[] = nftQuerySnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-              id: data.id,
-              name: data.name,
-              description: data.description,
-              type: data.type,
-              price: data.price,
-              category: data.category,
-              rarity: data.rarity,
-              edition: data.edition,
-              totalEdition: data.totalEdition,
-              imageUrl: data.imageUrl,
-              backgroundSvg: data.backgroundSvg,
-              iconColorClass: 'text-primary',
-              iconBgClass: 'bg-primary/20',
-          } as NftItem;
-      });
-      setAllNfts(fetchedNfts);
-
-    } catch (error) {
-      console.error("Error loading collection data:", error);
-      toast({ variant: "destructive", title: "Ошибка", description: "Не удалось загрузить данные коллекции." });
-    } finally {
-      setIsLoading(false);
+  // Real-time listener for user's owned NFTs
+  useEffect(() => {
+    if (!currentUser) {
+      setIsUserLoading(false);
+      return;
     }
+
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setPageState({ ownedNfts: data.ownedNfts || [] });
+      }
+      setIsUserLoading(false);
+    }, (error) => {
+      console.error("Error listening to user data:", error);
+      toast({ variant: "destructive", title: "Ошибка", description: "Не удалось обновить данные коллекции." });
+      setIsUserLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser, toast]);
+
+  // One-time fetch for all NFT definitions
+  useEffect(() => {
+    const fetchAllNfts = async () => {
+      setIsNftsLoading(true);
+      try {
+        const nftCollectionRef = collection(db, 'nfts');
+        const nftQuerySnapshot = await getDocs(nftCollectionRef);
+        const fetchedNfts: NftItem[] = nftQuerySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: data.id,
+                name: data.name,
+                description: data.description,
+                type: data.type,
+                price: data.price,
+                category: data.category,
+                rarity: data.rarity,
+                edition: data.edition,
+                totalEdition: data.totalEdition,
+                imageUrl: data.imageUrl,
+                backgroundSvg: data.backgroundSvg,
+                iconColorClass: 'text-primary',
+                iconBgClass: 'bg-primary/20',
+            } as NftItem;
+        });
+        setAllNfts(fetchedNfts);
+      } catch (error) {
+        console.error("Error fetching all NFTs:", error);
+        toast({ variant: "destructive", title: "Ошибка", description: "Не удалось загрузить определения NFT." });
+      } finally {
+        setIsNftsLoading(false);
+      }
+    };
+    fetchAllNfts();
   }, [toast]);
   
+  // Real-time listeners for mailbox and transfer history
   useEffect(() => {
     if (!currentUser) return;
 
@@ -572,18 +589,14 @@ export default function CollectionsPage() {
   useEffect(() => {
     if (!authLoading && !currentUser) {
       router.push('/login');
-    } else if (currentUser) {
-      loadCollectionData(currentUser.uid);
     }
-  }, [currentUser, authLoading, router, loadCollectionData]);
+  }, [currentUser, authLoading, router]);
   
   const handleClaimNft = async (transfer: NftTransfer) => {
     if (!currentUser) return;
     try {
       const batch = writeBatch(db);
-
       const userDocRef = doc(db, 'users', currentUser.uid);
-      
       const newOwnedNft = { 
         nftId: transfer.nftId, 
         instanceId: transfer.instanceId, 
@@ -591,14 +604,10 @@ export default function CollectionsPage() {
         copyNumber: transfer.copyNumber || undefined,
       };
 
-      batch.update(userDocRef, {
-        ownedNfts: arrayUnion(newOwnedNft)
-      });
+      batch.update(userDocRef, { ownedNfts: arrayUnion(newOwnedNft) });
       
       const transferDocRef = doc(db, 'nft_transfers', transfer.id);
-      batch.update(transferDocRef, {
-        status: 'claimed',
-      });
+      batch.update(transferDocRef, { status: 'claimed' });
       
       await batch.commit();
       toast({ title: 'NFT получен!', description: 'Предмет добавлен в вашу коллекцию "Мои NFT".' });
@@ -610,7 +619,7 @@ export default function CollectionsPage() {
 
   const handleNavigation = (path: string) => router.push(path);
   
-  if (authLoading || isLoading) {
+  if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-indigo-900/50 text-foreground font-body items-center justify-center">
         <Sparkles className="w-16 h-16 animate-spin text-primary" />
@@ -635,60 +644,96 @@ export default function CollectionsPage() {
                 <TabsTrigger value="history">История ({transferHistory.length})</TabsTrigger>
             </TabsList>
             <TabsContent value="inventory">
-                {pageState.ownedNfts.length > 0 ? (<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {pageState.ownedNfts.map((ownedNft) => {
-                    const foundNft = allNfts.find(item => item.id === ownedNft.nftId);
-                    if (!foundNft) return null;
-                    const IconComponent = foundNft.icon;
-                    return (
-                      <button key={ownedNft.instanceId} onClick={() => { setSelectedNft({...foundNft, instanceId: ownedNft.instanceId, purchasedAt: ownedNft.purchasedAt, copyNumber: ownedNft.copyNumber}) }} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center transition-colors hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary", (foundNft.iconBgClass || 'bg-primary/20').replace('/20', '/30'))}>
-                        <div className={cn("p-2 rounded-full mb-2", foundNft.iconBgClass || 'bg-primary/20')}>{foundNft.imageUrl ? <Image src={foundNft.imageUrl} alt={foundNft.name} width={24} height={24} unoptimized /> : (IconComponent && <IconComponent className={cn("w-6 h-6", foundNft.iconColorClass || 'text-primary')} />)}</div>
-                        <span className="text-xs font-medium text-foreground truncate w-full">{foundNft.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>) : (<div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><ShoppingCart className="w-8 h-8 mb-2" /><p>Ваша коллекция пуста.</p></div>)}
+                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  <AnimatePresence>
+                    {pageState.ownedNfts.length > 0 ? (
+                      pageState.ownedNfts.map((ownedNft) => {
+                        const foundNft = allNfts.find(item => item.id === ownedNft.nftId);
+                        if (!foundNft) return null;
+                        const IconComponent = foundNft.icon;
+                        return (
+                           <motion.div
+                              key={ownedNft.instanceId}
+                              layout
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.3 }}
+                              className="h-full"
+                           >
+                            <button onClick={() => { setSelectedNft({...foundNft, instanceId: ownedNft.instanceId, purchasedAt: ownedNft.purchasedAt, copyNumber: ownedNft.copyNumber}) }} className={cn("p-3 rounded-lg shadow-md flex flex-col items-center text-center transition-colors hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary w-full h-full", (foundNft.iconBgClass || 'bg-primary/20').replace('/20', '/30'))}>
+                              <div className={cn("p-2 rounded-full mb-2", foundNft.iconBgClass || 'bg-primary/20')}>{foundNft.imageUrl ? <Image src={foundNft.imageUrl} alt={foundNft.name} width={24} height={24} unoptimized /> : (IconComponent && <IconComponent className={cn("w-6 h-6", foundNft.iconColorClass || 'text-primary')} />)}</div>
+                              <span className="text-xs font-medium text-foreground truncate w-full">{foundNft.name}</span>
+                            </button>
+                           </motion.div>
+                        );
+                      })
+                    ) : (
+                      !isLoading && <motion.div
+                        key="empty-inventory"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="col-span-full"
+                      >
+                         <div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><ShoppingCart className="w-8 h-8 mb-2" /><p>Ваша коллекция пуста.</p></div>
+                      </motion.div>
+                    )}
+                   </AnimatePresence>
+                </div>
             </TabsContent>
             <TabsContent value="mailbox">
                 {mailbox.length > 0 ? (<div className="space-y-3">
+                    <AnimatePresence>
                     {mailbox.map(transfer => {
                         const nft = allNfts.find(n => n.id === transfer.nftId);
                         if (!nft) return null;
-                        return (<Card key={transfer.id} className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                               <div className="relative">
-                                    {transfer.senderIsVerified ? (
-                                        <TooltipProvider delayDuration={0}>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div className="relative">
-                                                        <Avatar>
-                                                            <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
-                                                            <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
-                                                        </Avatar>
-                                                        <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
-                                                    </div>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>Верифицированный пользователь</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    ) : (
-                                        <Avatar>
-                                            <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
-                                            <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
-                                        </Avatar>
-                                    )}
-                               </div>
+                        return (
+                        <motion.div 
+                          key={transfer.id}
+                          layout
+                          initial={{ opacity: 0, y: -20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, x: -300 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <Card className="bg-card/80 text-left"><CardContent className="p-3 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className="relative">
+                                      {transfer.senderIsVerified ? (
+                                          <TooltipProvider delayDuration={0}>
+                                              <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                      <div className="relative">
+                                                          <Avatar>
+                                                              <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
+                                                              <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
+                                                          </Avatar>
+                                                          <CheckCircle2 className="absolute bottom-0 right-0 w-4 h-4 bg-background text-primary rounded-full" />
+                                                      </div>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                      <p>Верифицированный пользователь</p>
+                                                  </TooltipContent>
+                                              </Tooltip>
+                                          </TooltipProvider>
+                                      ) : (
+                                          <Avatar>
+                                              <AvatarImage src={transfer.senderPhotoURL || `https://api.dicebear.com/8.x/bottts/svg?seed=${transfer.senderId}`} alt={transfer.senderNickname} />
+                                              <AvatarFallback>{transfer.senderNickname?.charAt(0) || '?'}</AvatarFallback>
+                                          </Avatar>
+                                      )}
+                                </div>
                                 <div>
                                   <p className="text-sm font-semibold">{nft.name}</p>
                                   <p className="text-xs text-muted-foreground">от {transfer.senderUsername || transfer.senderNickname}</p>
                                 </div>
-                            </div>
-                            <Button size="sm" onClick={() => handleClaimNft(transfer)}>Получить</Button>
-                        </CardContent></Card>);
+                              </div>
+                              <Button size="sm" onClick={() => handleClaimNft(transfer)}>Получить</Button>
+                          </CardContent></Card>
+                        </motion.div>
+                        );
                     })}
+                    </AnimatePresence>
                 </div>) : (<div className="flex flex-col items-center justify-center py-10 text-muted-foreground"><Inbox className="w-8 h-8 mb-2" /><p>Ваша почта пуста.</p></div>)}
             </TabsContent>
             <TabsContent value="history">
@@ -756,7 +801,6 @@ export default function CollectionsPage() {
             selectedNft={selectedNft}
             currentUser={currentUser}
             pageState={pageState}
-            setPageState={setPageState}
             setSelectedNft={setSelectedNft}
         />
 
@@ -764,3 +808,5 @@ export default function CollectionsPage() {
     </div>
   );
 }
+
+    
